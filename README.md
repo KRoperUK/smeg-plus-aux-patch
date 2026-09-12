@@ -126,6 +126,7 @@ Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and de
 | [`docs/FLASH_CHAIN.md`](docs/FLASH_CHAIN.md) | BSP/flash layout, the updater's phases and gates, the manifest format used above |
 | [`docs/MEDIA_PARTITION.md`](docs/MEDIA_PARTITION.md) | media partition layout, ringtones and wait tones, the rebuild blocker |
 | [`docs/CHEATCODES.md`](docs/CHEATCODES.md) | cheatcode list, entry mechanism, spy/diagnostics system |
+| [`docs/RELEASING.md`](docs/RELEASING.md) | conventional commits and the automatic release/changelog flow |
 | [`docs/VERSION_STRINGS.md`](docs/VERSION_STRINGS.md) | what the version screens read, and how the updater gates on them |
 
 ## Licence
