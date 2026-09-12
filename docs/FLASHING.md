@@ -1,5 +1,17 @@
 # Flashing notes
 
+!!! danger "A package with a modified application image will be refused"
+
+    Tested on a Peugeot 208 / SMEG+ iV1 / `SMEG5.43.A.R2`: the unit validates the media
+    against a signed contract and rejects a patched `AppBin/f_BigQuick.bin` with
+    *"The update file is protected and cannot be copied."* The **unmodified** package was
+    accepted on the same unit.
+
+    So the application patches in this repository **cannot currently be flashed**. Read
+    [Media protection](MEDIA_PROTECTION.md) before you build a stick.
+
+    These notes remain valid for flashing a *stock* package (including a rollback).
+
 These are generic notes for applying a patched SMEG+ package. They are not a substitute
 for the update instructions that came with your vehicle/software. Do this at your own
 risk.

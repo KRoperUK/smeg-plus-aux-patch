@@ -11,7 +11,7 @@ A SMEG+ upgrade package (`SMEG_PLUS_UPG/`) is a set of modules plus a manifest:
 
 ```
 ctrl.bin                     root manifest: per-file CRC32 list for each module
-contract.dat                 high-entropy blob; not referenced by upgrade.out
+contract.dat                 signed contract validated by the app, see MEDIA_PROTECTION.md
 upgrade.out / upgrade_lib.out / UpgPlugin.out    the updater itself (PPC ELF)
 BSP/SMEG_PLUS_{256,512}/     vxWorks.bin (RTOS), dbsystem.bin (40-byte descriptor)
 RENESAS/FPComSMEG.mot        front-panel MCU firmware (Motorola S-record)
@@ -139,8 +139,11 @@ f_BigQuick.bin  --crc32-->  f_BigQuick.bin.inf  ("CRC32: <signed decimal>")
 <module>_ctrl.bin --crc32--> ctrl.bin
 ```
 
-`contract.dat` is not referenced anywhere in `upgrade.out` (its checks are CRC-only:
-`VerifyCRC32ofFile`, `VerifyNANDBigQuick`), so it appears unused by the on-device updater.
+`contract.dat` is not referenced by `upgrade.out` — which is what an earlier pass through
+these notes concluded from. That was wrong: the **application image** validates the media
+against it in `C_BCM_UPGRADE::CheckTrustedSource()`, and a package with a modified
+application image is rejected because of it. See
+[Media protection](MEDIA_PROTECTION.md).
 
 ## 8. Updater behaviour relevant to flashing
 

@@ -133,6 +133,7 @@ Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and de
 | [`docs/PATCHES.md`](docs/PATCHES.md) | exact addresses and bytes per build |
 | [`docs/FLASHING.md`](docs/FLASHING.md) | preparing the USB stick and flashing |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | how the whole firmware fits together: modules, HMI framework, messaging, subsystems, databases |
+| [`docs/MEDIA_PROTECTION.md`](docs/MEDIA_PROTECTION.md) | the signed contract that **blocks modified firmware from being flashed** |
 | [`docs/FLASH_CHAIN.md`](docs/FLASH_CHAIN.md) | BSP/flash layout, the updater's phases and gates, the manifest format used above |
 | [`docs/MEDIA_PARTITION.md`](docs/MEDIA_PARTITION.md) | media partition layout, ringtones and wait tones, and the checksum cascade |
 | [`docs/CHEATCODES.md`](docs/CHEATCODES.md) | cheatcode list, entry mechanism, spy/diagnostics system |
