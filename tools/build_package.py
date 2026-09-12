@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+
+"""Build a patched SMEG+ package from a manifest, in one command.
+
+Applying a patch by hand means running three or four tools in a specific order with an
+`rsync` between each one, and two of those orderings are silent if you get them wrong:
+
+  * the media step must run against the **already application-patched** package, or it
+    rebuilds `ctrl.bin` without the application change and quietly drops it;
+  * the contract must be re-sealed **last**, or the package is left unsealed and the unit
+    refuses it (string 2099).
+
+This tool owns that ordering so a build is a file you can read and re-run, not a sequence
+you have to remember. It shells out to the individual tools rather than reimplementing
+them, so they stay usable on their own.
+
+Manifest (JSON — no extra dependency):
+
+    {
+      "package": "SMEG_PLUS_UPG",
+      "out": "SMEG_PLUS_UPG_custom",
+      "module": "NAV",
+      "app":   { "patches": ["aux-autoswitch"] },
+      "media": {
+        "tones":  { "ring_tones/ring1RT.wav": "piano-riff.mp3" },
+        "splash": { "peugeot": "snoopy.png" },
+        "names":  { "ring1": "Piano Riff" }
+      },
+      "seal": true
+    }
+
+Every section is optional. `app.patches` names files in `patches/`; `media.tones` maps a
+partition-relative destination to a source audio file of any format ffmpeg reads;
+`media.splash` maps a marque to an image; `media.names` renames the ringtone entries the
+phone UI shows.
+
+usage:
+    python3 tools/build_package.py --manifest build.json
+    python3 tools/build_package.py --manifest build.json --dry-run
+"""
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+PY = sys.executable
+
+
+def tool(name):
+    return os.path.join(HERE, name)
+
+
+def load_module(name):
+    """Import one of the sibling tools by path (they are scripts, not a package)."""
+    import importlib.util
+    path = os.path.join(HERE, name + ".py")
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def run(argv, what, dry=False):
+    print("==> %s" % what)
+    if dry:
+        print("    (dry run) %s" % " ".join(argv[2:]))
+        return ""
+    r = subprocess.run(argv, capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("%s failed:\n%s" % (what, (r.stderr or r.stdout).strip()))
+    for line in (r.stdout or "").rstrip().splitlines()[-4:]:
+        print("    %s" % line)
+    return r.stdout or ""
+
+
+def overlay(src, dest, dry=False):
+    """Copy the files a tool wrote into the package, preserving relative paths."""
+    n = 0
+    for root, _, files in os.walk(src):
+        for f in files:
+            s = os.path.join(root, f)
+            d = os.path.join(dest, os.path.relpath(s, src))
+            n += 1
+            if dry:
+                continue
+            os.makedirs(os.path.dirname(d), exist_ok=True)
+            shutil.copy2(s, d)
+    print("    overlaid %d file(s) onto the package" % n)
+
+
+def convert_tone(rt, source, dest, channels, rate, gain_db=None):
+    """Format conversion, plus an optional gain in dB.
+
+    `ringtones.convert` deliberately does not touch level, but the stock tones are mastered
+    at about -1 dBFS, so an unmodified music track lands 6-8 dB quieter and sounds muted in
+    the car. `gain_db` makes that an explicit, visible choice in the manifest.
+    """
+    if gain_db is None:
+        return rt.convert(source, dest, channels, rate)
+    if not shutil.which("ffmpeg"):
+        sys.exit("ffmpeg is needed for gain_db")
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", source,
+           "-af", "volume=%gdB" % gain_db, "-ar", str(rate), "-ac", str(channels),
+           "-c:a", "pcm_s16le", dest]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("ffmpeg failed for %s:\n%s" % (source, r.stderr or r.stdout))
+    dst_info = rt.probe(dest)
+    return "%d Hz, %d-bit, %s (gain %+g dB)" % (
+        dst_info[1], dst_info[2] * 8, "mono" if dst_info[0] == 1 else "stereo", gain_db)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--manifest", required=True)
+    ap.add_argument("--dry-run", action="store_true",
+                    help="show the steps and what would change, without writing")
+    args = ap.parse_args()
+
+    with open(args.manifest) as fh:
+        cfg = json.load(fh)
+    src = cfg["package"]
+    out = cfg["out"]
+    module = cfg.get("module", "NAV")
+
+    if not os.path.isdir(src):
+        sys.exit("no such package: %s" % src)
+    if os.path.abspath(src) == os.path.abspath(out):
+        sys.exit("--out must differ from --package; never build in place")
+    if os.path.exists(out):
+        sys.exit("%s already exists — remove it or pick another --out" % out)
+
+    app = cfg.get("app") or {}
+    media = cfg.get("media") or {}
+    tone_map = media.get("tones") or {}
+    splash_map = media.get("splash") or {}
+    name_map = media.get("names") or {}
+    any_media = bool(tone_map or splash_map or name_map)
+
+    print("building %s -> %s (%s)" % (src, out, module))
+    if args.dry_run:
+        print("dry run: nothing will be written")
+
+    work = tempfile.mkdtemp(prefix="smegbuild-")
+
+    # 1. start from a copy, so the source stays a rollback
+    if not args.dry_run:
+        shutil.copytree(src, out, symlinks=True,
+                        ignore=shutil.ignore_patterns("._*", ".DS_Store"))
+        for root, dirs, _ in os.walk(out):
+            for d in list(dirs):
+                if d in (".stage6", ".commandcode", ".git"):
+                    shutil.rmtree(os.path.join(root, d), ignore_errors=True)
+                    dirs.remove(d)
+    print("==> copied the package")
+
+    # 2. application patches FIRST: patch_media later swaps CRCs inside ctrl.bin, and it
+    #    has to be operating on a manifest that already carries the application change.
+    for name in app.get("patches", []):
+        p = os.path.join(ROOT, "patches", name if name.endswith(".json") else name + ".json")
+        if not os.path.exists(p):
+            sys.exit("no such patch set: %s" % p)
+        o1 = os.path.join(work, "app-%s" % os.path.basename(name))
+        run([PY, tool("patch_smeg.py"), "--src", src, "--out", o1, "--only", module,
+             "--patches", p], "applying patch set %s" % name, args.dry_run)
+        if not args.dry_run:
+            overlay(o1, out)
+
+    if any_media:
+        # 3. extract the media partition and make the edits in the tree
+        tree = os.path.join(work, "media")
+        backup = os.path.join(work, "backup")
+        run([PY, tool("patch_media.py"), "extract", "--package", out, "--module", module,
+             "--tree", tree, "--backup", backup, "--backup-tones-only"],
+            "extracting the media partition", args.dry_run)
+        if not args.dry_run:
+            rt = load_module("ringtones")
+            sl = load_module("splash")
+
+            for dest_rel, spec in tone_map.items():
+                if isinstance(spec, str):
+                    source, gain = spec, None
+                else:
+                    source, gain = spec["source"], spec.get("gain_db")
+                slot = next((k for k, v in rt.SLOTS.items() if v[0] == dest_rel), None)
+                if slot is None:
+                    sys.exit("%s is not a known tone slot" % dest_rel)
+                out_path = os.path.join(tree, dest_rel)
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                print("==> %s: %s -> %s" % (slot, source, dest_rel))
+                print("    %s" % convert_tone(rt, source, out_path, rt.SLOTS[slot][1],
+                                              rt.SLOTS[slot][2], gain))
+            for marque, image in splash_map.items():
+                print("==> splash %s <- %s" % (marque, image))
+                path = os.path.join(tree, sl.DIR, marque + ".pkg")
+                pk = sl.Pkg(open(path, "rb").read())
+                new = {i: pk.image(i) for i in range(len(pk.chunks))}
+                new[0] = sl.flip_bmp(sl.to_bmp(image))
+                open(path, "wb").write(sl.build(pk, new))
+            for slot, name in name_map.items():
+                if not (slot.startswith("ring") and slot[4:].isdigit()):
+                    sys.exit("%s: names only apply to ring1..ring5" % slot)
+                idx = int(slot[4:]) - 1
+                print("==> %s shown as %r" % (slot, name))
+                rt.set_ring_name(tree, idx, name)
+
+        # 4. rebuild the partition and the checksum cascade
+        o2 = os.path.join(work, "media-overlay")
+        run([PY, tool("patch_media.py"), "apply", "--package", out, "--module", module,
+             "--tree", tree, "--out", o2], "rebuilding the media partition", args.dry_run)
+        if not args.dry_run:
+            overlay(o2, out)
+
+    # 5. seal LAST — anything changed after this is unsealed and the unit rejects it
+    if cfg.get("seal", True):
+        run([PY, tool("patch_contract.py"), "--package", out], "re-sealing the contract",
+            args.dry_run)
+
+    shutil.rmtree(work, ignore_errors=True)
+    if args.dry_run:
+        print("\ndry run complete — nothing was written")
+        return
+    print("\nbuilt %s" % out)
+    print("check it before flashing:  python3 tools/splash.py --tree <tree> selftest"
+          "  (and the cascade in docs/RUNNING.md)")
+
+
+if __name__ == "__main__":
+    main()

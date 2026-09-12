@@ -68,6 +68,39 @@ already in the target format works without it:
 brew install ffmpeg        # macOS
 ```
 
+## One command per package: the manifest build
+
+Applying a patch by hand means running three or four tools in order with an `rsync` between
+each, and two of those orderings fail *silently* if you get them wrong — the media step
+against an un-patched package drops the application change, and re-sealing before the last
+edit leaves the package rejected by the unit (string 2099).
+
+`tools/build_package.py` owns that ordering. A build becomes a file you can read, commit
+and re-run:
+
+```json
+{
+  "package": "SMEG_PLUS_UPG",
+  "out": "SMEG_PLUS_UPG_custom",
+  "module": "NAV",
+  "app":   { "patches": ["aux-autoswitch"] },
+  "media": {
+    "tones":  { "ring_tones/ring1RT.wav": { "source": "tone.mp3", "gain_db": 7.4 } },
+    "splash": { "peugeot": "logo.png" },
+    "names":  { "ring1": "Piano Riff" }
+  },
+  "seal": true
+}
+```
+
+```sh
+uv run tools/build_package.py --manifest build.json
+uv run tools/build_package.py --manifest build.json --dry-run   # show the steps only
+```
+
+Every section is optional. `gain_db` is worth setting: the stock tones sit at about
+-1 dBFS, so an unmodified music track sounds muted in the car next to them.
+
 ## Cheat sheet
 
 ```sh
