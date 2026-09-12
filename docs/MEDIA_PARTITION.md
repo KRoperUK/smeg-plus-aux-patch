@@ -149,6 +149,66 @@ Application/BlackFin/   DAB_SW_MAXIM_PRS1.dat - DAB chipset firmware blob
 The application image itself is **not** here — it is `AppBin/f_BigQuick.bin`.
 The cheatcode libraries are documented in [Cheatcodes](CHEATCODES.md).
 
+## Brand splash — `Data_base/graphics/logo/*.pkg`
+
+One package per marque (`peugeot.pkg`, `citroen.pkg`, `ds.pkg`), each holding **four
+800x480 24-bit images**. The first is the **boot splash** — the Peugeot lion and wordmark
+that appears while the unit starts, which is exactly what the on-car update photos show.
+The other three are `..._adml_01..03`: a "connect your phone" prompt and two "TRAFFIC"
+prompts.
+
+Container layout:
+
+```
+0x0000  u32   crc32 of bytes 0x0004..0x0800          directory integrity
+0x0004  u32   size of the first chunk
+0x0008  u32   uncompressed size of every chunk (800*480*3 + 54 = 1152054)
+0x000c  u32   0
+0x0010  ...   directory records, zero-padded to 0x0800
+0x0800  ...   four chunks
+```
+
+A directory record is a **32-byte NUL-padded name** followed by 6 or 7 big-endian u32s.
+The field count varies between records and the fields are only partly understood, so
+`tools/splash.py` does not rewrite them from scratch: the values it knows — each chunk's
+offset and total size, and the first chunk's size in the header — are located **by value**
+and updated in place.
+
+Each chunk in the data region is:
+
+```
+u8   0x08 marker
+...  a standard zlib stream (deflate level 6) holding one 800x480 24-bit BMP
+u16  a two-byte trailer, preserved verbatim
+```
+
+Chunks 1–3 recompress **byte-for-byte** at zlib level 6; chunk 0 in `peugeot.pkg` differs
+by ~0.2%, so it was built with slightly different deflate settings. `splash.py selftest`
+rebuilds all three shipped packages and compares — they come out **identical**, which is
+what pins this format down.
+
+!!! warning "The images are stored vertically mirrored"
+
+    Read with normal BMP semantics the artwork is upside down, yet it displays correctly in
+    the car — so the unit flips it when rendering. A replacement must therefore be stored
+    **flipped**, which `splash.py replace` does automatically. Get this wrong and the splash
+    is upside down.
+
+Known unknown: the two-byte trailer after each zlib stream has not been identified — it is
+not a crc32 or adler32 fragment of the chunk. It is preserved as-is. A rebuilt splash has
+**not yet been flashed**, so treat a replaced splash as unverified until a unit accepts one.
+
+```sh
+python3 tools/splash.py --tree media/ list
+python3 tools/splash.py --tree media/ extract --marque peugeot -o splash/
+python3 tools/splash.py --tree media/ replace --marque peugeot --image my-logo.png
+python3 tools/splash.py --tree media/ selftest
+```
+
+`replace` takes anything ffmpeg can read and scales it to 800x480. Note the artwork is
+drawn on the unit's own background, so black line art on a transparent background will be
+invisible — composite it onto a colour first.
+
 ## Board GUI resources — `Data_base/boardfs/GUI_STYLE/`
 
 ```

@@ -95,6 +95,11 @@ rsync -a overlay/ SMEG_PLUS_UPG_mod/
 uv run tools/patch_smeg.py --src SMEG_PLUS_UPG --out overlay
 rsync -a overlay/ SMEG_PLUS_UPG_mod/
 
+# brand splash: inspect, or swap the boot logo (also works in the GUI)
+uv run tools/splash.py --tree media list
+uv run tools/splash.py --tree media replace --marque peugeot --image my-logo.png
+uv run tools/splash.py --tree media selftest     # proves the container model
+
 # ALWAYS last, whatever else you changed
 uv run tools/patch_contract.py --package SMEG_PLUS_UPG_mod
 ```
