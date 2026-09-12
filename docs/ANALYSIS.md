@@ -196,3 +196,33 @@ rewritten when its content differs from what is stored.
 - Re-flashing the same version does not change the displayed version strings, so
   behaviour is the only reliable confirmation. Do not use System Information to decide
   whether a patch is installed.
+
+## 10. The AUX event chain, verified in the NAV image
+
+Traced in `nav_app_image.bin` against `nav_syms.txt` — use those **together**; the 32 MB
+`app_image.bin` is the AUDIO_BT image and reading it with the base symbol map gives a
+different `HandleAudioAuxInputStatusChnged` address, which is an easy way to conclude the
+NAV patch is pointing somewhere wrong when it is not.
+
+```
+audio server --DBUS msg 0xcb (203)--> C_HMI_MEDIA_APP_BASE::HandleDBUSMessage()
+                                      @ 0x02309398, case at 0x02309638
+                                        cmpwi cr7, r0, 0xcb
+                                        beq   cr7, 0x2309fbc
+                                          -> 0x02309fcc  bctrl HandleAudioAuxInputStatusChnged()
+
+C_HMI_MEDIA_APP_BASE::HandleAudioAuxInputStatusChnged()      @ 0x0230331c
+  02303410  bl  GetMediaDevice(type, media_device&)
+  02303428  beq cr7, 0x2303574     handler+0x10c — the shared return path, what we nop
+  02303434  beq cr7, 0x230348c     the aux-sticky target
+  0230345c  bl  SetMediaDeviceState(...)
+  02303484  bl  C_HMI_SrcMgntBase::ActivateSource(bool)
+```
+
+So the patch removing `0x02303428` does reach `ActivateSource`, and the handler has exactly
+one direct caller — the DBUS dispatch — plus a vtable entry.
+
+**The consequence:** the patch is not the problem. If the unit does not switch by itself,
+DBUS message **203** is not reaching the media app. That points at the always-active hook
+rather than more surgery inside the handler, and it is a hypothesis that can be settled by
+logging received DBUS ids rather than by flashing something.
