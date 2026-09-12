@@ -43,6 +43,10 @@ and export the stock tones, and builds patched packages from the bundled
 Multiple definitions can be ticked at once; a conflicting address is reported rather
 than silently applied.
 
+It has three tabs: **Ringtones**, **Splash screens** (the brand artwork — see
+[Media partition](MEDIA_PARTITION.md#brand-splash--databasegraphicslogopkg)) and
+**Pack & patch**.
+
 ```sh
 pip install -r tools/requirements-gui.txt
 python3 tools/ringtone_studio.py
