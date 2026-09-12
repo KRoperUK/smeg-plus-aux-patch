@@ -98,6 +98,21 @@ uv run tools/build_package.py --manifest build.json
 uv run tools/build_package.py --manifest build.json --dry-run   # show the steps only
 ```
 
+`media.settings` writes integers into the settings database
+(`Data_base/sqlite/up_common.sqlite`), as `Section.Name`. These need no code patch, so they
+are the safest changes the project can make — the worst case is that the firmware ignores
+them:
+
+```json
+"settings": { "supervisor.Last_Source": 4 }
+```
+
+Ready-made manifests live in `builds/`:
+
+| manifest | what it does |
+|---|---|
+| `builds/force-aux-default.json` | AUX patches, custom tone and name, and `Last_Source` set so the unit starts on AUX — see issue #72 |
+
 Every section is optional. `gain_db` is worth setting: the stock tones sit at about
 -1 dBFS, so an unmodified music track sounds muted in the car next to them.
 
