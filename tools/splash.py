@@ -5,7 +5,13 @@
 # dependencies = []
 # ///
 
-"""Brand splash images for SMEG+ — inspect and replace the `Data_base/graphics/logo/*.pkg` bundles.
+"""Brand logo images for SMEG+ — inspect and replace the `Data_base/graphics/logo/*.pkg` bundles.
+
+Despite the name these are NOT the boot splash. Flashing a replaced one leaves the factory
+animation untouched: nothing in the application image references these files, and the boot
+artwork lives in a separate NAND "Logo Area" that the USB update flow has no step for. See
+docs/MEDIA_PARTITION.md. These images are real marque artwork used elsewhere; that use is
+still unidentified, so treat their effect on the unit as unknown.
 
 `Data_base/graphics/logo/` holds one `.pkg` per marque (`peugeot`, `citroen`, `ds`). Each is a
 small container holding four 800x480 24-bit images, the first of which is the boot
@@ -175,7 +181,7 @@ def main():
     p = sub.add_parser("replace", help="replace an image and rebuild the package")
     p.add_argument("--marque", default="peugeot", choices=MARQUES)
     p.add_argument("--image", required=True, help="new 800x480 24-bit image (any format ffmpeg reads)")
-    p.add_argument("--index", type=int, default=0, help="which image (default 0 = boot splash)")
+    p.add_argument("--index", type=int, default=0, help="which image to replace (default 0 = the main marque image)")
     p.add_argument("--out", help="write here instead of in place")
     p = sub.add_parser("selftest", help="rebuild from the stock images and compare")
 

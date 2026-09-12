@@ -44,7 +44,7 @@ Multiple definitions can be ticked at once; a conflicting address is reported ra
 than silently applied.
 
 It has three tabs: **Ringtones**, **Splash screens** (the brand artwork — see
-[Media partition](MEDIA_PARTITION.md#brand-splash-data_basegraphicslogopkg)) and
+[Media partition](MEDIA_PARTITION.md#brand-logo-packages-data_basegraphicslogopkg)) and
 **Pack & patch**.
 
 ```sh

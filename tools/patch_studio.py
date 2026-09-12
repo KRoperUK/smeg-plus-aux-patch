@@ -178,7 +178,7 @@ class Studio(QWidget):
 
         tabs = QTabWidget()
         tabs.addTab(self._ringtones_tab(), "Ringtones")
-        tabs.addTab(self._splash_tab(), "Splash screens")
+        tabs.addTab(self._splash_tab(), "Brand logos")
         tabs.addTab(self._pack_tab(), "Pack & patch")
         root.addWidget(tabs, 1)
 
@@ -547,7 +547,7 @@ class Studio(QWidget):
 
         note = QLabel("Stored images are vertically mirrored — the unit flips them when "
                       "rendering, so the preview is shown flipped back. "
-                      "Note: 1 = boot splash, 2–4 = phone/TRAFFIC prompts.")
+                      "Note: these are marque artwork, not the boot splash — see the docs.")
         note.setObjectName("Subtitle")
         note.setWordWrap(True)
         v.addWidget(note)

@@ -149,13 +149,42 @@ Application/BlackFin/   DAB_SW_MAXIM_PRS1.dat - DAB chipset firmware blob
 The application image itself is **not** here — it is `AppBin/f_BigQuick.bin`.
 The cheatcode libraries are documented in [Cheatcodes](CHEATCODES.md).
 
-## Brand splash — `Data_base/graphics/logo/*.pkg`
+!!! warning "This is NOT the boot splash"
+
+    An earlier version of this page claimed `peugeot.pkg` holds the boot splash. **That is
+    wrong, and flashing a replaced one proves it** — the unit still shows the factory
+    Peugeot animation. Two things say why:
+
+    - the application image contains **no reference at all** to `peugeot.pkg`,
+      `graphics/logo` or the `_adml_` names, so nothing reads these files at boot;
+    - the boot artwork lives in a separate **NAND "Logo Area"**, with its own header,
+      CRC check and animation frames — the updater has `WriteNANDLogo`, `ReadNand_Logo`,
+      `VerifyNANDLogo`, `LogoAndAlertsHeaderShow` and a `(CheckCRCLogoAndAlertsFile) CRC
+      picture[%d]` check, all behind `TakeMutexNANDAccess`.
+
+    **And there is no logo step in the USB update flow.** `nm upgrade.out` shows the
+    sequence is `ManageBootRomUpdateAndReboot`, `ManageUBootUpdateAndReboot`,
+    `ManageRenesasUpdateAndReboot`, `ManageBigQuickUpdate`, `ManageHarmoniesVersions`,
+    `ManageSkinCopyFromMedia`, `ManageSQLiteFiles`, `ManageUserGuideData`,
+    `ManageSDMultiPartitions`, `ManageVehicleGroupTag`, `ManageZAFiles` — nothing that
+    touches the logo area. So a package **cannot** change the boot splash; that area is
+    written by factory/diagnostic tooling.
+
+    The route that does exist is the diagnostic path in the application image:
+    `C_DiagImp::ReplaceAndVerifyBootScreen`, `C_DiagImp::RestoreUpdateBootScreen`,
+    `C_DiagImp::StartBootScreenTimer` and `C_FS_STORAGE_CTRL_PATH::GetStartupLogoDir`
+    (which builds its path dynamically rather than from a literal, so it needs following).
+    That is cheatcode/diag territory — see [Cheatcodes](CHEATCODES.md).
+
+    The four images here are real and replaceable; they are simply used somewhere other
+    than the boot sequence. What that is remains open.
+
+## Brand logo packages — `Data_base/graphics/logo/*.pkg`
 
 One package per marque (`peugeot.pkg`, `citroen.pkg`, `ds.pkg`), each holding **four
-800x480 24-bit images**. The first is the **boot splash** — the Peugeot lion and wordmark
-that appears while the unit starts, which is exactly what the on-car update photos show.
-The other three are `..._adml_01..03`: a "connect your phone" prompt and two "TRAFFIC"
-prompts.
+800x480 24-bit images**: the Peugeot lion and wordmark seen in the on-car update photos,
+then `..._adml_01..03` — a "connect your phone" prompt and two "TRAFFIC" prompts. These
+are genuine marque artwork, but they are **not what boots** — see the warning above.
 
 Container layout:
 
