@@ -153,6 +153,12 @@ Homebrew `python3` is 3.14, where `ensurepip` is broken and PySide6 has no wheel
 Recreate it with `uv venv --seed --python 3.13 .venv && uv pip install --python
 .venv/bin/python PySide6 pytest`, or use plain `pip install -r requirements-dev.txt`.
 
+## Working with AI agents
+
+Agents should start at [`AGENTS.md`](AGENTS.md): the hard rules (no vendor firmware,
+conventional commit titles, `main` is PR-only), how to run the tests and GUI, and the
+firmware quirks that are easy to get wrong.
+
 ## Contributing
 
 Conventional commit titles (they drive the release), and no vendor firmware in the repo —
