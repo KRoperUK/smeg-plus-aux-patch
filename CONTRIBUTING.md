@@ -35,6 +35,13 @@ images, symbol maps, ring tones or other Magneti Marelli / Stellantis content â€
 `.gitignore` blocks the usual extensions, but check before you commit. Tests build a
 synthetic package precisely so that no real firmware is needed.
 
+## Working with AI agents
+
+If you are an AI agent, or you use one on this repository, read
+[`AGENTS.md`](AGENTS.md) first â€” it is the authoritative brief (hard rules, how to run
+things, testing without firmware, and the firmware details that are easy to get wrong).
+`.github/copilot-instructions.md` points at it for GitHub Copilot.
+
 ## Working on it
 
 ```sh
