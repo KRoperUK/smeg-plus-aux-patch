@@ -5,6 +5,18 @@ titles** and **no vendor firmware**.
 
 ## 1. Conventional commit titles
 
+**This is enforced, not a preference.** Two checks will stop you:
+
+* a `commit-msg` hook, installed by `pre-commit install --hook-type commit-msg`, rejects a
+  local commit whose message does not parse;
+* the **PR title** check in CI, because the PR title is the message that actually lands.
+
+Both run the same validator, which you can also call yourself:
+
+```sh
+python3 tools/check_commit_msg.py --title "feat: always offer AUX first in the SRC cycle"
+```
+
 Pull requests are squash-merged, so **the PR title becomes the commit on `main`** — and
 that is what [Release Please](https://github.com/googleapis/release-please) reads to
 decide the version and build `CHANGELOG.md`.

@@ -1,0 +1,26 @@
+name: PR title
+
+# The repository squash-merges, so the PR title becomes the commit on main and is what
+# Release Please reads to choose the next version. A title that does not parse means the
+# release is silently wrong, or does not happen at all — so it is checked here as well as
+# in the local commit-msg hook.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  conventional:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the PR title
+        env:
+          # Passed through the environment, never interpolated into the script — a PR title
+          # is attacker-controlled text and would otherwise be a shell injection.
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 tools/check_commit_msg.py --title "$TITLE"

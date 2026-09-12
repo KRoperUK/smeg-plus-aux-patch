@@ -32,6 +32,10 @@ The work is split in two:
    `fix:` → patch, `feat!:`/`fix!:` (or a `BREAKING CHANGE:` footer) → major, everything
    else → no release. See [docs/RELEASING.md](docs/RELEASING.md). Getting this wrong
    silently produces no release.
+   **This is enforced** by `tools/check_commit_msg.py` in two places — a `commit-msg` hook
+   and a CI check on the PR title. If you are an agent, write the message in the right form
+   the first time; `--title` will tell you before you push:
+   `python3 tools/check_commit_msg.py --title "feat: ..."`.
 4. **`main` is protected.** No direct pushes — work on a branch and open a PR. Deletion,
    force-push and non-linear history are blocked.
 
