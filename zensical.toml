@@ -16,6 +16,7 @@ nav = [
   { "Boot & update chain" = "FLASH_CHAIN.md" },
   { "Media partition" = "MEDIA_PARTITION.md" },
   { "Cheatcodes & spy" = "CHEATCODES.md" },
+  { "Ring tones" = "RINGTONES.md" },
   { "Version strings" = "VERSION_STRINGS.md" },
   { "Patch reference" = "PATCHES.md" },
   { "Flashing" = "FLASHING.md" },

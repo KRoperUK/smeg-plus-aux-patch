@@ -105,6 +105,8 @@ SMEG+ update on the car (engine running). See [`docs/FLASHING.md`](docs/FLASHING
 | `tools/ppcdis.py` | PowerPC disassembler with symbol/call resolution |
 | `tools/xref.py` | find code that references a string, address or pointer |
 | `tools/callers.py` | find direct (`bl`) callers of a function |
+| `tools/ringtones.py` | convert custom audio to the unit's ring/wait tone formats |
+| `tools/ringtone_studio.py` | Qt front-end: ringtone conversion + patch builder (optional) |
 | `tools/apply_files.sh` | overlay patched files onto a package copy |
 
 ```sh
@@ -127,7 +129,15 @@ Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and de
 | [`docs/MEDIA_PARTITION.md`](docs/MEDIA_PARTITION.md) | media partition layout, ringtones and wait tones, the rebuild blocker |
 | [`docs/CHEATCODES.md`](docs/CHEATCODES.md) | cheatcode list, entry mechanism, spy/diagnostics system |
 | [`docs/RELEASING.md`](docs/RELEASING.md) | conventional commits and the automatic release/changelog flow |
+| [`docs/RINGTONES.md`](docs/RINGTONES.md) | ring/wait tone formats, the converter, and the Qt studio |
 | [`docs/VERSION_STRINGS.md`](docs/VERSION_STRINGS.md) | what the version screens read, and how the updater gates on them |
+
+## Tests
+
+`tests/` builds a **synthetic package from scratch** — no vendor firmware is
+needed — and asserts the patch/repack path, the `expect` byte check, the CRC cascade
+and the docs nav. Run them with `python -m pytest tests -q`; CI runs the same on every
+pull request.
 
 ## Licence
 
