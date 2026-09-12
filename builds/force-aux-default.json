@@ -1,0 +1,26 @@
+{
+  "_comment": "LOCAL build manifest - the paths below are absolute for one checkout, so edit them before reusing. Force AUX as the default source. Step 1 of the plan in issue #72: a DATA edit only, so there is no code patch and nothing can be bricked. `supervisor.Last_Source` is the value C_MGR_SRC::StartUp() restores at boot (saved by C_MGR_SRC::ImmediateSourceSave()). AUX is position 4 per the 0-based source list in C_HMI_AUDIO_APP_BASE::GetSourceAtPosition(). If the unit ignores it, try varying supervisor.Last_Source_Priority (currently 1) alongside it. If 4 lands on the WRONG source, the position guess is wrong - report what it did land on and it can be corrected from a single flash rather than a guess.",
+  "package": "/Users/kieran/Downloads/SMEG_PLUS_UPG",
+  "out": "/Users/kieran/Downloads/SMEG_PLUS_UPG_auxdefault",
+  "module": "NAV",
+  "app": {
+    "patches": [
+      "aux-autoswitch"
+    ]
+  },
+  "media": {
+    "tones": {
+      "ring_tones/ring1RT.wav": {
+        "source": "/Users/kieran/Downloads/piano-riff.mp3",
+        "gain_db": 7.4
+      }
+    },
+    "names": {
+      "ring1": "Piano Riff"
+    },
+    "settings": {
+      "supervisor.Last_Source": 4
+    }
+  },
+  "seal": true
+}

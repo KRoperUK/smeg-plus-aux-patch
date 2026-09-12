@@ -121,6 +121,32 @@ def convert_tone(rt, source, dest, channels, rate, gain_db=None):
         dst_info[1], dst_info[2] * 8, "mono" if dst_info[0] == 1 else "stereo", gain_db)
 
 
+def set_up_key(tree, dotted, value):
+    """Set an integer in the settings database (`Data_base/sqlite/up_common.sqlite`).
+
+    `dotted` is `Section.Name`, e.g. `supervisor.Last_Source`. Values that live in a
+    database are the safest kind of change this project can make: no code is patched, so
+    the worst case is that the firmware ignores the value.
+    """
+    import sqlite3
+    section, _, name = dotted.partition(".")
+    if not name:
+        sys.exit("%r should be Section.Name, e.g. supervisor.Last_Source" % dotted)
+    path = os.path.join(tree, "Data_base", "sqlite", "up_common.sqlite")
+    if not os.path.exists(path):
+        sys.exit("no up_common.sqlite in this tree - is it an extracted media partition?")
+    con = sqlite3.connect(path)
+    try:
+        cur = con.execute("update UP_Keys set IntValue=? where Section=? and Name=?",
+                          (value, section, name))
+        if cur.rowcount < 1:
+            sys.exit("no UP_Keys row for %s" % dotted)
+        con.commit()
+        return cur.rowcount
+    finally:
+        con.close()
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -146,7 +172,8 @@ def main():
     tone_map = media.get("tones") or {}
     splash_map = media.get("splash") or {}
     name_map = media.get("names") or {}
-    any_media = bool(tone_map or splash_map or name_map)
+    settings = media.get("settings") or {}
+    any_media = bool(tone_map or splash_map or name_map or settings)
 
     print("building %s -> %s (%s)" % (src, out, module))
     if args.dry_run:
@@ -208,6 +235,9 @@ def main():
                 new = {i: pk.image(i) for i in range(len(pk.chunks))}
                 new[0] = sl.flip_bmp(sl.to_bmp(image))
                 Path(path).write_bytes(sl.build(pk, new))
+            for dotted, value in settings.items():
+                n = set_up_key(tree, dotted, value)
+                print("==> %s = %s  (%d row%s)" % (dotted, value, n, "" if n == 1 else "s"))
             for slot, name in name_map.items():
                 if not (slot.startswith("ring") and slot[4:].isdigit()):
                     sys.exit("%s: names only apply to ring1..ring5" % slot)
