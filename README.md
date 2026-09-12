@@ -106,6 +106,7 @@ SMEG+ update on the car (engine running). See [`docs/FLASHING.md`](docs/FLASHING
 | tool | purpose |
 |---|---|
 | `tools/unpack.py` | inflate `f_BigQuick.bin` → raw PPC image (and re-pack) |
+| `tools/patch_contract.py` | regenerate `contract.dat` so a modified package is accepted |
 | `tools/patch_smeg.py` | apply a patch set and rebuild the CRC cascade |
 | `tools/mkelf.py` | wrap a raw image + symbol map into a disassemblable PPC ELF |
 | `tools/ppcdis.py` | PowerPC disassembler with symbol/call resolution |

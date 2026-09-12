@@ -1,16 +1,18 @@
 # Flashing notes
 
-!!! danger "A package with a modified application image will be refused"
+!!! warning "Re-seal the package before flashing"
 
-    Tested on a Peugeot 208 / SMEG+ iV1 / `SMEG5.43.A.R2`: the unit validates the media
-    against a signed contract and rejects a patched `AppBin/f_BigQuick.bin` with
-    *"The update file is protected and cannot be copied."* The **unmodified** package was
-    accepted on the same unit.
+    The unit validates the media against a signed contract, and will reject a patched
+    package with *"The update file is protected and cannot be copied."* (string 2099)
+    unless the contract is regenerated:
 
-    So the application patches in this repository **cannot currently be flashed**. Read
-    [Media protection](MEDIA_PROTECTION.md) before you build a stick.
+    ```sh
+    python3 tools/patch_smeg.py     --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
+    python3 tools/patch_contract.py --package SMEG_PLUS_UPG_mod
+    ```
 
-    These notes remain valid for flashing a *stock* package (including a rollback).
+    A **stock** package needs no such step and can be flashed as-is (including a
+    rollback). See [Media protection](MEDIA_PROTECTION.md).
 
 These are generic notes for applying a patched SMEG+ package. They are not a substitute
 for the update instructions that came with your vehicle/software. Do this at your own
