@@ -48,10 +48,10 @@ pip install -r tools/requirements-gui.txt
 python3 tools/ringtone_studio.py
 ```
 
-!!! warning "Untested GUI"
-
-    The studio has not been run on a machine with Qt available. The converter and the
-    patch tool it drives are covered by `tests/`.
+The studio builds and runs (verified on macOS with PySide6 6.11.2 — it also has headless
+GUI tests in `tests/test_studio.py`, which skip when PySide6 is absent). It has not been
+used to produce a package that was then flashed to a car, so treat the end-to-end result
+as unverified; the pieces it drives are covered by tests.
 
 ## The catch
 
