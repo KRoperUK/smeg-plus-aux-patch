@@ -14,6 +14,7 @@ nav = [
   { "Overview" = "ANALYSIS.md" },
   { "Architecture" = "ARCHITECTURE.md" },
   { "Boot & update chain" = "FLASH_CHAIN.md" },
+  { "Media protection" = "MEDIA_PROTECTION.md" },
   { "Media partition" = "MEDIA_PARTITION.md" },
   { "Cheatcodes & spy" = "CHEATCODES.md" },
   { "Ring tones" = "RINGTONES.md" },

@@ -157,17 +157,22 @@ the check type. `flasher.crc` is the CRC32 of `flasher.inf`.
 
 `SD_DIR_TTS.crc` uses a different, textual scheme (`NUMBERFILES:394`, `CRC16:2305`).
 
-## 4. `contract.dat`
+## 4. `contract.dat` — the media contract
 
-A high-entropy, non-text blob. It is **not** in the root manifest and there is no
-`contract` symbol or string in `upgrade.out`, so the on-device updater does not appear
-to use it. Most likely a signing/licence token consumed elsewhere (loader or PC-side
-tool) — **hypothesis, not proven**.
+A 29 696-byte high-entropy blob at the package root. It is **not** in the root manifest
+and `upgrade.out` does not reference it, but that does not mean it is unused: the
+**application image** reads it in `C_BCM_UPGRADE::CheckTrustedSource()` and validates the
+rest of the media against it. A package whose application image has been modified is
+rejected with *"The update file is protected and cannot be copied."*
+
+The full mechanism, the decryption entry points, and what is still unknown are in
+[Media protection](MEDIA_PROTECTION.md).
+
+### `*_ctrl.bin` format
 
 ## 5. Open questions
 
 - Exact field offsets inside `dbsystem.bin`.
 - `CheckType` semantics for values 0–3.
-- `contract.dat`: format, and who consumes it.
 - Which module a given unit selects at runtime (`AUDIO_BT` vs `_256` vs `NAV`) — read
   from the vehicle/hardware type, not traced.
