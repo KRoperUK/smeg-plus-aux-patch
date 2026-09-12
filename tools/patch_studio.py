@@ -52,7 +52,8 @@ try:
     from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,  # noqa: E402
                                    QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
                                    QLineEdit,
-                                   QMessageBox, QPlainTextEdit, QPushButton, QTabWidget,
+                                   QMessageBox, QPlainTextEdit, QPushButton, QStyle,
+                                   QTabWidget,
                                    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 except ImportError:
     sys.exit("PySide6 is required:  pip install -r tools/requirements-gui.txt")
@@ -198,10 +199,10 @@ class Studio(QWidget):
         self.backup_label.setObjectName("Subtitle")
 
         v.addWidget(card(row([
-            self._btn("Extract from package…", self.extract_from_package),
-            self._btn("Open media tree…", self.choose_tree),
-            self._btn("Export tones…", self.export_tones),
-            self._btn("Backup folder…", self.choose_backup),
+            self._btn("Extract from package…", self.extract_from_package, icon=QStyle.SP_DriveHDIcon),
+            self._btn("Open media tree…", self.choose_tree, icon=QStyle.SP_DirOpenIcon),
+            self._btn("Export tones…", self.export_tones, icon=QStyle.SP_DialogSaveButton),
+            self._btn("Backup folder…", self.choose_backup, icon=QStyle.SP_FileDialogNewFolder),
             self.tree_label,
         ])))
 
@@ -227,8 +228,23 @@ class Studio(QWidget):
         self.populate()
         return page
 
-    def _btn(self, text, slot, primary=False):
-        b = QPushButton(text)
+    def _icon(self, pixmap):
+        """A built-in Qt icon, so the UI ships no icon assets of its own."""
+        return self.style().standardIcon(pixmap)
+
+    def _btn(self, text, slot, primary=False, icon=None):
+        """A button whose face is an icon. The label becomes its tooltip.
+
+        An icon on its own says nothing, so every button keeps its wording in a tooltip
+        and in the accessibility tree — screen readers and hovering both still get it.
+        """
+        b = QPushButton()
+        if icon is not None:
+            b.setIcon(self._icon(icon))
+        else:
+            b.setText(text)
+        b.setToolTip(text)
+        b.setAccessibleName(text)
         if primary:
             b.setObjectName("Primary")
         b.clicked.connect(slot)
@@ -285,22 +301,30 @@ class Studio(QWidget):
                     item.setForeground(Qt.gray if colour2 == "#B0B3B8" else Qt.black)
                 self.table.setItem(r, col, item)
 
-            preview = QPushButton("Preview")
+            preview = QPushButton()
+            preview.setIcon(self._icon(QStyle.SP_MediaPlay))
             preview.setToolTip("Play this tone")
+            preview.setAccessibleName("Play this tone")
             preview.setEnabled(bool(cur) and os.path.exists(cur))
             preview.clicked.connect(lambda _=False, s=slot: self.preview_tone(s))
             self._preview_btns[slot] = preview
 
-            choose = QPushButton("Replace…")
+            choose = QPushButton()
+            choose.setIcon(self._icon(QStyle.SP_DialogOpenButton))
             choose.setToolTip("Convert and install a different audio file")
+            choose.setAccessibleName("Replace this tone")
             choose.setEnabled(bool(self.tree))
             choose.clicked.connect(lambda _=False, s=slot: self.choose_file(s))
-            name_btn = QPushButton("Name…")
+            name_btn = QPushButton()
+            name_btn.setIcon(self._icon(QStyle.SP_FileDialogDetailedView))
             name_btn.setToolTip("Change what the phone UI calls this ringtone")
+            name_btn.setAccessibleName("Rename this tone")
             name_btn.setEnabled(bool(self.tree) and ui_name != "—")
             name_btn.clicked.connect(lambda _=False, s=slot: self.rename_tone(s))
-            restore = QPushButton("Restore")
+            restore = QPushButton()
+            restore.setIcon(self._icon(QStyle.SP_BrowserReload))
             restore.setToolTip("Put the original from the package backup back")
+            restore.setAccessibleName("Restore the original tone")
             restore.setEnabled(bool(self.tree) and os.path.exists(self.backup_path(rel)))
             restore.clicked.connect(lambda _=False, s=slot: self.restore(s))
             cur_lbl = QLabel(current)
@@ -380,9 +404,11 @@ class Studio(QWidget):
     def _refresh_preview_buttons(self):
         for slot, btn in self._preview_btns.items():
             playing = slot == self._playing_slot
-            btn.setText("Stop" if playing else "Preview")
+            btn.setIcon(self._icon(QStyle.SP_MediaStop if playing
+                                   else QStyle.SP_MediaPlay))
             btn.setStyleSheet("font-weight: 600;" if playing else "")
             btn.setToolTip("Stop preview" if playing else "Play this tone")
+            btn.setAccessibleName(btn.toolTip())
 
     def closeEvent(self, event):
         self.stop_preview()
@@ -514,9 +540,9 @@ class Studio(QWidget):
 
         v.addWidget(card(row([
             QLabel("Marque"), self.splash_marque,
-            self._btn("Import image…", self.splash_import, primary=True),
-            self._btn("Export as PNG…", self.splash_export),
-            self._btn("Open media tree…", self.choose_tree),
+            self._btn("Import image…", self.splash_import, primary=True, icon=QStyle.SP_DialogOpenButton),
+            self._btn("Export as PNG…", self.splash_export, icon=QStyle.SP_DialogSaveButton),
+            self._btn("Open media tree…", self.choose_tree, icon=QStyle.SP_DirOpenIcon),
             self.splash_label,
         ])))
 
@@ -716,21 +742,22 @@ class Studio(QWidget):
         self.mod_combo = QComboBox()
         self.mod_combo.addItems(MODULES)
         v.addWidget(card(row([QLabel("Source package"), self.pkg_edit,
-                              self._btn("Browse…", lambda: self._pick(self.pkg_edit)),
+                              self._btn("Browse…", lambda: self._pick(self.pkg_edit), icon=QStyle.SP_DirOpenIcon),
                               self.mod_combo], spacing=10)))
 
         self.tree_edit = QLineEdit()
         self.tree_edit.setPlaceholderText("media tree to pack (must contain ring_tones/) — optional")
         v.addWidget(card(row([QLabel("Media tree"), self.tree_edit,
-                              self._btn("Browse…", lambda: self._pick(self.tree_edit)),
-                              self._btn("Use open tree", self._use_open_tree)], spacing=10)))
+                              self._btn("Browse…", lambda: self._pick(self.tree_edit), icon=QStyle.SP_DirOpenIcon),
+                              self._btn("Use open tree", self._use_open_tree, icon=QStyle.SP_BrowserReload)], spacing=10)))
 
         self.out_edit = QLineEdit()
         self.out_edit.setPlaceholderText("where the changed files are written")
         v.addWidget(card(row([QLabel("Output folder"), self.out_edit,
-                              self._btn("Browse…", lambda: self._pick(self.out_edit))], spacing=10)))
+                              self._btn("Browse…", lambda: self._pick(self.out_edit), icon=QStyle.SP_DirOpenIcon)], spacing=10)))
 
-        v.addWidget(self._btn("Build patched package", self.build, primary=True))
+        v.addWidget(self._btn("Build patched package", self.build, primary=True,
+                              icon=QStyle.SP_DialogApplyButton))
 
         self.plog = QPlainTextEdit()
         self.plog.setReadOnly(True)
