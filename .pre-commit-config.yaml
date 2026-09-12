@@ -1,0 +1,52 @@
+# Hooks run on every commit. The point of the local ones is that a commit which breaks the
+# tests or the docs build cannot be made — a docs commit with a bad anchor link was pushed
+# once because the strict build was not run first.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]   # no firmware or packages in the repo, ever
+      - id: mixed-line-ending
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      # ruff-format is deliberately NOT enabled: the existing tree is not format-clean
+      # (18 files would change), and a hook that reformats unrelated files on every
+      # commit is worse than no hook. Run it as its own commit if you want it.
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: tests
+        entry: sh -c 'PY=.venv/bin/python; [ -x "$PY" ] || PY=python3; exec "$PY" -m pytest -q'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: docs-strict
+        name: docs build (strict)
+        entry: sh -c 'PY=.venv/bin/python; [ -x "$PY" ] || PY=python3; exec "$PY" -m zensical build --strict'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: no-firmware
+        name: no vendor firmware staged
+        entry: tools/check_no_firmware.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+
+      - id: conventional-commit
+        name: conventional commit message
+        entry: tools/check_commit_msg.py
+        language: script
+        stages: [commit-msg]

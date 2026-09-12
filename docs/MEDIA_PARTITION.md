@@ -3,9 +3,12 @@
 The head unit keeps its user-facing data partition in `AUDIO_BT/system.bin` /
 `NAV/system.bin`: a gzip-compressed **tar** that is extracted to `/SYSTEM/` on the unit.
 
-Nothing here is patched by the current tooling — the app-image patcher only touches
-`AppBin/f_BigQuick.bin`. This document records what lives in the partition and what
-would be involved in editing it.
+The partition can be **rebuilt**, and `tools/patch_media.py` does it: extract the tar,
+replace a file, re-tar, re-gzip, then repair `system_ctrl.bin` (per-file CRCs),
+`system.bin.inf` (`CRC32` + the `SIZE` fields), the module manifest and the root manifest.
+Replacing a ring tone is the worked example — see [Ring tones](RINGTONES.md). Only
+**replacement** is supported: *adding* a file would need a new `system_ctrl.bin` record,
+and the record semantics are only partly understood.
 
 ## How the partition is described
 
@@ -37,8 +40,10 @@ gzip size, and they are computable:
   padding. Verified exactly against the real partition: 844 files, sum **32 710 671**,
   matching `SIZE:` to the byte.
 * **`SIZE_n`** = the same sum with every file rounded up to an *n* KiB block
-  (`Σ roundup(size, n * 1024)`). Exact for n = 8, 16 and 32; within ~30 KB for
-  n = 1, 2, 4.
+  (`Σ roundup(size, n * 1024)`). Exact for n = 8, 16 and 32. For n = 1, 2 and 4 it lands a
+  fixed amount *below* the vendor's values — **29 696**, **18 432** and **8 192** bytes
+  respectively, the same three constants on both a stock and a rebuilt partition. That
+  rule was not identified, so the values are not derived from scratch.
 
 They are read by **`UpgPlugin.out`**, not `upgrade.out` — the plugin's
 `C_UPG_PLUGIN_Interface::GetSize()` / `GetPartitionBlockSize()` select the field that
@@ -106,10 +111,14 @@ Relevant code: `C_SRV_RING_TOUCH` (`srvPlayTouch`, `srvSetCurrentIDTone`,
 `SetRingFilePath`), `C_FS_STORAGE_CTRL_PATH::GetRingTonesDir`, and
 `GetRingToneList` / `GetRingtoneID` / `SetRingToneID` behind the phone settings UI.
 
-**Custom ringtones** would mean replacing `ringNRT.wav` with your own file in the same
-format, keeping the filename. That is a media-partition edit, i.e. blocked on the same
-rebuild question above (and your replacement WAV will not be the same size, so the tar
-definitely changes).
+**Custom ringtones** means replacing `ringNRT.wav` with your own file in the same format,
+keeping the filename. This works: the partition rebuild is implemented, and the `SIZE`
+fields are carried forward by exactly the size change of the replaced file. Replacements
+are essentially never the same size as the original, so the tar and every manifest above
+it do change — which the tool handles in one step. See
+[Ring tones](RINGTONES.md) for the worked example, including the level-matching caveat:
+the stock tones are mastered loud (peak ≈ −1 dBFS), so an unmodified music track will
+sound noticeably quieter than the tone it replaced.
 
 ## Wait tones — `/SYSTEM/wait_tones/`
 
@@ -139,6 +148,95 @@ Application/BlackFin/   DAB_SW_MAXIM_PRS1.dat - DAB chipset firmware blob
 
 The application image itself is **not** here — it is `AppBin/f_BigQuick.bin`.
 The cheatcode libraries are documented in [Cheatcodes](CHEATCODES.md).
+
+!!! warning "This is NOT the boot splash"
+
+    An earlier version of this page claimed `peugeot.pkg` holds the boot splash. **That is
+    wrong, and flashing a replaced one proves it** — the unit still shows the factory
+    Peugeot animation. Two things say why:
+
+    - the application image contains **no reference at all** to `peugeot.pkg`,
+      `graphics/logo` or the `_adml_` names, so nothing reads these files at boot;
+    - the boot artwork lives in a separate **NAND "Logo Area"**, with its own header,
+      CRC check and animation frames — the updater has `WriteNANDLogo`, `ReadNand_Logo`,
+      `VerifyNANDLogo`, `LogoAndAlertsHeaderShow` and a `(CheckCRCLogoAndAlertsFile) CRC
+      picture[%d]` check, all behind `TakeMutexNANDAccess`.
+
+    **And there is no logo step in the USB update flow.** `nm upgrade.out` shows the
+    sequence is `ManageBootRomUpdateAndReboot`, `ManageUBootUpdateAndReboot`,
+    `ManageRenesasUpdateAndReboot`, `ManageBigQuickUpdate`, `ManageHarmoniesVersions`,
+    `ManageSkinCopyFromMedia`, `ManageSQLiteFiles`, `ManageUserGuideData`,
+    `ManageSDMultiPartitions`, `ManageVehicleGroupTag`, `ManageZAFiles` — nothing that
+    touches the logo area. So a package **cannot** change the boot splash; that area is
+    written by factory/diagnostic tooling.
+
+    The route that does exist is the diagnostic path in the application image:
+    `C_DiagImp::ReplaceAndVerifyBootScreen`, `C_DiagImp::RestoreUpdateBootScreen`,
+    `C_DiagImp::StartBootScreenTimer` and `C_FS_STORAGE_CTRL_PATH::GetStartupLogoDir`
+    (which builds its path dynamically rather than from a literal, so it needs following).
+    That is cheatcode/diag territory — see [Cheatcodes](CHEATCODES.md).
+
+    The four images here are real and replaceable; they are simply used somewhere other
+    than the boot sequence. What that is remains open.
+
+## Brand logo packages — `Data_base/graphics/logo/*.pkg`
+
+One package per marque (`peugeot.pkg`, `citroen.pkg`, `ds.pkg`), each holding **four
+800x480 24-bit images**: the Peugeot lion and wordmark seen in the on-car update photos,
+then `..._adml_01..03` — a "connect your phone" prompt and two "TRAFFIC" prompts. These
+are genuine marque artwork, but they are **not what boots** — see the warning above.
+
+Container layout:
+
+```
+0x0000  u32   crc32 of bytes 0x0004..0x0800          directory integrity
+0x0004  u32   size of the first chunk
+0x0008  u32   uncompressed size of every chunk (800*480*3 + 54 = 1152054)
+0x000c  u32   0
+0x0010  ...   directory records, zero-padded to 0x0800
+0x0800  ...   four chunks
+```
+
+A directory record is a **32-byte NUL-padded name** followed by 6 or 7 big-endian u32s.
+The field count varies between records and the fields are only partly understood, so
+`tools/splash.py` does not rewrite them from scratch: the values it knows — each chunk's
+offset and total size, and the first chunk's size in the header — are located **by value**
+and updated in place.
+
+Each chunk in the data region is:
+
+```
+u8   0x08 marker
+...  a standard zlib stream (deflate level 6) holding one 800x480 24-bit BMP
+u16  a two-byte trailer, preserved verbatim
+```
+
+Chunks 1–3 recompress **byte-for-byte** at zlib level 6; chunk 0 in `peugeot.pkg` differs
+by ~0.2%, so it was built with slightly different deflate settings. `splash.py selftest`
+rebuilds all three shipped packages and compares — they come out **identical**, which is
+what pins this format down.
+
+!!! warning "The images are stored vertically mirrored"
+
+    Read with normal BMP semantics the artwork is upside down, yet it displays correctly in
+    the car — so the unit flips it when rendering. A replacement must therefore be stored
+    **flipped**, which `splash.py replace` does automatically. Get this wrong and the splash
+    is upside down.
+
+Known unknown: the two-byte trailer after each zlib stream has not been identified — it is
+not a crc32 or adler32 fragment of the chunk. It is preserved as-is. A rebuilt splash has
+**not yet been flashed**, so treat a replaced splash as unverified until a unit accepts one.
+
+```sh
+python3 tools/splash.py --tree media/ list
+python3 tools/splash.py --tree media/ extract --marque peugeot -o splash/
+python3 tools/splash.py --tree media/ replace --marque peugeot --image my-logo.png
+python3 tools/splash.py --tree media/ selftest
+```
+
+`replace` takes anything ffmpeg can read and scales it to 800x480. Note the artwork is
+drawn on the unit's own background, so black line art on a transparent background will be
+invisible — composite it onto a colour first.
 
 ## Board GUI resources — `Data_base/boardfs/GUI_STYLE/`
 

@@ -89,3 +89,121 @@ def test_probe_reports_format(tmp_path):
     r = run(os.path.join(TOOLS, "ringtones.py"), "probe", src)
     assert r.returncode == 0, r.stderr
     assert "22050 Hz" in r.stdout and "mono" in r.stdout
+
+
+# --------------------------------------------------------------- ringtone names
+#
+# The names the phone UI shows are not in the WAVs. They are rows in up_common.sqlite,
+# so replacing a tone changes what you hear and renaming changes what you see.
+
+import sqlite3  # noqa: E402
+
+import media_helpers as mh  # noqa: E402
+import ringtones as rt  # noqa: E402
+
+
+def make_tree(tmp_path, names=None):
+    tree = tmp_path / "tree"
+    d = tree / "Data_base" / "sqlite"
+    d.mkdir(parents=True)
+    (d / "up_common.sqlite").write_bytes(mh.up_common_bytes(names))
+    return tree
+
+
+def test_ring_names_reads_the_phone_list(tmp_path):
+    tree = make_tree(tmp_path)
+    names = rt.ring_names(str(tree))
+    assert names[0] == "Alien"
+    assert len(names) == 10
+
+
+def test_ring_names_is_empty_without_the_database(tmp_path):
+    """Reading must not be fatal — the GUI calls this for any tree."""
+    assert rt.ring_names(str(tmp_path)) == []
+    assert rt.ring_names("") == []
+
+
+def test_set_ring_name_changes_exactly_one_row(tmp_path):
+    tree = make_tree(tmp_path)
+    rt.set_ring_name(str(tree), 0, "Piano Riff")
+    names = rt.ring_names(str(tree))
+    assert names[0] == "Piano Riff"
+    assert names[1] == "Blue_lemon", "only the named row should move"
+    assert len(names) == 10
+
+
+def test_set_ring_name_refuses_a_missing_index(tmp_path):
+    tree = make_tree(tmp_path, names=["Only_one"])
+    try:
+        rt.set_ring_name(str(tree), 5, "nope")
+    except SystemExit as e:
+        assert "exactly one row" in str(e)
+    else:
+        raise AssertionError("expected SystemExit for an index that does not exist")
+
+
+def test_set_ring_name_refuses_a_tree_without_the_database(tmp_path):
+    try:
+        rt.set_ring_name(str(tmp_path), 0, "nope")
+    except SystemExit as e:
+        assert "up_common.sqlite" in str(e)
+    else:
+        raise AssertionError("expected SystemExit when the database is absent")
+
+
+def test_names_cli(tmp_path):
+    tree = make_tree(tmp_path)
+    r = run(os.path.join(TOOLS, "ringtones.py"), "names", "--tree", str(tree))
+    assert r.returncode == 0, r.stderr
+    assert "Idx 0" in r.stdout and "Alien" in r.stdout
+
+
+def test_rename_cli(tmp_path):
+    tree = make_tree(tmp_path)
+    r = run(os.path.join(TOOLS, "ringtones.py"), "rename",
+            "--tree", str(tree), "--slot", "ring1", "--name", "Piano Riff")
+    assert r.returncode == 0, r.stderr
+    assert "Piano Riff" in r.stdout
+    assert rt.ring_names(str(tree))[0] == "Piano Riff"
+
+
+def test_rename_cli_rejects_a_non_ring_slot(tmp_path):
+    tree = make_tree(tmp_path)
+    r = run(os.path.join(TOOLS, "ringtones.py"), "rename",
+            "--tree", str(tree), "--slot", "busy", "--name", "x")
+    assert r.returncode != 0
+    assert "ring1..ring5" in (r.stdout + r.stderr)
+
+
+def test_a_renamed_tone_survives_a_media_rebuild(tmp_path):
+    """The whole point: rename in the tree, rebuild the partition, read it back out."""
+    import gzip
+    import io
+    import tarfile
+
+    pkg = tmp_path / "pkg"
+    mh.build_media_package(pkg, extra_files={
+        "Data_base/sqlite/up_common.sqlite": mh.up_common_bytes()})
+    tree = tmp_path / "extracted"
+    out = tmp_path / "out"
+
+    r = run(os.path.join(TOOLS, "patch_media.py"), "extract", "--package", str(pkg),
+            "--module", "NAV", "--tree", str(tree), "--backup", str(tmp_path / "bk"))
+    assert r.returncode == 0, r.stderr
+
+    rt.set_ring_name(str(tree), 0, "Piano Riff")
+
+    r = run(os.path.join(TOOLS, "patch_media.py"), "apply", "--package", str(pkg),
+            "--module", "NAV", "--tree", str(tree), "--out", str(out))
+    assert r.returncode == 0, r.stderr
+
+    reb = gzip.open(out / "NAV" / "system.bin", "rb").read()
+    tf = tarfile.open(fileobj=io.BytesIO(reb))
+    db = tf.extractfile("Data_base/sqlite/up_common.sqlite").read()
+    tmp_db = tmp_path / "readback.sqlite"
+    tmp_db.write_bytes(db)
+    con = sqlite3.connect(tmp_db)
+    got = con.execute("select StringValue from UP_Keys where Section='phone'"
+                      " and Name='Ringing_List' and Idx=0").fetchone()[0]
+    con.close()
+    assert got == "Piano Riff"

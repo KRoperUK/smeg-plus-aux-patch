@@ -125,8 +125,34 @@ C_HMI_KeyboardMessage::GetVKeySimultaneusData     (simultaneous keys -> chords p
 
 so a long-press or chord trigger is representable in principle; the `SRC` key is handled
 by `C_HMI_AUDIO_CHANGE_SOURCE_0X_Menu::HandleVCIKey` / `HandleNextSourceKey` and by
-`C_HMI_AUDIO_APP_BASE::HandleKeyboardMessage`. Not implemented here (the auto-switch is
-the intended fix).
+`C_HMI_AUDIO_APP_BASE::HandleKeyboardMessage`.
+
+### Why "long-press SRC to select AUX" is not a small patch
+
+Disassembly of the actual handlers makes this look much less attractive than the API
+surface suggests:
+
+- **The source menu never sees a long press.** `C_HMI_AUDIO_CHANGE_SOURCE_0X_Menu::HandleVCIKey`
+  reads only `GetVKeyReleasedData()`. It switches on the released key code: `0x4f` and
+  `0x20051` call `HandleNextSourceKeyEv()` (the SRC cycle), `0x51` synthesises a click on
+  the focused item. There is no keep-pressed branch to extend.
+- **The only long-press hook that fires is global.** `C_MENU_STATE::ProcessEscKeyLongPress()`
+  is a single implementation for *every* screen; it emits a system notification command
+  (id `0x12`) which the unit routes to the product-code / system-information view. That is
+  the existing SRC long-press behaviour. Replacing it would change that behaviour
+  everywhere, not just in the audio app, and would break the existing shortcut.
+- **The steering wheel does not report it.** The wheel's SRC produces press/release but
+  no keep-pressed event reaching the audio application, so there is nothing to bind on
+  that key at all.
+- **Upstream, the feature is unfinished.** The image carries the string
+  `ESC LONG PRESS handling should be done!!!`, emitted from
+  `C_MENU_STATE::HandleTouchEvent` — i.e. long-press handling has stub paths in this
+  firmware.
+
+**Conclusion:** not implemented, and not recommended as a first step. It is a
+disproportionately invasive change for a convenience shortcut. With
+`IsAUXSRCAvailable()` patched, AUX is already reachable through the ordinary SRC cycle —
+the auto-switch is the real fix for the switching problem.
 
 ## 7. Integrity chain
 
@@ -158,7 +184,45 @@ rewritten when its content differs from what is stored.
 
 ## 9. Caveats
 
-- The patches are static and were not validated on hardware by the author of these notes.
-- Patch 2 is a hypothesis at the observed early-exit; it may not be the only cause.
+- The media contract has been regenerated successfully and the resulting package was
+  accepted by a real unit — see [Hardware verification](VERIFICATION.md). The
+  `IsAUXSRCAvailable()` patch is confirmed working there.
+- **The automatic switch is still unproven.** Removing the early exit in
+  `HandleAudioAuxInputStatusChnged()` was a hypothesis; it has not yet been observed
+  causing a source change. If it does not, the AUX status event is not reaching that
+  handler and the fix belongs on a path that provably runs.
+- The `AUDIO_BT` and `AUDIO_BT_256` patch sets are verified against their images but have
+  not been flashed.
 - Re-flashing the same version does not change the displayed version strings, so
-  behaviour is the only reliable confirmation.
+  behaviour is the only reliable confirmation. Do not use System Information to decide
+  whether a patch is installed.
+
+## 10. The AUX event chain, verified in the NAV image
+
+Traced in `nav_app_image.bin` against `nav_syms.txt` — use those **together**; the 32 MB
+`app_image.bin` is the AUDIO_BT image and reading it with the base symbol map gives a
+different `HandleAudioAuxInputStatusChnged` address, which is an easy way to conclude the
+NAV patch is pointing somewhere wrong when it is not.
+
+```
+audio server --DBUS msg 0xcb (203)--> C_HMI_MEDIA_APP_BASE::HandleDBUSMessage()
+                                      @ 0x02309398, case at 0x02309638
+                                        cmpwi cr7, r0, 0xcb
+                                        beq   cr7, 0x2309fbc
+                                          -> 0x02309fcc  bctrl HandleAudioAuxInputStatusChnged()
+
+C_HMI_MEDIA_APP_BASE::HandleAudioAuxInputStatusChnged()      @ 0x0230331c
+  02303410  bl  GetMediaDevice(type, media_device&)
+  02303428  beq cr7, 0x2303574     handler+0x10c — the shared return path, what we nop
+  02303434  beq cr7, 0x230348c     the aux-sticky target
+  0230345c  bl  SetMediaDeviceState(...)
+  02303484  bl  C_HMI_SrcMgntBase::ActivateSource(bool)
+```
+
+So the patch removing `0x02303428` does reach `ActivateSource`, and the handler has exactly
+one direct caller — the DBUS dispatch — plus a vtable entry.
+
+**The consequence:** the patch is not the problem. If the unit does not switch by itself,
+DBUS message **203** is not reaching the media app. That points at the always-active hook
+rather than more surgery inside the handler, and it is a hypothesis that can be settled by
+logging received DBUS ids rather than by flashing something.

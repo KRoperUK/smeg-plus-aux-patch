@@ -27,7 +27,8 @@ AUX by itself when that audio appears rather than needing a manual source change
 | [Version strings](VERSION_STRINGS.md) | what the version screens read and how the updater gates on them |
 | [Patch reference](PATCHES.md) | exact addresses and bytes, per build |
 | [Running the tools](RUNNING.md) | `uv` / `uvx` one-liners, and a tool cheat sheet |
-| [Flashing](FLASHING.md) | preparing the USB stick and running the update |
+| [Flashing](FLASHING.md) | preparing the USB stick, the update process, and how to verify |
+| [Hardware verification](VERIFICATION.md) | what has actually been confirmed on a car, and what has not |
 
 ## Target
 
@@ -37,6 +38,13 @@ its own symbol map and patch addresses.
 
 ## Status
 
-The application patches are built and checksum-verified, but **not yet validated on
-hardware**. Open questions and ideas are tracked as issues in the
-[repository](https://github.com/KRoperUK/smeg-plus-aux-patch/issues).
+A patched, **contract re-sealed** package has been flashed to a real unit successfully:
+the media check passed, the application image was written, and the unit came back up
+working. The `IsAUXSRCAvailable()` patch is confirmed on hardware — AUX no longer greys
+out, and it is back in the SRC cycle.
+
+**The automatic AUX switch has not yet been observed working.** That is the outstanding
+question; everything else on this site is supporting material. See
+[Hardware verification](VERIFICATION.md) for the full picture, and the
+[repository issues](https://github.com/KRoperUK/smeg-plus-patches/issues) for open
+questions and ideas.

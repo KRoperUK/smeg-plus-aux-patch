@@ -29,21 +29,29 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
 try:
-    from ringtones import SLOTS, WAIT_DIR, RING_DIR, convert, describe  # noqa: E402
+    from ringtones import (SLOTS, WAIT_DIR, RING_DIR, convert, describe,  # noqa: E402
+                        ring_names, set_ring_name)  # noqa: E402
 except ImportError:
     sys.exit("cannot import tools/ringtones.py — run this from the repository")
 
 try:
+    import splash as splashmod  # noqa: E402
+except ImportError:
+    splashmod = None
+
+try:
     from PySide6.QtCore import Qt, QUrl  # noqa: E402
-    from PySide6.QtGui import QFont  # noqa: E402
+    from PySide6.QtGui import QFont, QImage, QPixmap  # noqa: E402
     from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,  # noqa: E402
-                                   QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+                                   QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
+                                   QLineEdit,
                                    QMessageBox, QPlainTextEdit, QPushButton, QTabWidget,
                                    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 except ImportError:
@@ -137,7 +145,7 @@ def row(items, spacing=8):
 class Studio(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("SMEG+ Ringtone Studio")
+        self.setWindowTitle("SMEG+ Patch Studio")
         self.resize(1120, 720)
         self.setMinimumSize(940, 600)
 
@@ -159,7 +167,7 @@ class Studio(QWidget):
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(14)
 
-        t = QLabel("Ringtone Studio")
+        t = QLabel("Patch Studio")
         t.setObjectName("Title")
         s = QLabel("Custom ring tones for a PSA/Stellantis SMEG+ head unit, and the patch builder.")
         s.setObjectName("Subtitle")
@@ -171,6 +179,7 @@ class Studio(QWidget):
 
         tabs = QTabWidget()
         tabs.addTab(self._ringtones_tab(), "Ringtones")
+        tabs.addTab(self._splash_tab(), "Brand logos")
         tabs.addTab(self._pack_tab(), "Pack & patch")
         root.addWidget(tabs, 1)
 
@@ -196,15 +205,16 @@ class Studio(QWidget):
             self.tree_label,
         ])))
 
-        self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["SLOT", "FILE IN THE PARTITION", "EXPECTED", "STATE", ""])
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(["SLOT", "FILE IN THE PARTITION", "EXPECTED",
+                                              "STATE", "NAME IN THE PHONE UI", ""])
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setSelectionMode(QTableWidget.NoSelection)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.verticalHeader().setDefaultSectionSize(40)
         self.table.horizontalHeader().setStretchLastSection(True)
-        for i, w in enumerate((90, 250, 170, 90)):
+        for i, w in enumerate((70, 215, 150, 80, 165)):
             self.table.setColumnWidth(i, w)
         v.addWidget(self.table, 1)
 
@@ -245,10 +255,11 @@ class Studio(QWidget):
         bck = self.backup_path(rel)
         if not (bck and os.path.exists(bck)):
             return "no backup", "#B0B3B8"
-        same = open(cur, "rb").read() == open(bck, "rb").read()
+        same = Path(cur).read_bytes() == Path(bck).read_bytes()
         return ("original", "#34C759") if same else ("modified", ACCENT)
 
     def populate(self):
+        names = ring_names(self.tree) if self.tree else []
         keys = sorted(SLOTS, key=lambda k: (k.startswith("wait"), k))
         self._preview_btns = {}
         self.table.setRowCount(len(keys))
@@ -258,9 +269,16 @@ class Studio(QWidget):
             cur = self.tone_path(rel)
             current = describe(cur) if cur and os.path.exists(cur) else "—"
 
+            ui_name = "—"
+            if slot.startswith("ring") and slot[4:].isdigit():
+                i = int(slot[4:]) - 1
+                if i < len(names):
+                    ui_name = names[i]
+
             for col, text, colour2 in ((0, slot, "#1D1D1F"), (1, rel, "#1D1D1F"),
                                        (2, "%d Hz · 16-bit · %s" % (rate, "mono" if ch == 1 else "stereo"),
-                                        "#B0B3B8"), (3, state, colour)):
+                                        "#B0B3B8"), (3, state, colour),
+                                       (4, ui_name, "#1D1D1F")):
                 item = QTableWidgetItem(text)
                 item.setFlags(Qt.ItemIsEnabled)
                 if colour2:
@@ -277,6 +295,10 @@ class Studio(QWidget):
             choose.setToolTip("Convert and install a different audio file")
             choose.setEnabled(bool(self.tree))
             choose.clicked.connect(lambda _=False, s=slot: self.choose_file(s))
+            name_btn = QPushButton("Name…")
+            name_btn.setToolTip("Change what the phone UI calls this ringtone")
+            name_btn.setEnabled(bool(self.tree) and ui_name != "—")
+            name_btn.clicked.connect(lambda _=False, s=slot: self.rename_tone(s))
             restore = QPushButton("Restore")
             restore.setToolTip("Put the original from the package backup back")
             restore.setEnabled(bool(self.tree) and os.path.exists(self.backup_path(rel)))
@@ -291,9 +313,10 @@ class Studio(QWidget):
             h.setSpacing(6)
             h.addWidget(preview)
             h.addWidget(choose)
+            h.addWidget(name_btn)
             h.addWidget(restore)
             h.addWidget(cur_lbl, 1)
-            self.table.setCellWidget(r, 4, w)
+            self.table.setCellWidget(r, 5, w)
 
         self.tree_label.setText(self.tree)
         self.backup_label.setText(self.backup)
@@ -418,7 +441,7 @@ class Studio(QWidget):
                 continue
             for f in sorted(os.listdir(src)):
                 if f.lower().endswith(".wav"):
-                    open(os.path.join(d, f), "wb").write(open(os.path.join(src, f), "rb").read())
+                    Path(os.path.join(d, f)).write_bytes(Path(os.path.join(src, f)).read_bytes())
                     n += 1
         self.say("exported %d file(s) to %s" % (n, d))
 
@@ -447,9 +470,221 @@ class Studio(QWidget):
             return
         dst = self.tone_path(rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
-        open(dst, "wb").write(open(bck, "rb").read())
+        Path(dst).write_bytes(Path(bck).read_bytes())
         self.say("restored %s from the package backup" % rel)
         self.populate()
+
+    def rename_tone(self, slot):
+        """Change the name the phone UI shows. That is a row in up_common.sqlite, not the
+        WAV — replacing a tone changes what you hear, renaming changes what you see."""
+        if not (slot.startswith("ring") and slot[4:].isdigit()):
+            return
+        idx = int(slot[4:]) - 1
+        names = ring_names(self.tree)
+        if idx >= len(names):
+            QMessageBox.information(self, "No name",
+                                    "This media tree has no name for that slot.")
+            return
+        new, ok = QInputDialog.getText(
+            self, "Rename %s" % slot, "Name shown in the phone UI:", text=names[idx])
+        if not ok or not new.strip():
+            return
+        try:
+            set_ring_name(self.tree, idx, new.strip())
+        except SystemExit as e:
+            QMessageBox.critical(self, "Could not rename", str(e))
+            return
+        self.say("%s is now shown as %r (was %r)" % (slot, new.strip(), names[idx]))
+        self.say("  rebuild the package and re-seal for this to reach the car")
+        self.populate()
+
+    # --------------------------------------------------------------------- splash
+
+    def _splash_tab(self):
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(0, 12, 0, 0)
+        v.setSpacing(12)
+
+        self.splash_marque = QComboBox()
+        self.splash_marque.addItems(list(splashmod.MARQUES) if splashmod else [])
+        self.splash_marque.currentTextChanged.connect(lambda _: self.splash_load())
+        self.splash_label = QLabel("")
+        self.splash_label.setObjectName("Subtitle")
+
+        v.addWidget(card(row([
+            QLabel("Marque"), self.splash_marque,
+            self._btn("Import image…", self.splash_import, primary=True),
+            self._btn("Export as PNG…", self.splash_export),
+            self._btn("Open media tree…", self.choose_tree),
+            self.splash_label,
+        ])))
+
+        split = QHBoxLayout()
+        split.setSpacing(12)
+
+        self.splash_table = QTableWidget(0, 3)
+        self.splash_table.setHorizontalHeaderLabels(["#", "FILE IN THE PARTITION", "STORED"])
+        self.splash_table.verticalHeader().setVisible(False)
+        self.splash_table.setShowGrid(False)
+        self.splash_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.splash_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.splash_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.splash_table.verticalHeader().setDefaultSectionSize(34)
+        self.splash_table.horizontalHeader().setStretchLastSection(True)
+        for i, w in enumerate((34, 250, 100)):
+            self.splash_table.setColumnWidth(i, w)
+        self.splash_table.itemSelectionChanged.connect(self.splash_select)
+        split.addWidget(self.splash_table, 1)
+
+        self.splash_view = QLabel("select an image to preview it")
+        self.splash_view.setObjectName("Muted")
+        self.splash_view.setAlignment(Qt.AlignCenter)
+        self.splash_view.setMinimumSize(400, 240)
+        self.splash_view.setStyleSheet(
+            "background:#FFFFFF;border:1px solid #E4E6EA;border-radius:12px;")
+        split.addWidget(self.splash_view, 1)
+        v.addLayout(split, 1)
+
+        note = QLabel("Stored images are vertically mirrored — the unit flips them when "
+                      "rendering, so the preview is shown flipped back. "
+                      "Note: these are marque artwork, not the boot splash — see the docs.")
+        note.setObjectName("Subtitle")
+        note.setWordWrap(True)
+        v.addWidget(note)
+
+        self.splash_log = QPlainTextEdit()
+        self.splash_log.setReadOnly(True)
+        self.splash_log.setFixedHeight(80)
+        self.splash_log.setPlaceholderText("Splash results appear here.")
+        v.addWidget(self.splash_log)
+
+        if splashmod is None:
+            self.splash_say("tools/splash.py could not be imported — tab disabled")
+        self.splash_load()
+        return page
+
+    def splash_say(self, text):
+        self.splash_log.appendPlainText(text)
+
+    def splash_marque_name(self):
+        return self.splash_marque.currentText() or "peugeot"
+
+    def splash_path(self):
+        return os.path.join(self.tree, splashmod.DIR,
+                            self.splash_marque_name() + ".pkg") if self.tree and splashmod else ""
+
+    def splash_pkg(self):
+        p = self.splash_path()
+        if not p or not os.path.exists(p):
+            return None, None
+        raw = Path(p).read_bytes()
+        return p, splashmod.Pkg(raw)
+
+    def splash_load(self):
+        self.splash_table.setRowCount(0)
+        self.splash_view.setPixmap(QPixmap())
+        self.splash_view.setText("select an image to preview it")
+        if splashmod is None:
+            return
+        p, pk = self.splash_pkg()
+        if pk is None:
+            self.splash_label.setText("no package — open a media tree first")
+            return
+        self.splash_label.setText("%s  ·  %d images  ·  %s" % (
+            os.path.basename(p), len(pk.chunks),
+            "directory hash ok" if pk.check_hash() else "directory hash MISMATCH"))
+
+        self.splash_table.setRowCount(len(pk.chunks))
+        for i, c in enumerate(pk.chunks):
+            name = pk.records[i][1] if i < len(pk.records) else "image%d" % i
+            for col, text in ((0, str(i + 1)), (1, name), (2, "%d B" % (c.length + 3))):
+                item = QTableWidgetItem(text)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self.splash_table.setItem(i, col, item)
+        if pk.chunks:
+            self.splash_table.selectRow(0)
+
+    def splash_selected(self):
+        row = self.splash_table.currentRow()
+        return row if row >= 0 else None
+
+    def splash_select(self):
+        idx = self.splash_selected()
+        if idx is None or splashmod is None:
+            return
+        _, pk = self.splash_pkg()
+        if pk is None or idx >= len(pk.chunks):
+            return
+        try:
+            shown = splashmod.flip_bmp(pk.image(idx))       # undo the stored mirror
+        except SystemExit:
+            shown = pk.image(idx)
+        img = QImage.fromData(shown, "BMP")
+        if img.isNull():
+            self.splash_view.setText("could not decode this image")
+            return
+        self._splash_pixmap = QPixmap.fromImage(img)
+        self._rescale_splash()
+
+    def _rescale_splash(self):
+        pix = getattr(self, "_splash_pixmap", None)
+        if pix is None or pix.isNull():
+            return
+        avail = self.splash_view.size()
+        self.splash_view.setPixmap(pix.scaled(max(avail.width() - 16, 100),
+                                              max(avail.height() - 16, 100),
+                                              Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._rescale_splash()
+
+    def splash_import(self):
+        idx = self.splash_selected()
+        if idx is None:
+            QMessageBox.information(self, "Pick a row", "Select the image to replace first.")
+            return
+        path, pk = self.splash_pkg()
+        if pk is None:
+            QMessageBox.information(self, "No package", "Open a media tree first.")
+            return
+        src, _ = QFileDialog.getOpenFileName(
+            self, "Image to use (scaled to %dx%d)" % (splashmod.IMAGE_W, splashmod.IMAGE_H),
+            "", "Images (*.png *.jpg *.jpeg *.bmp *.webp);;All files (*)")
+        if not src:
+            return
+        try:
+            bmp = splashmod.flip_bmp(splashmod.to_bmp(src))
+        except SystemExit as e:
+            QMessageBox.critical(self, "Could not use that image", str(e))
+            return
+        new = {i: pk.image(i) for i in range(len(pk.chunks))}
+        new[idx] = bmp
+        out = splashmod.build(pk, new)
+        open(path, "wb").write(out)
+        self.splash_say("replaced image %d with %s (%d -> %d bytes)"
+                        % (idx + 1, os.path.basename(src), len(pk.raw), len(out)))
+        self.splash_say("  remember: the package still has to be rebuilt and re-sealed")
+        self.splash_load()
+        self.splash_table.selectRow(idx)
+
+    def splash_export(self):
+        idx = self.splash_selected()
+        _, pk = self.splash_pkg()
+        if idx is None or pk is None:
+            return
+        name = pk.records[idx][1] if idx < len(pk.records) else "image%d" % idx
+        dest, _ = QFileDialog.getSaveFileName(self, "Export as PNG",
+                                              os.path.splitext(name)[0] + ".png", "PNG (*.png)")
+        if not dest:
+            return
+        shown = splashmod.flip_bmp(pk.image(idx))
+        img = QImage.fromData(shown, "BMP")
+        if img.save(dest):
+            self.splash_say("exported image %d to %s" % (idx + 1, dest))
+        else:
+            self.splash_say("could not write %s" % dest)
 
     # ---------------------------------------------------------------------- pack
 

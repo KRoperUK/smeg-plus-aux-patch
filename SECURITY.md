@@ -19,7 +19,7 @@ Two things are worth stating plainly:
 If you find a vulnerability **in the tooling** — something that could corrupt a package
 silently, write outside the output directory, execute unintended commands from a crafted
 input, or mishandle untrusted files — please report it privately via
-[GitHub Security Advisories](https://github.com/KRoperUK/smeg-plus-aux-patch/security/advisories/new)
+[GitHub Security Advisories](https://github.com/KRoperUK/smeg-plus-patches/security/advisories/new)
 rather than a public issue. Expect an acknowledgement within a week.
 
 Please include the command you ran, the input that triggered it, and what happened.

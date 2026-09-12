@@ -51,10 +51,10 @@ normally:
 - **UI:** the PR shows a *Workflow(s) awaiting approval* banner — click **Approve and run**.
 - **CLI:**
   ```sh
-  RUN=$(gh run list --repo KRoperUK/smeg-plus-aux-patch \
+  RUN=$(gh run list --repo KRoperUK/smeg-plus-patches \
       --branch release-please--branches--main --workflow CI \
       --json databaseId,conclusion --jq '[.[]|select(.conclusion=="action_required")][0].databaseId')
-  gh api -X POST repos/KRoperUK/smeg-plus-aux-patch/actions/runs/$RUN/approve
+  gh api -X POST repos/KRoperUK/smeg-plus-patches/actions/runs/$RUN/approve
   ```
 
 The alternative is to give Release Please a personal access token (so its PRs trigger

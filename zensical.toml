@@ -1,12 +1,12 @@
-# Zensical configuration for the smeg-plus-aux-patch documentation site.
+# Zensical configuration for the smeg-plus-patches documentation site.
 # https://zensical.org/docs/setup/basics/
 
 [project]
 site_name = "SMEG+ AUX patch"
 site_description = "Reverse-engineering notes and tooling for PSA/Stellantis SMEG+ head units"
 site_url = "https://smeg.kroper.uk/"
-repo_url = "https://github.com/KRoperUK/smeg-plus-aux-patch"
-repo_name = "KRoperUK/smeg-plus-aux-patch"
+repo_url = "https://github.com/KRoperUK/smeg-plus-patches"
+repo_name = "KRoperUK/smeg-plus-patches"
 copyright = "MIT licensed. Not affiliated with Stellantis, Peugeot, Citroen, DS or Magneti Marelli."
 
 nav = [
@@ -22,6 +22,7 @@ nav = [
   { "Patch reference" = "PATCHES.md" },
   { "Running the tools" = "RUNNING.md" },
   { "Flashing" = "FLASHING.md" },
+  { "Hardware verification" = "VERIFICATION.md" },
   { "Releasing" = "RELEASING.md" },
 ]
 

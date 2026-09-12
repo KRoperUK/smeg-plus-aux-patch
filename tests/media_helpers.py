@@ -4,6 +4,7 @@ import struct
 import tarfile
 import wave
 import zlib
+from pathlib import Path
 
 # --- media partition (for patch_media.py) ----------------------------------
 
@@ -43,7 +44,34 @@ def build_system_ctrl(files):
     return bytes(out)
 
 
-def build_media_package(root, module="NAV", extra_constant=True):
+def up_common_bytes(names=None):
+    """A minimal `up_common.sqlite` holding the phone ringtone name list.
+
+    The unit takes the names it shows in the phone UI from here, not from the WAVs.
+    """
+    import sqlite3
+    import tempfile
+    names = names or ["Alien", "Blue_lemon", "Blue_tangerine", "Green_apple", "Green_lemon",
+                      "Green_pin_apple", "Green_tangerine", "Red_strawberry",
+                      "Red_tangerine", "Ufo"]
+    tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
+    tmp.close()
+    con = sqlite3.connect(tmp.name)
+    con.execute("create table UP_Keys (Section text, Name text, Type int, Idx int,"
+                " IntValue int, FloatValue real, StringValue text, BlobValue blob,"
+                " reset_factory_enabled int, modified int)")
+    for i, n in enumerate(names):
+        con.execute("insert into UP_Keys (Section, Name, Type, Idx, StringValue,"
+                    " reset_factory_enabled, modified) values ('phone','Ringing_List',4,?,?,0,0)",
+                    (i, n))
+    con.commit()
+    con.close()
+    data = Path(tmp.name).read_bytes()
+    os.unlink(tmp.name)
+    return data
+
+
+def build_media_package(root, module="NAV", extra_constant=True, extra_files=None):
     """A minimal but structurally faithful media partition.
 
     `extra_constant` adds the same unexplained offset the vendor's SIZE_1/2/4 carry,
@@ -56,6 +84,7 @@ def build_media_package(root, module="NAV", extra_constant=True):
         "ring_tones/ring2RT.wav": wav_bytes(frames=882),
         "wait_tones/MM_HoldOn_ENG_8kHz.wav": wav_bytes(channels=2, rate=8000, frames=800),
     }
+    files.update(extra_files or {})
 
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w", format=tarfile.GNU_FORMAT) as tf:
@@ -97,7 +126,7 @@ def build_media_package(root, module="NAV", extra_constant=True):
     mod_ctrl_path = os.path.join(root, "%s_ctrl.bin" % module)
     mod_ctrl = manifest([
         (1, zlib.crc32(bin_bytes) & 0xFFFFFFFF, "/%s/system.bin" % module),
-        (1, zlib.crc32(open(os.path.join(mod_dir, "system.bin.inf"), "rb").read()) & 0xFFFFFFFF,
+        (1, zlib.crc32(Path(os.path.join(mod_dir, "system.bin.inf")).read_bytes()) & 0xFFFFFFFF,
          "/%s/system.bin.inf" % module),
         (1, zlib.crc32(ctrl) & 0xFFFFFFFF, "/%s/system_ctrl.bin" % module),
     ])

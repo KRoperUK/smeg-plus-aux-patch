@@ -1,4 +1,4 @@
-# smeg-plus-aux-patch
+# smeg-plus-patches
 
 Reverse-engineering notes and tooling for patching **PSA / Stellantis "SMEG+"**
 infotainment firmware so the **AUX audio source is selected automatically** when a
@@ -8,6 +8,12 @@ signal appears — the thing you want when an aftermarket CarPlay/Android-Auto p
 Tested against: **Peugeot 208 (2015), SMEG+ iV1, hardware diversity `NAV`,
 firmware `SMEG5.43.A.R2` (CD 26482, 19-09-17)** — but the same approach applies to the
 non-NAV (`AUDIO_BT`) builds.
+
+**Status:** a patched, contract re-sealed package has been flashed to a real unit and
+accepted — the media check passed, the application image was written, and the
+`IsAUXSRCAvailable()` change is confirmed working (AUX no longer greys out). The
+**automatic switch itself has not yet been observed working**; that is the open question.
+See [Hardware verification](docs/VERIFICATION.md).
 
 > ## No vendor firmware is included
 > This repository contains **only original reverse-engineering notes and scripts**.

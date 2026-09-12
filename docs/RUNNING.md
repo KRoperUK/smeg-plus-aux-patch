@@ -7,8 +7,8 @@ metadata, so `uv` installs what each one needs, once, and caches it.
 ## From a checkout
 
 ```sh
-git clone https://github.com/KRoperUK/smeg-plus-aux-patch
-cd smeg-plus-aux-patch
+git clone https://github.com/KRoperUK/smeg-plus-patches
+cd smeg-plus-patches
 
 uv run tools/ringtone_studio.py                     # the Qt app (fetches PySide6)
 uv run tools/patch_media.py --help                  # media partition patcher
@@ -24,12 +24,12 @@ CLI tools pull nothing.
 `uvx` runs the packaged console scripts straight from the repository:
 
 ```sh
-uvx --from git+https://github.com/KRoperUK/smeg-plus-aux-patch smeg-patch-media --help
-uvx --from git+https://github.com/KRoperUK/smeg-plus-aux-patch smeg-ringtones list
-uvx --from git+https://github.com/KRoperUK/smeg-plus-aux-patch smeg-patch --help
+uvx --from git+https://github.com/KRoperUK/smeg-plus-patches smeg-patch-media --help
+uvx --from git+https://github.com/KRoperUK/smeg-plus-patches smeg-ringtones list
+uvx --from git+https://github.com/KRoperUK/smeg-plus-patches smeg-patch --help
 
 # the GUI needs the optional Qt extra
-uvx --from 'smeg-plus-aux-patch[gui] @ git+https://github.com/KRoperUK/smeg-plus-aux-patch' smeg-studio
+uvx --from 'smeg-plus-patches[gui] @ git+https://github.com/KRoperUK/smeg-plus-patches' smeg-studio
 ```
 
 | console script | equivalent |
@@ -68,6 +68,39 @@ already in the target format works without it:
 brew install ffmpeg        # macOS
 ```
 
+## One command per package: the manifest build
+
+Applying a patch by hand means running three or four tools in order with an `rsync` between
+each, and two of those orderings fail *silently* if you get them wrong — the media step
+against an un-patched package drops the application change, and re-sealing before the last
+edit leaves the package rejected by the unit (string 2099).
+
+`tools/build_package.py` owns that ordering. A build becomes a file you can read, commit
+and re-run:
+
+```json
+{
+  "package": "SMEG_PLUS_UPG",
+  "out": "SMEG_PLUS_UPG_custom",
+  "module": "NAV",
+  "app":   { "patches": ["aux-autoswitch"] },
+  "media": {
+    "tones":  { "ring_tones/ring1RT.wav": { "source": "tone.mp3", "gain_db": 7.4 } },
+    "splash": { "peugeot": "logo.png" },
+    "names":  { "ring1": "Piano Riff" }
+  },
+  "seal": true
+}
+```
+
+```sh
+uv run tools/build_package.py --manifest build.json
+uv run tools/build_package.py --manifest build.json --dry-run   # show the steps only
+```
+
+Every section is optional. `gain_db` is worth setting: the stock tones sit at about
+-1 dBFS, so an unmodified music track sounds muted in the car next to them.
+
 ## Cheat sheet
 
 ```sh
@@ -76,17 +109,52 @@ uv run tools/patch_media.py list --package SMEG_PLUS_UPG --module NAV --tones
 
 # pull it out, keeping a copy of the originals for restore
 uv run tools/patch_media.py extract --package SMEG_PLUS_UPG --module NAV \
-    --tree media --backup ~/smeg-test/backups
+    --tree media --backup backups --backup-tones-only
 
 # put one back
-uv run tools/patch_media.py restore --backup ~/smeg-test/backups --tree media \
+uv run tools/patch_media.py restore --backup backups --tree media \
     --module NAV --only ring_tones/ring1RT.wav
+
+# see what would change, without writing
+uv run tools/patch_media.py apply --package SMEG_PLUS_UPG --module NAV \
+    --tree media --out overlay --dry-run
 
 # rebuild the package from whatever differs in the tree
 uv run tools/patch_media.py apply --package SMEG_PLUS_UPG --module NAV \
-    --tree media --out SMEG_PLUS_UPG_mod
+    --tree media --out overlay
+rsync -a overlay/ SMEG_PLUS_UPG_mod/
 
-# application image patches (the AUX work) — always follow with the contract step
-uv run tools/patch_smeg.py --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
-uv run tools/patch_contract.py --package SMEG_PLUS_UPG_mod --only NAV
+# application image patches (the AUX work)
+uv run tools/patch_smeg.py --src SMEG_PLUS_UPG --out overlay
+rsync -a overlay/ SMEG_PLUS_UPG_mod/
+
+# brand splash: inspect, or swap the boot logo (also works in the GUI)
+uv run tools/splash.py --tree media list
+uv run tools/splash.py --tree media replace --marque peugeot --image my-logo.png
+uv run tools/splash.py --tree media selftest     # proves the container model
+
+# ALWAYS last, whatever else you changed
+uv run tools/patch_contract.py --package SMEG_PLUS_UPG_mod
 ```
+
+!!! warning "These tools write overlays, not packages"
+
+    `patch_smeg.py` and `patch_media.py` write **only the files they change** (a handful
+    of manifests, the image, the tar) into `--out` — they do not produce a complete
+    package. Overlay the result onto a copy of your package with `rsync`. Pass
+    `--copy-package` to `patch_smeg.py` if you would rather it copy the whole thing.
+
+    `patch_contract.py` is the exception: with no `--out` it rewrites `contract.dat`
+    **in place**.
+
+Ordering and the two orderings that matter:
+
+- **Application patch, then media patch.** `patch_smeg` rewrites `NAV_ctrl.bin` and
+  `ctrl.bin` for the application image; `patch_media` swaps the `system.bin` records
+  *inside those same manifests*. Run the media step against the already-patched package
+  and it carries the application change; run it against the stock package and it does not.
+- **Contract re-seal last.** It seals whatever the package contains at that moment, so
+  anything changed afterwards is unsealed and the unit will reject it (string 2099).
+
+A complete worked example — an application patch plus a custom ring tone — is in
+[Ring tones](RINGTONES.md#worked-example-replacing-a-ring-tone).

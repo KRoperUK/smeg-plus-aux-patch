@@ -180,7 +180,9 @@ def adjusted_size_fields(old_data, new_data, old_fields):
 def patch_system_ctrl(ctrl_bytes, changes, old_data):
     buf = bytearray(ctrl_bytes)
     for name, new in changes.items():
-        needle = (SYSTEM_PREFIX + name).encode()
+        # the path is NUL-terminated inside the record, so require the terminator: without
+        # it "x.pkg" also matches a "x.pkg.inf" record and looks like a duplicate
+        needle = (SYSTEM_PREFIX + name).encode() + b"\x00"
         off = buf.find(needle)
         if off < 0:
             die("system_ctrl.bin has no record for %s — cannot replace it" % name)
