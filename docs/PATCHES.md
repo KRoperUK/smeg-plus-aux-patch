@@ -76,6 +76,7 @@ being corrupted.
 | `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | the combined build — flashed successfully, first patch confirmed on hardware |
 | `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | behavioural, no switching |
 | `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate, untested |
+| `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | diagnostic build, **not for driving** |
 
 !!! note "Hardware status"
 
@@ -83,6 +84,37 @@ being corrupted.
     check. The `IsAUXSRCAvailable()` change is confirmed working: AUX no longer greys out
     and is back in the SRC cycle. The **auto-switch has not been observed working yet** —
     see [Hardware verification](VERIFICATION.md).
+
+### `diagnostic-logging` — a diagnostic, not a fix
+
+The application's logging is compiled in but stubbed out. Every log call site tests a global
+and, when logging is off, calls `dummyLogMsg` instead of `Log_msg`. `dummyLogMsg` at
+`0x010346d0` is literally:
+
+```
+010346d0  li  r3, 0
+010346d4  blr
+```
+
+So replacing that one instruction with a branch to the real logger:
+
+| build | address | original | patched |
+|---|---|---|---|
+| `NAV` | `0x010346d0` | `38 60 00 00` (`li r3,0`) | `49 70 de 88` (`b 0x02742558`) |
+
+makes **every** gated log call in the image live. `Log_msg` (`0x02742558`) wants `r3` = level
+and `r4` = format, and the caller has already set both before calling the stub, so the branch
+passes them straight through. The two functions are 24 174 216 bytes apart, inside the 24-bit
+branch range, so no code cave is needed.
+
+**Use it to find out whether something is reaching the app** — for example whether DBUS
+message `0xcb` (203), the AUX status trigger, arrives at the media app at all. Turn it on, and
+expect a lot of output: **do not drive on this build**, and reflash a normal one afterwards.
+
+Open question: `Log_msg` is the debug channel, so where its output actually lands — serial,
+the spy ring buffer, or a file — decides whether this is readable without hardware attached.
+Settle that before flashing it.
+
 
 ### `aux-always-available`
 
