@@ -3,9 +3,12 @@
 The head unit keeps its user-facing data partition in `AUDIO_BT/system.bin` /
 `NAV/system.bin`: a gzip-compressed **tar** that is extracted to `/SYSTEM/` on the unit.
 
-Nothing here is patched by the current tooling — the app-image patcher only touches
-`AppBin/f_BigQuick.bin`. This document records what lives in the partition and what
-would be involved in editing it.
+The partition can be **rebuilt**, and `tools/patch_media.py` does it: extract the tar,
+replace a file, re-tar, re-gzip, then repair `system_ctrl.bin` (per-file CRCs),
+`system.bin.inf` (`CRC32` + the `SIZE` fields), the module manifest and the root manifest.
+Replacing a ring tone is the worked example — see [Ring tones](RINGTONES.md). Only
+**replacement** is supported: *adding* a file would need a new `system_ctrl.bin` record,
+and the record semantics are only partly understood.
 
 ## How the partition is described
 
@@ -37,8 +40,10 @@ gzip size, and they are computable:
   padding. Verified exactly against the real partition: 844 files, sum **32 710 671**,
   matching `SIZE:` to the byte.
 * **`SIZE_n`** = the same sum with every file rounded up to an *n* KiB block
-  (`Σ roundup(size, n * 1024)`). Exact for n = 8, 16 and 32; within ~30 KB for
-  n = 1, 2, 4.
+  (`Σ roundup(size, n * 1024)`). Exact for n = 8, 16 and 32. For n = 1, 2 and 4 it lands a
+  fixed amount *below* the vendor's values — **29 696**, **18 432** and **8 192** bytes
+  respectively, the same three constants on both a stock and a rebuilt partition. That
+  rule was not identified, so the values are not derived from scratch.
 
 They are read by **`UpgPlugin.out`**, not `upgrade.out` — the plugin's
 `C_UPG_PLUGIN_Interface::GetSize()` / `GetPartitionBlockSize()` select the field that
@@ -106,10 +111,14 @@ Relevant code: `C_SRV_RING_TOUCH` (`srvPlayTouch`, `srvSetCurrentIDTone`,
 `SetRingFilePath`), `C_FS_STORAGE_CTRL_PATH::GetRingTonesDir`, and
 `GetRingToneList` / `GetRingtoneID` / `SetRingToneID` behind the phone settings UI.
 
-**Custom ringtones** would mean replacing `ringNRT.wav` with your own file in the same
-format, keeping the filename. That is a media-partition edit, i.e. blocked on the same
-rebuild question above (and your replacement WAV will not be the same size, so the tar
-definitely changes).
+**Custom ringtones** means replacing `ringNRT.wav` with your own file in the same format,
+keeping the filename. This works: the partition rebuild is implemented, and the `SIZE`
+fields are carried forward by exactly the size change of the replaced file. Replacements
+are essentially never the same size as the original, so the tar and every manifest above
+it do change — which the tool handles in one step. See
+[Ring tones](RINGTONES.md) for the worked example, including the level-matching caveat:
+the stock tones are mastered loud (peak ≈ −1 dBFS), so an unmodified music track will
+sound noticeably quieter than the tone it replaced.
 
 ## Wait tones — `/SYSTEM/wait_tones/`
 
