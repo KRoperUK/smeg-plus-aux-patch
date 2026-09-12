@@ -48,7 +48,9 @@ def test_every_row_has_a_preview_button(studio):
     assert len(studio._preview_btns) == len(rs.SLOTS)
     assert set(studio._preview_btns) == set(rs.SLOTS)
     for btn in studio._preview_btns.values():
-        assert btn.text() == "Preview"
+        assert btn.toolTip() == "Play this tone"
+        assert btn.accessibleName() == "Play this tone"
+        assert not btn.icon().isNull(), "icon buttons must carry an icon"
 
 
 def test_preview_is_disabled_without_a_file(studio, tmp_path):
@@ -77,14 +79,14 @@ def test_preview_toggles_and_stops(studio, tmp_path):
 
     studio.preview_tone("ring1")
     assert studio._playing_slot == "ring1"
-    assert studio._preview_btns["ring1"].text() == "Stop"
+    assert studio._preview_btns["ring1"].toolTip() == "Stop preview"
     # other rows keep saying Preview
-    assert studio._preview_btns["ring2"].text() == "Preview"
+    assert studio._preview_btns["ring2"].toolTip() == "Play this tone"
 
     # clicking the same row again stops it
     studio.preview_tone("ring1")
     assert studio._playing_slot is None
-    assert studio._preview_btns["ring1"].text() == "Preview"
+    assert studio._preview_btns["ring1"].toolTip() == "Play this tone"
 
 
 def test_stop_preview_is_idempotent(studio):
@@ -116,8 +118,8 @@ def test_switching_slots_stops_the_previous(studio, tmp_path):
     studio.preview_tone("ring1")
     studio.preview_tone("ring2")
     assert studio._playing_slot == "ring2"
-    assert studio._preview_btns["ring1"].text() == "Preview"
-    assert studio._preview_btns["ring2"].text() == "Stop"
+    assert studio._preview_btns["ring1"].toolTip() == "Play this tone"
+    assert studio._preview_btns["ring2"].toolTip() == "Stop preview"
 
 
 def test_studio_still_builds_its_tabs(studio):
