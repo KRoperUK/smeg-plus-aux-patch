@@ -114,6 +114,11 @@ a dynamically-resolved BSP symbol. `UpgradeHarmoniesIfNeeded` runs four steps: s
 harmony offset from `Harmony.ini`, erase all harmonies, manage the ones on the stick,
 then write them. Images are read/written with bad-block handling.
 
+**Resolved since this was first written:** the `SIZE:` / `SIZE_1..SIZE_32` fields are
+computable — `SIZE` is the sum of the file sizes inside the tar and `SIZE_n` the same with
+each file rounded up to *n* KiB. They are read by `UpgPlugin.out` for the media space check.
+See [Media partition](MEDIA_PARTITION.md#the-size-fields-solved).
+
 ### Version gates
 
 ```
@@ -163,8 +168,6 @@ tool) — **hypothesis, not proven**.
 
 - Exact field offsets inside `dbsystem.bin`.
 - `CheckType` semantics for values 0–3.
-- The `SIZE:` / `SIZE_1..SIZE_32` formula in `system.bin.inf` (blocks media edits — see
-  [Media partition](MEDIA_PARTITION.md)).
 - `contract.dat`: format, and who consumes it.
 - Which module a given unit selects at runtime (`AUDIO_BT` vs `_256` vs `NAV`) — read
   from the vehicle/hardware type, not traced.

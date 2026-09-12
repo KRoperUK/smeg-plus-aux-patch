@@ -25,6 +25,8 @@ app.elf
 # python
 __pycache__/
 *.pyc
+.pytest_cache/
+.cache/
 .venv/
 venv/
 

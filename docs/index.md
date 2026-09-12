@@ -22,7 +22,7 @@ AUX by itself when that audio appears rather than needing a manual source change
 | [Overview](ANALYSIS.md) | the application image, symbol maps, and the AUX event chain |
 | [Architecture](ARCHITECTURE.md) | how the whole firmware fits together — modules, HMI framework, messaging, subsystems, databases |
 | [Boot & update chain](FLASH_CHAIN.md) | the RTOS/BSP, front-panel MCU, what the updater does and in what order |
-| [Media partition](MEDIA_PARTITION.md) | `system.bin`, ring tones, wait tones, resources, and the rebuild blocker |
+| [Media partition](MEDIA_PARTITION.md) | `system.bin`, ring tones, wait tones, resources, and how it is checksummed |
 | [Cheatcodes & spy](CHEATCODES.md) | the diagnostic cheatcode list, the hidden entry screen, and the spy system |
 | [Version strings](VERSION_STRINGS.md) | what the version screens read and how the updater gates on them |
 | [Patch reference](PATCHES.md) | exact addresses and bytes, per build |

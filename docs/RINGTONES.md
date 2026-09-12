@@ -61,7 +61,7 @@ cheatcode menu and the version marker.
 
 That repack used to be blocked on the `SIZE:` / `SIZE_1..SIZE_32` fields. It no longer
 is: they are computable from the tar (see
-[Media partition](MEDIA_PARTITION.md#the-size-fields--solved)).
+[Media partition](MEDIA_PARTITION.md#the-size-fields-solved)).
 
 What is still missing is the tool: a `patch_media.py` that swaps a file inside the tar
 and rebuilds `system_ctrl.bin` → `system.bin` → `system.bin.inf` → the module manifest

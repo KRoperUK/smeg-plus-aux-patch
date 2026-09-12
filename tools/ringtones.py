@@ -114,10 +114,17 @@ def cmd_probe(args):
     print("%s: %s" % (args.input, describe(args.input)))
 
 
+def require_media_tree(tree):
+    """A media tree must have at least one of the tone directories, or we are pointed wrong."""
+    if not any(os.path.isdir(os.path.join(tree, d)) for d in (RING_DIR, WAIT_DIR)):
+        sys.exit("%s does not look like an extracted media partition (no %s/ or %s/)\n"
+                 "Pass the directory that contains them, not the package folder."
+                 % (tree, RING_DIR, WAIT_DIR))
+
+
 def cmd_export(args):
     tree = args.tree
-    if not os.path.isdir(os.path.join(tree, RING_DIR)):
-        sys.exit("%s does not look like an extracted media partition (no %s/)" % (tree, RING_DIR))
+    require_media_tree(tree)
     os.makedirs(args.output, exist_ok=True)
     n = 0
     for sub in (RING_DIR, WAIT_DIR):
@@ -140,6 +147,7 @@ def cmd_convert(args):
 
 def cmd_stage(args):
     rel, ch, rate = resolve_slot(args.slot)
+    require_media_tree(args.tree)
     dst = os.path.join(args.tree, rel)
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     how = convert(args.input, dst, ch, rate)
