@@ -115,4 +115,5 @@ python3 tools/ppcdis.py app_nav.bin abs_symbols_base.txt 0x0230331c 0x02303460
 ## Licence
 
 MIT — see [`LICENSE`](LICENSE). The scripts are the author's own work. No third-party
-firmware is covered by, or included under, this licence.
+firmware is covered by, or included under, this licence. See [`NOTICE.md`](NOTICE.md)
+for the trademark and no-firmware statements.
