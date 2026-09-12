@@ -60,9 +60,11 @@ Patches are data-driven — see [`patches/aux-autoswitch.json`](patches/aux-auto
 
 ## Requirements
 
-- Python 3.9+
-- `capstone` (only for the disassembly helper): `pip install capstone`
+- [uv](https://docs.astral.sh/uv/) — the scripts declare their own dependencies, so
+  `uv run tools/<script>` needs no setup. See [Running the tools](docs/RUNNING.md).
+- `ffmpeg` for audio conversion (mp3/ogg/flac/...); WAV needs nothing.
 - Your own SMEG+ upgrade package, laid out as `SMEG_PLUS_UPG/…`
+- `capstone` is only needed by the disassembly helper (`tools/ppcdis.py`).
 
 ## Usage
 
@@ -73,6 +75,10 @@ python3 tools/unpack.py SMEG_PLUS_UPG/NAV/AppBin/f_BigQuick.bin app_nav.bin
 ```
 
 ### 2. Patch a copy of the package
+
+```sh
+uv run tools/patch_smeg.py --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
+```
 
 ```sh
 python3 tools/patch_smeg.py \
@@ -105,6 +111,7 @@ SMEG+ update on the car (engine running). See [`docs/FLASHING.md`](docs/FLASHING
 | `tools/ppcdis.py` | PowerPC disassembler with symbol/call resolution |
 | `tools/xref.py` | find code that references a string, address or pointer |
 | `tools/callers.py` | find direct (`bl`) callers of a function |
+| `tools/patch_media.py` | rebuild a media partition (ring tones, resources) |
 | `tools/ringtones.py` | convert custom audio to the unit's ring/wait tone formats |
 | `tools/ringtone_studio.py` | Qt front-end: ringtone conversion + patch builder (optional) |
 | `tools/apply_files.sh` | overlay patched files onto a package copy |
@@ -122,6 +129,7 @@ Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and de
 | doc | contents |
 |---|---|
 | [`docs/ANALYSIS.md`](docs/ANALYSIS.md) | application image format, symbol maps, the AUX event chain, why the switch fails |
+| [`docs/RUNNING.md`](docs/RUNNING.md) | how to run everything with `uv` / `uvx` |
 | [`docs/PATCHES.md`](docs/PATCHES.md) | exact addresses and bytes per build |
 | [`docs/FLASHING.md`](docs/FLASHING.md) | preparing the USB stick and flashing |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | how the whole firmware fits together: modules, HMI framework, messaging, subsystems, databases |

@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+
 """Apply a SMEG+ patch set to an upgrade package and rebuild its checksum cascade.
 
 The application for each variant is AppBin/f_BigQuick.bin: a 0x801-byte header

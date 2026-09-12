@@ -47,10 +47,28 @@ is not one of the managed values (`SD Block size (%d) not managed!`). They feed 
 media space-check (`C_APPLI_UPG_PLUGIN::CheckMediaTask`), so they should be recomputed
 after a media edit — but nothing needs to be obtained from elsewhere to do it.
 
-**What this means:** the media partition can be rebuilt. The remaining work is a
-`patch_media.py` that extracts the tar, swaps a file, re-tars and re-gzips, then
-updates `system_ctrl.bin` (the per-file CRCs), `system.bin.inf` (`CRC32` + the `SIZE`
-fields), the module manifest and the root manifest.
+**How the patcher handles them.** Our own formula reproduces `SIZE` exactly but lands a
+fixed, module-independent amount below the vendor's values for n = 1/2/4 (29 696, 18 432
+and 8 192 bytes — a rule we could not identify). Rather than guess it,
+`tools/patch_media.py` applies the *delta* to the values already in the `.inf`: an
+untouched partition keeps its numbers byte-for-byte, and a changed file moves each field
+by exactly its own size change.
+
+**What this means:** the media partition can be rebuilt. `tools/patch_media.py` extracts
+the tar, swaps a file, re-tars and re-gzips, then updates `system_ctrl.bin` (the per-file
+CRCs), `system.bin.inf` (`CRC32` + the `SIZE` fields), the module manifest and the root
+manifest. See [Running the tools](RUNNING.md).
+
+### `system_ctrl.bin`
+
+Fixed **264-byte** records, preceded by a 0x30-byte header:
+
+```
+[path][zero padding][CheckType = 2 (1 byte)][CRC32 of the file (4 bytes, big-endian)]
+```
+
+The CRC sits at `path_offset + 260`. Verified against the real partition: the record for
+`/SYSTEM/Data_base/media.inf` carries `0x7df5e611`, which is the CRC32 of that file.
 
 ## Top-level layout
 
