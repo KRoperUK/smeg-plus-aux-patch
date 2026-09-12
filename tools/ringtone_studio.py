@@ -40,8 +40,13 @@ except ImportError:
     sys.exit("cannot import tools/ringtones.py — run this from the repository")
 
 try:
+    import splash as splashmod  # noqa: E402
+except ImportError:
+    splashmod = None
+
+try:
     from PySide6.QtCore import Qt, QUrl  # noqa: E402
-    from PySide6.QtGui import QFont  # noqa: E402
+    from PySide6.QtGui import QFont, QImage, QPixmap  # noqa: E402
     from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,  # noqa: E402
                                    QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                    QMessageBox, QPlainTextEdit, QPushButton, QTabWidget,
@@ -171,6 +176,7 @@ class Studio(QWidget):
 
         tabs = QTabWidget()
         tabs.addTab(self._ringtones_tab(), "Ringtones")
+        tabs.addTab(self._splash_tab(), "Splash screens")
         tabs.addTab(self._pack_tab(), "Pack & patch")
         root.addWidget(tabs, 1)
 
@@ -450,6 +456,194 @@ class Studio(QWidget):
         open(dst, "wb").write(open(bck, "rb").read())
         self.say("restored %s from the package backup" % rel)
         self.populate()
+
+    # --------------------------------------------------------------------- splash
+
+    def _splash_tab(self):
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(0, 12, 0, 0)
+        v.setSpacing(12)
+
+        self.splash_marque = QComboBox()
+        self.splash_marque.addItems(list(splashmod.MARQUES) if splashmod else [])
+        self.splash_marque.currentTextChanged.connect(lambda _: self.splash_load())
+        self.splash_label = QLabel("")
+        self.splash_label.setObjectName("Subtitle")
+
+        v.addWidget(card(row([
+            QLabel("Marque"), self.splash_marque,
+            self._btn("Import image…", self.splash_import, primary=True),
+            self._btn("Export as PNG…", self.splash_export),
+            self._btn("Open media tree…", self.choose_tree),
+            self.splash_label,
+        ])))
+
+        split = QHBoxLayout()
+        split.setSpacing(12)
+
+        self.splash_table = QTableWidget(0, 3)
+        self.splash_table.setHorizontalHeaderLabels(["#", "FILE IN THE PARTITION", "STORED"])
+        self.splash_table.verticalHeader().setVisible(False)
+        self.splash_table.setShowGrid(False)
+        self.splash_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.splash_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.splash_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.splash_table.verticalHeader().setDefaultSectionSize(34)
+        self.splash_table.horizontalHeader().setStretchLastSection(True)
+        for i, w in enumerate((34, 250, 100)):
+            self.splash_table.setColumnWidth(i, w)
+        self.splash_table.itemSelectionChanged.connect(self.splash_select)
+        split.addWidget(self.splash_table, 1)
+
+        self.splash_view = QLabel("select an image to preview it")
+        self.splash_view.setObjectName("Muted")
+        self.splash_view.setAlignment(Qt.AlignCenter)
+        self.splash_view.setMinimumSize(400, 240)
+        self.splash_view.setStyleSheet(
+            "background:#FFFFFF;border:1px solid #E4E6EA;border-radius:12px;")
+        split.addWidget(self.splash_view, 1)
+        v.addLayout(split, 1)
+
+        note = QLabel("Stored images are vertically mirrored — the unit flips them when "
+                      "rendering, so the preview is shown flipped back. "
+                      "Note: 1 = boot splash, 2–4 = phone/TRAFFIC prompts.")
+        note.setObjectName("Subtitle")
+        note.setWordWrap(True)
+        v.addWidget(note)
+
+        self.splash_log = QPlainTextEdit()
+        self.splash_log.setReadOnly(True)
+        self.splash_log.setFixedHeight(80)
+        self.splash_log.setPlaceholderText("Splash results appear here.")
+        v.addWidget(self.splash_log)
+
+        if splashmod is None:
+            self.splash_say("tools/splash.py could not be imported — tab disabled")
+        self.splash_load()
+        return page
+
+    def splash_say(self, text):
+        self.splash_log.appendPlainText(text)
+
+    def splash_marque_name(self):
+        return self.splash_marque.currentText() or "peugeot"
+
+    def splash_path(self):
+        return os.path.join(self.tree, splashmod.DIR,
+                            self.splash_marque_name() + ".pkg") if self.tree and splashmod else ""
+
+    def splash_pkg(self):
+        p = self.splash_path()
+        if not p or not os.path.exists(p):
+            return None, None
+        raw = open(p, "rb").read()
+        return p, splashmod.Pkg(raw)
+
+    def splash_load(self):
+        self.splash_table.setRowCount(0)
+        self.splash_view.setPixmap(QPixmap())
+        self.splash_view.setText("select an image to preview it")
+        if splashmod is None:
+            return
+        p, pk = self.splash_pkg()
+        if pk is None:
+            self.splash_label.setText("no package — open a media tree first")
+            return
+        self.splash_label.setText("%s  ·  %d images  ·  %s" % (
+            os.path.basename(p), len(pk.chunks),
+            "directory hash ok" if pk.check_hash() else "directory hash MISMATCH"))
+
+        self.splash_table.setRowCount(len(pk.chunks))
+        for i, c in enumerate(pk.chunks):
+            name = pk.records[i][1] if i < len(pk.records) else "image%d" % i
+            for col, text in ((0, str(i + 1)), (1, name), (2, "%d B" % (c.length + 3))):
+                item = QTableWidgetItem(text)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self.splash_table.setItem(i, col, item)
+        if pk.chunks:
+            self.splash_table.selectRow(0)
+
+    def splash_selected(self):
+        row = self.splash_table.currentRow()
+        return row if row >= 0 else None
+
+    def splash_select(self):
+        idx = self.splash_selected()
+        if idx is None or splashmod is None:
+            return
+        _, pk = self.splash_pkg()
+        if pk is None or idx >= len(pk.chunks):
+            return
+        try:
+            shown = splashmod.flip_bmp(pk.image(idx))       # undo the stored mirror
+        except SystemExit:
+            shown = pk.image(idx)
+        img = QImage.fromData(shown, "BMP")
+        if img.isNull():
+            self.splash_view.setText("could not decode this image")
+            return
+        self._splash_pixmap = QPixmap.fromImage(img)
+        self._rescale_splash()
+
+    def _rescale_splash(self):
+        pix = getattr(self, "_splash_pixmap", None)
+        if pix is None or pix.isNull():
+            return
+        avail = self.splash_view.size()
+        self.splash_view.setPixmap(pix.scaled(max(avail.width() - 16, 100),
+                                              max(avail.height() - 16, 100),
+                                              Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._rescale_splash()
+
+    def splash_import(self):
+        idx = self.splash_selected()
+        if idx is None:
+            QMessageBox.information(self, "Pick a row", "Select the image to replace first.")
+            return
+        path, pk = self.splash_pkg()
+        if pk is None:
+            QMessageBox.information(self, "No package", "Open a media tree first.")
+            return
+        src, _ = QFileDialog.getOpenFileName(
+            self, "Image to use (scaled to %dx%d)" % (splashmod.IMAGE_W, splashmod.IMAGE_H),
+            "", "Images (*.png *.jpg *.jpeg *.bmp *.webp);;All files (*)")
+        if not src:
+            return
+        try:
+            bmp = splashmod.flip_bmp(splashmod.to_bmp(src))
+        except SystemExit as e:
+            QMessageBox.critical(self, "Could not use that image", str(e))
+            return
+        new = {i: pk.image(i) for i in range(len(pk.chunks))}
+        new[idx] = bmp
+        out = splashmod.build(pk, new)
+        open(path, "wb").write(out)
+        self.splash_say("replaced image %d with %s (%d -> %d bytes)"
+                        % (idx + 1, os.path.basename(src), len(pk.raw), len(out)))
+        self.splash_say("  remember: the package still has to be rebuilt and re-sealed")
+        self.splash_load()
+        self.splash_table.selectRow(idx)
+
+    def splash_export(self):
+        idx = self.splash_selected()
+        _, pk = self.splash_pkg()
+        if idx is None or pk is None:
+            return
+        name = pk.records[idx][1] if idx < len(pk.records) else "image%d" % idx
+        dest, _ = QFileDialog.getSaveFileName(self, "Export as PNG",
+                                              os.path.splitext(name)[0] + ".png", "PNG (*.png)")
+        if not dest:
+            return
+        shown = splashmod.flip_bmp(pk.image(idx))
+        img = QImage.fromData(shown, "BMP")
+        if img.save(dest):
+            self.splash_say("exported image %d to %s" % (idx + 1, dest))
+        else:
+            self.splash_say("could not write %s" % dest)
 
     # ---------------------------------------------------------------------- pack
 
