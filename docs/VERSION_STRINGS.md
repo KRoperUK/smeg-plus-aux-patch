@@ -18,8 +18,8 @@ path `/SYSTEM/Data_base/smeg.inf`, i.e. it reads the **media partition** copy. S
   the updater but does not change what the screen shows — the displayed copy is
   `Data_base/smeg.inf` **inside `system.bin`**.
 - A visible marker therefore requires a media-partition edit (see
-  [`MEDIA_PARTITION.md`](MEDIA_PARTITION.md)), which is parked pending the
-  `system.bin.inf` `SIZE:` fields.
+  [`MEDIA_PARTITION.md`](MEDIA_PARTITION.md)). The `SIZE:` fields are no longer a blocker —
+  they are computable — but the packing tool is still to be written (issue #35).
 
 `AUDIO_BT/smeg.inf` and the tar's `Data_base/smeg.inf` currently hold identical content,
 which is why it is easy to assume editing one affects the other.

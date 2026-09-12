@@ -126,11 +126,24 @@ Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and de
 | [`docs/FLASHING.md`](docs/FLASHING.md) | preparing the USB stick and flashing |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | how the whole firmware fits together: modules, HMI framework, messaging, subsystems, databases |
 | [`docs/FLASH_CHAIN.md`](docs/FLASH_CHAIN.md) | BSP/flash layout, the updater's phases and gates, the manifest format used above |
-| [`docs/MEDIA_PARTITION.md`](docs/MEDIA_PARTITION.md) | media partition layout, ringtones and wait tones, the rebuild blocker |
+| [`docs/MEDIA_PARTITION.md`](docs/MEDIA_PARTITION.md) | media partition layout, ringtones and wait tones, and the checksum cascade |
 | [`docs/CHEATCODES.md`](docs/CHEATCODES.md) | cheatcode list, entry mechanism, spy/diagnostics system |
 | [`docs/RELEASING.md`](docs/RELEASING.md) | conventional commits and the automatic release/changelog flow |
 | [`docs/RINGTONES.md`](docs/RINGTONES.md) | ring/wait tone formats, the converter, and the Qt studio |
 | [`docs/VERSION_STRINGS.md`](docs/VERSION_STRINGS.md) | what the version screens read, and how the updater gates on them |
+
+## Development environment
+
+A virtualenv with the GUI and test dependencies already exists (Python 3.13 — your
+Homebrew `python3` is 3.14, where `ensurepip` is broken and PySide6 has no wheels):
+
+```sh
+.venv/bin/python tools/ringtone_studio.py     # the GUI
+.venv/bin/python -m pytest tests -q           # the test suite
+```
+
+Recreate it with `uv venv --seed --python 3.13 .venv && uv pip install --python
+.venv/bin/python PySide6 pytest`, or use plain `pip install -r requirements-dev.txt`.
 
 ## Tests
 
