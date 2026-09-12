@@ -91,3 +91,74 @@ MM_HoldOn_HRH_8kHz.wav  18.46 s
 
 Path helper: `C_FS_STORAGE_CTRL_PATH::GetWaitTonesDir`. The suffixes are PSA language
 codes (`CRC` Czech, `ENG` English, `FRF` French, `GED` German, `ITI` Italian, … ).
+
+## Application/ (inside the partition)
+
+```
+Application/PKG/        symbol maps: abs_symbols.txt.gz, abs_symbols_base.txt.gz,
+                        abs_symbols_light.txt.gz, symbols_bsp.txt.gz
+Application/CCOD/       cheatcode libraries: libcheatcode_<NAME>.out (+ .inf, .txt.gz)
+Application/BlackFin/   DAB_SW_MAXIM_PRS1.dat - DAB chipset firmware blob
+```
+
+The application image itself is **not** here — it is `AppBin/f_BigQuick.bin`.
+The cheatcode libraries are documented in [Cheatcodes](CHEATCODES.md).
+
+## Board GUI resources — `Data_base/boardfs/GUI_STYLE/`
+
+```
+gui_config.xml          device_path, screen_size 800x480, harmony id, language,
+                        and the resource sub-paths
+gui_harmonies.xml       look-and-feel ids 0-7: AGORA, BLUEXY, PLAQUE, EKODO,
+                        MORGLUB, AGORA2, FOR_TEST, TEST
+gui_languages.xml       16 languages, id -> code (0 FR, 1 GB, 2 GE, 3 IT, 4 SP, ...)
+GUIS_RESSOURCES/
+  gui_sounds/           7 wav + gui_sounds.xml (id -> file map)
+  gui_texts/            gui_text_strings_<LANG>.xml.bin per language
+```
+
+Only `gui_sounds` and `gui_texts` actually ship; the images/fonts/colours/templates
+paths referenced by `gui_config.xml` are absent from the partition, so the graphical
+skin comes from the `HARMONY` module instead. Note `gui_config.xml` sets harmony id 10,
+which is outside the 0-7 list — another sign the real skin is delivered separately.
+
+## The `HARMONY/` module (UI skins)
+
+```
+HARMONY/
+  A9.bigharmony.ini  A9replacement.bigharmony.ini  G7.bigharmony.ini   (+ .inf)
+  BigHarmony_1..5/BIG_HARMONY.bin  BIG_SKIN_AUDIO.bin  BIG_SKIN_NAV.bin  (+ .inf)
+```
+
+`BIG_HARMONY.bin` starts with the ASCII magic `BIGHARMONY` and a zero-padded header;
+the `.inf` describes the structure (`HEADER_SIZE:900`, `HEADER_CRC32:…`,
+`VERSION_BIGHARMONY_STRUCT:01.00.00.b`, `VERSION:5.4.A.5`, and a `BigHarmony_1:1;2;3;5`
+style mapping of groups to harmony ids). The payload is opaque (compressed/encrypted)
+and has not been decoded.
+
+The `.bigharmony.ini` files map vehicle type and build to harmony groups, e.g.
+`A9: LIST_NAV:2,0,0,3,0,0 / LIST_AUDIO_BT:4,5` and `G7: LIST:1,0,2,0,3,0`. So which
+skin a unit gets depends on the vehicle configuration, not just the firmware version.
+
+## `USERGUIDE/` and the NAV payloads
+
+- `USERGUIDE/<model>/*.rcc` are **Qt resource bundles** (`qres` magic) holding the
+  on-unit user guide. The `.userguide.ini` files map source folder to destination,
+  e.g. `NAV:…/USERGUIDE/NAV/A9,/SYSTEM/internet_default/UserGuide` or to `sdhc:2`.
+- `NAV/sd_dir.bin` (~10.6 MB), `NAV/SD_DIR_TTS.bin` (~844 MB — the TTS voice data),
+  `NAV/SD_DIR_desc.bin` (SD layout descriptor: `/sdhc:0/Application`, `/sdhc:0/Data_Base`,
+  `/sdhc:0/MCT_Resources`, `/sdhc:0/Rosace`, `/sdhc:0/SIRF`, …).
+- `NAV/DB_DWNL/db_dwnl_gl.out` — downloadable-database module (VxWorks relocatable,
+  `ENTRY:NO`).
+- `SD_DIR_TTS.crc` uses a textual scheme (`NUMBERFILES:394`, `CRC16:2305`) rather than
+  the binary manifests elsewhere.
+
+## `AVR_img/`
+
+Eight `AVR_IMG1..8.png` (800x480, 24-bit) — front-panel display images/animation frames,
+shipped alongside the Renesas MCU firmware.
+
+## Where the databases are documented
+
+The SQLite inventory (29 databases, grouped by purpose) is in
+[Architecture](ARCHITECTURE.md#6-data-sqlite-databases).
