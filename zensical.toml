@@ -19,6 +19,7 @@ nav = [
   { "Version strings" = "VERSION_STRINGS.md" },
   { "Patch reference" = "PATCHES.md" },
   { "Flashing" = "FLASHING.md" },
+  { "Releasing" = "RELEASING.md" },
 ]
 
 [project.theme]
