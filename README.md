@@ -114,11 +114,16 @@ python3 tools/ppcdis.py app_nav.bin abs_symbols_base.txt 0x0230331c 0x02303460
 
 ## Documentation
 
+Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and deployed by GitHub Actions).
+
+
 | doc | contents |
 |---|---|
 | [`docs/ANALYSIS.md`](docs/ANALYSIS.md) | application image format, symbol maps, the AUX event chain, why the switch fails |
 | [`docs/PATCHES.md`](docs/PATCHES.md) | exact addresses and bytes per build |
 | [`docs/FLASHING.md`](docs/FLASHING.md) | preparing the USB stick and flashing |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | how the whole firmware fits together: modules, HMI framework, messaging, subsystems, databases |
+| [`docs/FLASH_CHAIN.md`](docs/FLASH_CHAIN.md) | BSP/flash layout, the updater's phases and gates, the manifest format used above |
 | [`docs/MEDIA_PARTITION.md`](docs/MEDIA_PARTITION.md) | media partition layout, ringtones and wait tones, the rebuild blocker |
 | [`docs/CHEATCODES.md`](docs/CHEATCODES.md) | cheatcode list, entry mechanism, spy/diagnostics system |
 | [`docs/VERSION_STRINGS.md`](docs/VERSION_STRINGS.md) | what the version screens read, and how the updater gates on them |

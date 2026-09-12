@@ -1,0 +1,42 @@
+# Zensical configuration for the smeg-plus-aux-patch documentation site.
+# https://zensical.org/docs/setup/basics/
+
+[project]
+site_name = "SMEG+ AUX patch"
+site_description = "Reverse-engineering notes and tooling for PSA/Stellantis SMEG+ head units"
+site_url = "https://smeg.kroper.uk/"
+repo_url = "https://github.com/KRoperUK/smeg-plus-aux-patch"
+repo_name = "KRoperUK/smeg-plus-aux-patch"
+copyright = "MIT licensed. Not affiliated with Stellantis, Peugeot, Citroen, DS or Magneti Marelli."
+
+nav = [
+  { "Home" = "index.md" },
+  { "Overview" = "ANALYSIS.md" },
+  { "Architecture" = "ARCHITECTURE.md" },
+  { "Boot & update chain" = "FLASH_CHAIN.md" },
+  { "Media partition" = "MEDIA_PARTITION.md" },
+  { "Cheatcodes & spy" = "CHEATCODES.md" },
+  { "Version strings" = "VERSION_STRINGS.md" },
+  { "Patch reference" = "PATCHES.md" },
+  { "Flashing" = "FLASHING.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "navigation.sections",
+  "navigation.top",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"

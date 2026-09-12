@@ -80,6 +80,20 @@ audio server
                  -> SetMediaDeviceState(AUX, 2) + C_HMI_SrcMgntBase::ActivateSource(true)
 ```
 
+!!! warning "Correction: there are *two* AUX signals"
+
+    Later analysis found that the DBUS interface `com/MM/BCM_Audio` carries **two**
+    AUX notifications, not one:
+
+    - `AUDIO_AUX_SIGNAL_STATUS_CHANGED` — used by the audio module's own mute
+      management (`C_MODULE_AUDIO::Elab_AUDIO_AUX_SIGNAL_STATUS_CHANGED`).
+    - `AUDIO_AUX_INPUT_STATUS_CHANGED` — and the HMI handler is named
+      `HandleAudioAuxInputStatusChnged` (**Input**), which points at this one.
+
+    So the event chain above may be the *signal* path while the auto-switch handler is
+    driven by the *input* path. Which one actually fires on the car is the decisive open
+    question, and is exactly what the spy capture in [Cheatcodes](CHEATCODES.md) is for.
+
 The handler is registered in the HMI event table (entry: size `0x2c`, event id
 `0x613dc`, handler pointer, function size `0x290`, type `7`).
 
