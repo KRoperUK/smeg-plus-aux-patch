@@ -98,8 +98,7 @@ def main():
     args = ap.parse_args()
 
     if args.title is not None:
-        text = args.title
-        what = "PR title"
+        text, what = args.title, "PR title"
     elif args.msgfile:
         try:
             with open(args.msgfile, encoding="utf-8", errors="replace") as fh:
@@ -108,7 +107,9 @@ def main():
             sys.exit("cannot read %s: %s" % (args.msgfile, e))
         what = "commit message"
     else:
-        ap.error("give a message file or --title")
+        # sys.exit rather than ap.error so this plainly cannot fall through
+        ap.print_usage(sys.stderr)
+        sys.exit("give a message file or --title")
 
     problems = check(text)
     if not problems:

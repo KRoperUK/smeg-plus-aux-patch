@@ -4,6 +4,7 @@ import struct
 import tarfile
 import wave
 import zlib
+from pathlib import Path
 
 # --- media partition (for patch_media.py) ----------------------------------
 
@@ -65,7 +66,7 @@ def up_common_bytes(names=None):
                     (i, n))
     con.commit()
     con.close()
-    data = open(tmp.name, "rb").read()
+    data = Path(tmp.name).read_bytes()
     os.unlink(tmp.name)
     return data
 
@@ -125,7 +126,7 @@ def build_media_package(root, module="NAV", extra_constant=True, extra_files=Non
     mod_ctrl_path = os.path.join(root, "%s_ctrl.bin" % module)
     mod_ctrl = manifest([
         (1, zlib.crc32(bin_bytes) & 0xFFFFFFFF, "/%s/system.bin" % module),
-        (1, zlib.crc32(open(os.path.join(mod_dir, "system.bin.inf"), "rb").read()) & 0xFFFFFFFF,
+        (1, zlib.crc32(Path(os.path.join(mod_dir, "system.bin.inf")).read_bytes()) & 0xFFFFFFFF,
          "/%s/system.bin.inf" % module),
         (1, zlib.crc32(ctrl) & 0xFFFFFFFF, "/%s/system_ctrl.bin" % module),
     ])

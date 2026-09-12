@@ -55,6 +55,7 @@ import os
 import struct
 import sys
 import zlib
+from pathlib import Path
 
 DIR = "Data_base/graphics/logo"
 MARQUES = ("peugeot", "citroen", "ds")
@@ -174,7 +175,7 @@ def main():
                     help="an extracted media partition (contains %s/)" % DIR)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("list", help="show the images in each marque's package")
+    sub.add_parser("list", help="show the images in each marque's package")
     p = sub.add_parser("extract", help="write the images out as BMP")
     p.add_argument("--marque", default="peugeot", choices=MARQUES)
     p.add_argument("-o", "--out", default="splash")
@@ -183,7 +184,7 @@ def main():
     p.add_argument("--image", required=True, help="new 800x480 24-bit image (any format ffmpeg reads)")
     p.add_argument("--index", type=int, default=0, help="which image to replace (default 0 = the main marque image)")
     p.add_argument("--out", help="write here instead of in place")
-    p = sub.add_parser("selftest", help="rebuild from the stock images and compare")
+    sub.add_parser("selftest", help="rebuild from the stock images and compare")
 
     args = ap.parse_args()
 
@@ -191,14 +192,14 @@ def main():
         path = os.path.join(args.tree, DIR, marque + ".pkg")
         if not os.path.exists(path):
             die("no such package: %s" % path)
-        return path, Pkg(open(path, "rb").read())
+        return path, Pkg(Path(path).read_bytes())
 
     if args.cmd == "list":
         for m in MARQUES:
             path = os.path.join(args.tree, DIR, m + ".pkg")
             if not os.path.exists(path):
                 continue
-            pk = Pkg(open(path, "rb").read())
+            pk = Pkg(Path(path).read_bytes())
             print("%s.pkg  (%d bytes, %d images, directory hash %s)"
                   % (m, os.path.getsize(path), len(pk.chunks),
                      "ok" if pk.check_hash() else "MISMATCH"))
@@ -266,7 +267,7 @@ def to_bmp(src):
     import shutil
     import subprocess
     if src.lower().endswith(".bmp"):
-        d = open(src, "rb").read()
+        d = Path(src).read_bytes()
         if len(d) == BMP_SIZE:
             return d
     if not shutil.which("ffmpeg"):
@@ -278,7 +279,7 @@ def to_bmp(src):
                        capture_output=True, text=True)
     if r.returncode != 0:
         die("ffmpeg failed: %s" % (r.stderr.strip() or r.stdout.strip()))
-    d = open(tmp, "rb").read()
+    d = Path(tmp).read_bytes()
     os.unlink(tmp)
     if len(d) != BMP_SIZE:
         die("conversion produced %d bytes, expected %d" % (len(d), BMP_SIZE))

@@ -29,6 +29,7 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -254,7 +255,7 @@ class Studio(QWidget):
         bck = self.backup_path(rel)
         if not (bck and os.path.exists(bck)):
             return "no backup", "#B0B3B8"
-        same = open(cur, "rb").read() == open(bck, "rb").read()
+        same = Path(cur).read_bytes() == Path(bck).read_bytes()
         return ("original", "#34C759") if same else ("modified", ACCENT)
 
     def populate(self):
@@ -440,7 +441,7 @@ class Studio(QWidget):
                 continue
             for f in sorted(os.listdir(src)):
                 if f.lower().endswith(".wav"):
-                    open(os.path.join(d, f), "wb").write(open(os.path.join(src, f), "rb").read())
+                    Path(os.path.join(d, f)).write_bytes(Path(os.path.join(src, f)).read_bytes())
                     n += 1
         self.say("exported %d file(s) to %s" % (n, d))
 
@@ -469,7 +470,7 @@ class Studio(QWidget):
             return
         dst = self.tone_path(rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
-        open(dst, "wb").write(open(bck, "rb").read())
+        Path(dst).write_bytes(Path(bck).read_bytes())
         self.say("restored %s from the package backup" % rel)
         self.populate()
 
@@ -577,7 +578,7 @@ class Studio(QWidget):
         p = self.splash_path()
         if not p or not os.path.exists(p):
             return None, None
-        raw = open(p, "rb").read()
+        raw = Path(p).read_bytes()
         return p, splashmod.Pkg(raw)
 
     def splash_load(self):

@@ -50,6 +50,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -128,8 +129,7 @@ def main():
                     help="show the steps and what would change, without writing")
     args = ap.parse_args()
 
-    with open(args.manifest) as fh:
-        cfg = json.load(fh)
+    cfg = json.loads(Path(args.manifest).read_text())
     src = cfg["package"]
     out = cfg["out"]
     module = cfg.get("module", "NAV")
@@ -204,10 +204,10 @@ def main():
             for marque, image in splash_map.items():
                 print("==> splash %s <- %s" % (marque, image))
                 path = os.path.join(tree, sl.DIR, marque + ".pkg")
-                pk = sl.Pkg(open(path, "rb").read())
+                pk = sl.Pkg(Path(path).read_bytes())
                 new = {i: pk.image(i) for i in range(len(pk.chunks))}
                 new[0] = sl.flip_bmp(sl.to_bmp(image))
-                open(path, "wb").write(sl.build(pk, new))
+                Path(path).write_bytes(sl.build(pk, new))
             for slot, name in name_map.items():
                 if not (slot.startswith("ring") and slot[4:].isdigit()):
                     sys.exit("%s: names only apply to ring1..ring5" % slot)
