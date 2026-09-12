@@ -28,11 +28,29 @@ ring_tones/ring1RT.wav
   -> ctrl.bin             (root manifest)
 ```
 
-**Open question / blocker:** the meaning of `SIZE:` and `SIZE_1..SIZE_32` in
-`system.bin.inf` is not yet confirmed. They do not equal the compressed file size or
-the uncompressed tar size, so any edit that changes the tar needs this cracked first.
-That is why media edits (ringtones, version marker, cheatcode menu) are parked
-pending a safe rebuild.
+### The `SIZE` fields — solved
+
+`SIZE:` and `SIZE_1..SIZE_32` are the uncompressed *contents* size, not the tar or the
+gzip size, and they are computable:
+
+* **`SIZE`** = the sum of the file sizes inside the tar, excluding tar headers and
+  padding. Verified exactly against the real partition: 844 files, sum **32 710 671**,
+  matching `SIZE:` to the byte.
+* **`SIZE_n`** = the same sum with every file rounded up to an *n* KiB block
+  (`Σ roundup(size, n * 1024)`). Exact for n = 8, 16 and 32; within ~30 KB for
+  n = 1, 2, 4.
+
+They are read by **`UpgPlugin.out`**, not `upgrade.out` — the plugin's
+`C_UPG_PLUGIN_Interface::GetSize()` / `GetPartitionBlockSize()` select the field that
+matches the destination's block size, falling back to plain `SIZE` when the block size
+is not one of the managed values (`SD Block size (%d) not managed!`). They feed the
+media space-check (`C_APPLI_UPG_PLUGIN::CheckMediaTask`), so they should be recomputed
+after a media edit — but nothing needs to be obtained from elsewhere to do it.
+
+**What this means:** the media partition can be rebuilt. The remaining work is a
+`patch_media.py` that extracts the tar, swaps a file, re-tars and re-gzips, then
+updates `system_ctrl.bin` (the per-file CRCs), `system.bin.inf` (`CRC32` + the `SIZE`
+fields), the module manifest and the root manifest.
 
 ## Top-level layout
 

@@ -57,10 +57,14 @@ python3 tools/ringtone_studio.py
 
 The tones live **inside the media partition** (`system.bin`), so changing them means
 repacking that gzip'd tar and rebuilding its checksum cascade — the same job as the
-cheatcode menu and the version marker. That repack is blocked on the
-`SIZE:` / `SIZE_1..SIZE_32` fields in `system.bin.inf`, which are not yet understood
-(see [Media partition](MEDIA_PARTITION.md)).
+cheatcode menu and the version marker.
 
-So today the tool **prepares** the tree; the final pack is still outstanding. Replacing
-a ring tone also changes its size, so the tar definitely changes — there is no way to
-make that edit size-neutral.
+That repack used to be blocked on the `SIZE:` / `SIZE_1..SIZE_32` fields. It no longer
+is: they are computable from the tar (see
+[Media partition](MEDIA_PARTITION.md#the-size-fields--solved)).
+
+What is still missing is the tool: a `patch_media.py` that swaps a file inside the tar
+and rebuilds `system_ctrl.bin` → `system.bin` → `system.bin.inf` → the module manifest
+→ the root manifest. Until that exists, `stage` **prepares** the tree and the final pack
+is outstanding. A replacement tone changes size, so the tar definitely changes — there
+is no way to make that edit size-neutral.
