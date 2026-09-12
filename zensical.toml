@@ -22,6 +22,7 @@ nav = [
   { "Patch reference" = "PATCHES.md" },
   { "Running the tools" = "RUNNING.md" },
   { "Flashing" = "FLASHING.md" },
+  { "Hardware verification" = "VERIFICATION.md" },
   { "Releasing" = "RELEASING.md" },
 ]
 

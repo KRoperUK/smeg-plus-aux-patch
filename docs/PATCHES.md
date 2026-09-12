@@ -73,9 +73,16 @@ being corrupted.
 
 | file | what it changes | status |
 |---|---|---|
-| `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | the combined build |
+| `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | the combined build — flashed successfully, first patch confirmed on hardware |
 | `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | behavioural, no switching |
 | `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate, untested |
+
+!!! note "Hardware status"
+
+    The combined build has been flashed to a real unit and accepted by the media contract
+    check. The `IsAUXSRCAvailable()` change is confirmed working: AUX no longer greys out
+    and is back in the SRC cycle. The **auto-switch has not been observed working yet** —
+    see [Hardware verification](VERIFICATION.md).
 
 ### `aux-always-available`
 

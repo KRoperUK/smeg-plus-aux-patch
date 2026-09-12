@@ -18,6 +18,10 @@
     original contract holds, and after patching the application image the regenerated
     contract decrypts cleanly and matches every file.
 
+    **Confirmed on hardware.** A re-sealed patched package was accepted by a real unit —
+    string 2099 did not appear, and the update went on to write the application image. See
+    [Hardware verification](VERIFICATION.md).
+
 ## The symptom
 
 Patching `AppBin/f_BigQuick.bin` and flashing the result gives **string id 2099**:
