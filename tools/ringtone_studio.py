@@ -8,10 +8,13 @@
 """Ringtone Studio — a Qt front-end for SMEG+ ring tones and firmware patches.
 
 **Ringtones tab.** Shows every replaceable tone in the media partition, with its
-current state. Per row you can overwrite it with any audio file (mp3/ogg/flac/m4a/wav —
-anything ffmpeg reads), or restore the original that came in the package. "Extract from
-package…" pulls the partition out of a package and stores the originals as a backup, so
-restore always has something to go back to.
+current state. Per row you can preview it, overwrite it with any audio file
+(mp3/ogg/flac/m4a/wav — anything ffmpeg reads), or restore the original that came in the
+package. "Extract from package…" pulls the partition out of a package and stores the
+originals as a backup, so restore always has something to go back to.
+
+Previewing uses QtMultimedia (QSoundEffect) when available, and otherwise falls back to a
+system player (`afplay` on macOS, `paplay`/`aplay` on Linux).
 
 **Pack & patch tab.** Tick the `patches/*.json` definitions you want, point it at a
 package and a media tree, and it writes a patched package: the application patches first,
@@ -23,6 +26,7 @@ Requirements:
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -36,7 +40,7 @@ except ImportError:
     sys.exit("cannot import tools/ringtones.py — run this from the repository")
 
 try:
-    from PySide6.QtCore import Qt  # noqa: E402
+    from PySide6.QtCore import Qt, QUrl  # noqa: E402
     from PySide6.QtGui import QFont  # noqa: E402
     from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,  # noqa: E402
                                    QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
@@ -44,6 +48,14 @@ try:
                                    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 except ImportError:
     sys.exit("PySide6 is required:  pip install -r tools/requirements-gui.txt")
+
+# QtMultimedia ships in pyside6-addons and may be absent; fall back to a system player.
+try:
+    from PySide6.QtMultimedia import QSoundEffect  # noqa: E402
+    HAVE_SOUNDEFFECT = True
+except ImportError:
+    QSoundEffect = None
+    HAVE_SOUNDEFFECT = False
 
 AUDIO_FILTER = "Audio (*.wav *.mp3 *.ogg *.flac *.m4a *.aac *.wma *.opus);;All files (*)"
 MODULES = ("NAV", "AUDIO_BT", "AUDIO_BT_256")
@@ -133,6 +145,16 @@ class Studio(QWidget):
         self.backup = DEFAULT_BACKUP
         self.patch_boxes = {}
 
+        # audio preview
+        self._preview_btns = {}
+        self._playing_slot = None
+        self._player = None
+        self._ext_proc = None
+        if HAVE_SOUNDEFFECT:
+            self._player = QSoundEffect(self)
+            self._player.setVolume(0.8)
+            self._player.playingChanged.connect(self._on_playing_changed)
+
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(14)
@@ -182,7 +204,7 @@ class Studio(QWidget):
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.verticalHeader().setDefaultSectionSize(40)
         self.table.horizontalHeader().setStretchLastSection(True)
-        for i, w in enumerate((100, 300, 180, 90)):
+        for i, w in enumerate((90, 250, 170, 90)):
             self.table.setColumnWidth(i, w)
         v.addWidget(self.table, 1)
 
@@ -228,6 +250,7 @@ class Studio(QWidget):
 
     def populate(self):
         keys = sorted(SLOTS, key=lambda k: (k.startswith("wait"), k))
+        self._preview_btns = {}
         self.table.setRowCount(len(keys))
         for r, slot in enumerate(keys):
             rel, ch, rate = SLOTS[slot]
@@ -244,10 +267,18 @@ class Studio(QWidget):
                     item.setForeground(Qt.gray if colour2 == "#B0B3B8" else Qt.black)
                 self.table.setItem(r, col, item)
 
-            choose = QPushButton("Overwrite…")
+            preview = QPushButton("Preview")
+            preview.setToolTip("Play this tone")
+            preview.setEnabled(bool(cur) and os.path.exists(cur))
+            preview.clicked.connect(lambda _=False, s=slot: self.preview_tone(s))
+            self._preview_btns[slot] = preview
+
+            choose = QPushButton("Replace…")
+            choose.setToolTip("Convert and install a different audio file")
             choose.setEnabled(bool(self.tree))
             choose.clicked.connect(lambda _=False, s=slot: self.choose_file(s))
             restore = QPushButton("Restore")
+            restore.setToolTip("Put the original from the package backup back")
             restore.setEnabled(bool(self.tree) and os.path.exists(self.backup_path(rel)))
             restore.clicked.connect(lambda _=False, s=slot: self.restore(s))
             cur_lbl = QLabel(current)
@@ -258,6 +289,7 @@ class Studio(QWidget):
             h = QHBoxLayout(w)
             h.setContentsMargins(6, 0, 6, 0)
             h.setSpacing(6)
+            h.addWidget(preview)
             h.addWidget(choose)
             h.addWidget(restore)
             h.addWidget(cur_lbl, 1)
@@ -265,6 +297,73 @@ class Studio(QWidget):
 
         self.tree_label.setText(self.tree)
         self.backup_label.setText(self.backup)
+
+    # ------------------------------------------------------------------ preview
+
+    def preview_tone(self, slot):
+        """Play the tone currently in a slot, or stop it if it is already playing."""
+        rel = SLOTS[slot][0]
+        path = self.tone_path(rel)
+        if not path or not os.path.exists(path):
+            QMessageBox.information(self, "Nothing to preview",
+                                    "There is no file in the tree for %s yet." % rel)
+            return
+        if self._playing_slot == slot:
+            self.stop_preview()
+            return
+        self.stop_preview()
+        if self._player is not None:
+            self._player.setSource(QUrl.fromLocalFile(path))
+            self._player.play()
+            self._playing_slot = slot
+            self._refresh_preview_buttons()
+        else:
+            self._play_external(path, slot)
+
+    def _play_external(self, path, slot):
+        """Fallback for when QtMultimedia is not installed."""
+        if sys.platform == "darwin":
+            cmd = ["afplay", path]
+        elif sys.platform.startswith("linux"):
+            cmd = ["paplay", path] if shutil.which("paplay") else ["aplay", "-q", path]
+        else:
+            cmd = None
+        if not cmd or not shutil.which(cmd[0]):
+            QMessageBox.information(
+                self, "Playback unavailable",
+                "Previewing needs QtMultimedia (\"pip install PySide6\") or a system "
+                "audio player such as afplay or paplay.")
+            return
+        self._ext_proc = subprocess.Popen(cmd)
+        self._playing_slot = slot
+        self._refresh_preview_buttons()
+
+    def stop_preview(self):
+        """Stop any preview that is in flight."""
+        if self._player is not None:
+            self._player.stop()
+        if self._ext_proc is not None and self._ext_proc.poll() is None:
+            self._ext_proc.terminate()
+        self._ext_proc = None
+        self._playing_slot = None
+        self._refresh_preview_buttons()
+
+    def _on_playing_changed(self):
+        # QSoundEffect tells us when it finishes (or fails), so the button can revert.
+        if self._player is not None and not self._player.isPlaying() and self._playing_slot:
+            self._playing_slot = None
+            self._refresh_preview_buttons()
+
+    def _refresh_preview_buttons(self):
+        for slot, btn in self._preview_btns.items():
+            playing = slot == self._playing_slot
+            btn.setText("Stop" if playing else "Preview")
+            btn.setStyleSheet("font-weight: 600;" if playing else "")
+            btn.setToolTip("Stop preview" if playing else "Play this tone")
+
+    def closeEvent(self, event):
+        self.stop_preview()
+        super().closeEvent(event)
 
     # -------------------------------------------------------------- tree actions
 
@@ -324,6 +423,7 @@ class Studio(QWidget):
         self.say("exported %d file(s) to %s" % (n, d))
 
     def choose_file(self, slot):
+        self.stop_preview()
         src, _ = QFileDialog.getOpenFileName(self, "Audio for %s" % slot, "", AUDIO_FILTER)
         if not src:
             return
@@ -339,6 +439,7 @@ class Studio(QWidget):
         self.populate()
 
     def restore(self, slot):
+        self.stop_preview()
         rel, _ch, _rate = SLOTS[slot]
         bck = self.backup_path(rel)
         if not os.path.exists(bck):
