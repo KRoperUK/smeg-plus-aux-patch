@@ -86,6 +86,7 @@ uv run tools/patch_media.py restore --backup ~/smeg-test/backups --tree media \
 uv run tools/patch_media.py apply --package SMEG_PLUS_UPG --module NAV \
     --tree media --out SMEG_PLUS_UPG_mod
 
-# application image patches (the AUX work)
-uv run tools/patch_smeg.py --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod --only NAV
+# application image patches (the AUX work) — always follow with the contract step
+uv run tools/patch_smeg.py --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
+uv run tools/patch_contract.py --package SMEG_PLUS_UPG_mod --only NAV
 ```

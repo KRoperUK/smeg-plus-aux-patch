@@ -83,6 +83,12 @@ Building those tests immediately caught two fixture bugs, so it is worth the eff
   `media.inf` can block the update outright. `GUI_VER` is the only safe visible field.
 - The **updater reboots** the unit during the BootROM and Renesas steps. Never propose
   updating while driving.
+- **A modified package must be re-sealed** before flashing, or the unit rejects it with
+  string 2099. Always run `tools/patch_contract.py` after any change that alters a file
+  the contract covers. See `docs/MEDIA_PROTECTION.md`.
+- The contract's RSA key material lives in the firmware image and must **never** be
+  committed or reproduced in docs. `patch_contract.py` extracts it from the user's own
+  package at runtime; keep it that way.
 
 ## Working style
 

@@ -159,13 +159,14 @@ the check type. `flasher.crc` is the CRC32 of `flasher.inf`.
 
 ## 4. `contract.dat` — the media contract
 
-A 29 696-byte high-entropy blob at the package root. It is **not** in the root manifest
-and `upgrade.out` does not reference it, but that does not mean it is unused: the
-**application image** reads it in `C_BCM_UPGRADE::CheckTrustedSource()` and validates the
-rest of the media against it. A package whose application image has been modified is
-rejected with *"The update file is protected and cannot be copied."*
+A 29 696-byte blob at the package root: 116 RSA-OAEP blocks holding a table of per-file
+checks (size, crc32, and a content spot-check). It is **not** in the root manifest and
+`upgrade.out` does not reference it, but the **application image** reads it in
+`C_BCM_UPGRADE::CheckTrustedSource()` and validates the rest of the media against it.
 
-The full mechanism, the decryption entry points, and what is still unknown are in
+A package with a modified application image is rejected with *"The update file is protected
+and cannot be copied."* unless the contract is regenerated — the format is decoded and
+`tools/patch_contract.py` does exactly that. See
 [Media protection](MEDIA_PROTECTION.md).
 
 ### `*_ctrl.bin` format
