@@ -1,0 +1,36 @@
+{
+  "name": "aux-always-available",
+  "description": "Force C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable() to report AUX as available. AUX stops greying out when there is no signal, so it can be selected on demand and is always in the SRC cycle. Diagnostic/behavioural only - it does not make the unit switch by itself.",
+  "variants": {
+    "AUDIO_BT": {
+      "app_image": "AUDIO_BT/AppBin/f_BigQuick.bin",
+      "inf": "AUDIO_BT/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "AUDIO_BT/smeg.inf",
+      "ctrl": "AUDIO_BT_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        { "addr": "0x02247718", "expect": "9421ffa0", "bytes": "386000014e800020", "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true (li r3,1 ; blr)" }
+      ]
+    },
+    "AUDIO_BT_256": {
+      "app_image": "AUDIO_BT_256/AppBin/f_BigQuick.bin",
+      "inf": "AUDIO_BT_256/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "AUDIO_BT_256/smeg.inf",
+      "ctrl": "AUDIO_BT_256_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        { "addr": "0x02247718", "expect": "9421ffa0", "bytes": "386000014e800020", "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true" }
+      ]
+    },
+    "NAV": {
+      "app_image": "NAV/AppBin/f_BigQuick.bin",
+      "inf": "NAV/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "NAV/smeg.inf",
+      "ctrl": "NAV_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        { "addr": "0x02247858", "expect": "9421ffa0", "bytes": "386000014e800020", "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true" }
+      ]
+    }
+  }
+}

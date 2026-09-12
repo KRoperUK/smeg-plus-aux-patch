@@ -68,3 +68,32 @@ with the tooling and propagate through the cascade (the tool does this automatic
 
 `expect` is checked before writing, so a mismatched firmware build fails loudly instead of
 being corrupted.
+
+## Patch sets in this repository
+
+| file | what it changes | status |
+|---|---|---|
+| `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | the combined build |
+| `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | behavioural, no switching |
+| `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate, untested |
+
+### `aux-always-available`
+
+`li r3,1 ; blr` at the top of `C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable()`. AUX stays
+selectable with no signal, so it is always in the SRC cycle. It does **not** cause the
+unit to switch by itself.
+
+### `aux-sticky`
+
+Two edits in `HandleAudioAuxInputStatusChnged()`:
+
+| offset | original | patched | effect |
+|---|---|---|---|
+| `+0x10c` (AUDIO_BT `0x023032e8`, NAV `0x02303428`) | `beq` | `nop` | drop the `GetMediaDevice` early exit so `ActivateSource()` is reachable |
+| `+0x118` (AUDIO_BT `0x023032f4`, NAV `0x02303434`) | `beq cr7,+0x58` | `b +0x140` | when the AUX signal is absent, jump to the return path instead of the release branch |
+
+The second edit means that once AUX has been activated it **stays** selected until the
+user changes source — for intermittent CarPlay audio that otherwise flaps between AUX
+and radio. It is a deliberate trade: AUX will no longer hand back to radio on its own.
+
+Both offsets were verified against all three images (`AUDIO_BT`, `AUDIO_BT_256`, `NAV`).

@@ -1,0 +1,39 @@
+{
+  "name": "aux-sticky",
+  "description": "Auto-switch variant that also stops the unit releasing AUX when the signal disappears. Removes the GetMediaDevice bail-out (so activation can happen) AND turns the 'signal absent' path into a no-op, so once AUX has been activated it stays selected until the user changes source. Useful if CarPlay audio is intermittent and the unit flaps between AUX and radio. CANDIDATE - not validated on hardware; the release path is deliberately disabled, so AUX will not hand back to radio on its own.",
+  "variants": {
+    "AUDIO_BT": {
+      "app_image": "AUDIO_BT/AppBin/f_BigQuick.bin",
+      "inf": "AUDIO_BT/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "AUDIO_BT/smeg.inf",
+      "ctrl": "AUDIO_BT_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        { "addr": "0x023032e8", "expect": "419e014c", "bytes": "60000000", "why": "HandleAudioAuxInputStatusChnged +0x10c: remove the GetMediaDevice bail-out so ActivateSource() is reachable" },
+        { "addr": "0x023032f4", "expect": "419e0058", "bytes": "48000140", "why": "handlear +0x118: when the AUX signal is absent, jump to the return path instead of the release branch (sticky AUX)" }
+      ]
+    },
+    "AUDIO_BT_256": {
+      "app_image": "AUDIO_BT_256/AppBin/f_BigQuick.bin",
+      "inf": "AUDIO_BT_256/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "AUDIO_BT_256/smeg.inf",
+      "ctrl": "AUDIO_BT_256_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        { "addr": "0x023032e8", "expect": "419e014c", "bytes": "60000000", "why": "remove the GetMediaDevice bail-out" },
+        { "addr": "0x023032f4", "expect": "419e0058", "bytes": "48000140", "why": "absent signal -> return instead of release (sticky AUX)" }
+      ]
+    },
+    "NAV": {
+      "app_image": "NAV/AppBin/f_BigQuick.bin",
+      "inf": "NAV/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "NAV/smeg.inf",
+      "ctrl": "NAV_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        { "addr": "0x02303428", "expect": "419e014c", "bytes": "60000000", "why": "remove the GetMediaDevice bail-out" },
+        { "addr": "0x02303434", "expect": "419e0058", "bytes": "48000140", "why": "absent signal -> return instead of release (sticky AUX)" }
+      ]
+    }
+  }
+}
