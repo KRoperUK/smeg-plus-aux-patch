@@ -1,0 +1,115 @@
+# Cheatcodes and the spy/diagnostics system
+
+## The cheatcode list is data
+
+The codes are not compiled in. They live in the media partition at
+`Data_base/sqlite/cheatcodes.sqlite`, table `cheatcodes`:
+
+```sql
+CREATE TABLE cheatcodes (
+  name VARCHAR(50) PRIMARY KEY,
+  is_displayable INT DEFAULT 0,
+  is_configurable INT DEFAULT 0,
+  max_params_number INT DEFAULT 0,
+  is_official INT DEFAULT 0,
+  is_synchronous INT DEFAULT 0,
+  is_available_in_release INT DEFAULT 1,
+  CCOD_PATH TEXT
+);
+```
+
+| name | displayable | params | CCOD_PATH | purpose |
+|---|---|---|---|---|
+| `SPYSTORE` | no | 0 | NAND | copy spy traces + spy dir out to removable storage |
+| `SPYTAKE` | no | 0 | NAND | audio long-event spy hook |
+| `SPYCLN` | no | 0 | NAND | clean spy buffers |
+| `REBOOT` | no | 0 | NAND | reboot the unit |
+| `HWINFO` | yes | 0 | NAND | hardware info |
+| `SWINFO` | yes | 0 | NAND | software info |
+| `AUDIOINFO` | yes | 0 | NAND | audio diagnostics |
+| `TUNERINFO` | yes | 0 | NAND | tuner diagnostics |
+| `BTINFO` | yes | 0 | NAND | Bluetooth info |
+| `NETINFO` | yes | 1 | NAND | network info |
+| `GPSINFO` | yes | 0 | MICRO_SD | GPS info |
+| `SYSMON` | yes | 0 | NAND | system monitor |
+| `MMIMON` | yes | 0 | NAND | MMI monitor |
+| `GUIDBG` | yes | 0 | NAND | GUI debug |
+| `ZAINFO` | yes | 0 | NAND | zone/area info |
+| `MSDREFRESH` | yes | 1 | NAND | refresh SD contents |
+| `PING` | yes | 1 | NAND | ping |
+| `AFTT` | no | 0 | NAND | AF tracking tool |
+| `ARKBYP` | no | 0 | NAND | Arkamys bypass |
+| `FPS` | no | 0 | NAND | frame rate |
+| `ECSAVE` | no | 1 | NAND | save EC |
+| `CATCLN` | no | 0 | NAND | catalogue clean |
+| `BT` | no | 2 | NAND | Bluetooth command |
+| `BT0DB` | no | 0 | NAND | Bluetooth 0 dB |
+| `BTADC` | no | 2 | NAND | Bluetooth ADC |
+| `BTSTARTER` | no | 1 | NAND | Bluetooth starter |
+| `MIRE` | no | 1 | NAND | MIRE test |
+| `SIMSPEED` | no | 1 | MICRO_SD | simulated speed |
+| `MAPSPEED` | no | 1 | MICRO_SD | map speed |
+
+`is_displayable = 0` only means it is not listed on the entry screen — it can still be
+typed. The libraries themselves are in the media partition under `/CCOD/`, named
+`libcheatcode_<NAME>.out` (with `.out.inf` and a `.out.txt.gz` symbol map).
+
+## How you get to the entry screen
+
+- The screen is `C_HMI_CONFIG_EngineModeCheatCode_VKB_Z1` (a virtual keyboard) plus
+  `C_HMI_CONFIG_CheatcodeFormat_MNU_Z1`.
+- The Config app registers it at runtime:
+  `C_HMI_CONFIG_EngineModeCheatCode_VKB_Z1::C1(...)` then
+  `C_HMI_MENU_MGR::RegisterScreen(0x5601, state)` — `0x5601` = screen id **22017**.
+- The menu tree (`desktopServices.sqlite` -> `current_menu`) has item **22017
+  'Cheat Code'**, but it is a *root* item (`parent_item_ID = 65535`) with
+  `key_event_keycode = 0`, and it is **not** a child of **22000 'Config Sec View'**
+  (what the carrousel "Config" entry opens). So it never appears in Settings, and it
+  has no shortcut key.
+- The only hard-coded trigger is `C_HMI_CONFIG_APP_BASE::HandleKeyboardMessage`, which
+  calls `StartCheatCodeSession()` on virtual key **`0x54`** while the Config app has
+  focus. That constant is firmware-only; it maps to no DB entry.
+- Launch path: `CheckCheatCode()` -> `C_BCM_HMI_CHEAT_CODE_CLIENT::exists()` /
+  `is_displayable()` -> `LaunchCheatCode()` -> `activate()`, over DBUS
+  `com/MM/BCM_CHEAT_CODE` (`BCM_cheatcode_SERVER`).
+
+Net: on a stock unit there is no user-facing way in. See issue **#22** (expose the menu
+entry, data-only) and **#23** (decode the FMUX key map to find what `0x54` is).
+
+## The spy system
+
+`C_BCM_SPY` / `C_BCM_SPY_List` / `C_BCM_SPY_Elem` implement per-module ring buffers of
+text lines, registered at runtime:
+
+```
+C_BCM_SPY::SetConfiguration(id, name, t_SpyBufferType, size, n, m, enable)
+C_BCM_SPY::WriteData(id, ptr, len)
+```
+
+Compiled flags: `__HIFI_SPY_TO_DISK__ = YES`, `__HIFI_SPY_MEMORIZED_ENABLED__ = NO`,
+`__HIFI_SPY_NEW_SETCONF_API__ = NO`.
+
+Spy output lives on the unit under `/SYSTEM_TMP_DATA/SPY/` — e.g.
+`spyAudio_%lu.bin.gz`, tuner-DAB dumps (`DmpEvn_*.dat`, `DmpFic_*.dat`,
+`EPG_*.bin`), `log_error.txt`.
+
+What `SPYSTORE` actually does:
+
+```
+libcheatcode_SPYSTORE.out : Activate()
+  -> C_BCM_SPY::DirectCallCopy(std::string const&)     # empty string in practice
+     -> C_BCM_SPY::CallBackCopy(std::string const&)
+        -> C_FS_STORAGE_CTRL_PATH::GetUnknownDir()      # removable media target
+        -> Mkdir + GetSpyFolderName/GetSpyFileName
+        -> C_FS_STORAGE_CTRL_IO::Copy(traces) + ::Xcopy(spy dir)
+```
+
+`C_BCM_SPY::CopyTraces(t_bcm_spy_files)` is the sibling entry point.
+
+**Do not confuse this with** `C_BCM_SPY_System_Shot::SpyFiles()` — despite the name it is
+a diagnostic snapshot that writes `diag_zi.sqlite`, not the debug spy logs. Ruled out as
+a hook.
+
+Relevant to this project: running `SPYSTORE` with a USB inserted would show whether HMI
+event `0x613dc` actually reaches `HandleAudioAuxInputStatusChnged()`, which is the open
+question behind the AUX auto-switch patch. See issue **#24**.

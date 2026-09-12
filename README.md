@@ -112,6 +112,17 @@ pip install capstone
 python3 tools/ppcdis.py app_nav.bin abs_symbols_base.txt 0x0230331c 0x02303460
 ```
 
+## Documentation
+
+| doc | contents |
+|---|---|
+| [`docs/ANALYSIS.md`](docs/ANALYSIS.md) | application image format, symbol maps, the AUX event chain, why the switch fails |
+| [`docs/PATCHES.md`](docs/PATCHES.md) | exact addresses and bytes per build |
+| [`docs/FLASHING.md`](docs/FLASHING.md) | preparing the USB stick and flashing |
+| [`docs/MEDIA_PARTITION.md`](docs/MEDIA_PARTITION.md) | media partition layout, ringtones and wait tones, the rebuild blocker |
+| [`docs/CHEATCODES.md`](docs/CHEATCODES.md) | cheatcode list, entry mechanism, spy/diagnostics system |
+| [`docs/VERSION_STRINGS.md`](docs/VERSION_STRINGS.md) | what the version screens read, and how the updater gates on them |
+
 ## Licence
 
 MIT — see [`LICENSE`](LICENSE). The scripts are the author's own work. No third-party
