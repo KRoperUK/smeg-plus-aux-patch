@@ -82,7 +82,7 @@ def test_expect_mismatch_fails_loudly(pkg, tmp_path):
 def test_only_flag_skips_other_variants(tmp_path):
     src = tmp_path / "SMEG_PLUS_UPG"
     src.mkdir()
-    info = helpers.build_package(str(src), variant="NAV")
+    helpers.build_package(str(src), variant="NAV")
     helpers.build_package(str(src), variant="AUDIO_BT")
     helpers.set_root_ctrl(str(src), ["NAV", "AUDIO_BT"])
     spec = tmp_path / "spec.json"

@@ -14,13 +14,21 @@ Repository = "https://github.com/KRoperUK/smeg-plus-aux-patch"
 [project.optional-dependencies]
 # the GUI needs Qt; the CLI tools need nothing beyond the standard library
 gui = ["PySide6>=6.6"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
 smeg-ringtones = "tools.ringtones:main"
 smeg-patch = "tools.patch_smeg:main"
 smeg-patch-media = "tools.patch_media:main"
 smeg-studio = "tools.ringtone_studio:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# errors + pyflakes: real problems, not a style war
+select = ["E9", "F"]
 
 [build-system]
 requires = ["hatchling"]

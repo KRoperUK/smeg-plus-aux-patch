@@ -23,6 +23,8 @@ jobs:
         with:
           python-version: "3.x"
       - run: pip install -r requirements-dev.txt
+      - name: lint
+        run: ruff check tools tests
       - name: pytest
         run: python -m pytest tests -q
       - name: docs build
