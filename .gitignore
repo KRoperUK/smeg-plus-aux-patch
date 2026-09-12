@@ -1,0 +1,32 @@
+# --- Vendor firmware / upgrade packages: never commit these ---
+SMEG_PLUS_UPG/
+SMEG_PLUS_UPG_mod/
+*.bin
+*.out
+*.mot
+*.crc
+*.rcc
+*.pkg
+*.wav
+*.sqlite
+*.ttf
+
+# app images / extracted artefacts
+app*.bin
+*_image.bin
+app.elf
+*.raw
+
+# keep the example patch definitions and docs
+!patches/*.json
+!tools/*.py
+!tools/*.sh
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# os
+.DS_Store

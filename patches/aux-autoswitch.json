@@ -1,0 +1,69 @@
+{
+  "name": "aux-autoswitch",
+  "description": "Force the SMEG+ AUX source available and remove the early exit in the AUX status-changed handler so the unit auto-selects AUX when its signal appears.",
+  "variants": {
+    "AUDIO_BT": {
+      "app_image": "AUDIO_BT/AppBin/f_BigQuick.bin",
+      "inf": "AUDIO_BT/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "AUDIO_BT/smeg.inf",
+      "ctrl": "AUDIO_BT_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        {
+          "addr": "0x02247718",
+          "expect": "9421ffa0",
+          "bytes": "386000014e800020",
+          "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true (li r3,1 ; blr)"
+        },
+        {
+          "addr": "0x023032e8",
+          "expect": "419e014c",
+          "bytes": "60000000",
+          "why": "C_HMI_MEDIA_APP_BASE::HandleAudioAuxInputStatusChnged +0x10c -> nop (remove GetMediaDevice bail-out)"
+        }
+      ]
+    },
+    "AUDIO_BT_256": {
+      "app_image": "AUDIO_BT_256/AppBin/f_BigQuick.bin",
+      "inf": "AUDIO_BT_256/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "AUDIO_BT_256/smeg.inf",
+      "ctrl": "AUDIO_BT_256_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        {
+          "addr": "0x02247718",
+          "expect": "9421ffa0",
+          "bytes": "386000014e800020",
+          "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true (li r3,1 ; blr)"
+        },
+        {
+          "addr": "0x023032e8",
+          "expect": "419e014c",
+          "bytes": "60000000",
+          "why": "C_HMI_MEDIA_APP_BASE::HandleAudioAuxInputStatusChnged +0x10c -> nop"
+        }
+      ]
+    },
+    "NAV": {
+      "app_image": "NAV/AppBin/f_BigQuick.bin",
+      "inf": "NAV/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "NAV/smeg.inf",
+      "ctrl": "NAV_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        {
+          "addr": "0x02247858",
+          "expect": "9421ffa0",
+          "bytes": "386000014e800020",
+          "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true (li r3,1 ; blr)"
+        },
+        {
+          "addr": "0x02303428",
+          "expect": "419e014c",
+          "bytes": "60000000",
+          "why": "C_HMI_MEDIA_APP_BASE::HandleAudioAuxInputStatusChnged +0x10c -> nop"
+        }
+      ]
+    }
+  }
+}
