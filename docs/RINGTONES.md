@@ -63,8 +63,7 @@ That repack used to be blocked on the `SIZE:` / `SIZE_1..SIZE_32` fields. It no 
 is: they are computable from the tar (see
 [Media partition](MEDIA_PARTITION.md#the-size-fields-solved)).
 
-What is still missing is the tool: a `patch_media.py` that swaps a file inside the tar
-and rebuilds `system_ctrl.bin` → `system.bin` → `system.bin.inf` → the module manifest
-→ the root manifest. Until that exists, `stage` **prepares** the tree and the final pack
-is outstanding. A replacement tone changes size, so the tar definitely changes — there
-is no way to make that edit size-neutral.
+That tool now exists — `tools/patch_media.py` swaps a file inside the tar and rebuilds
+`system_ctrl.bin` -> `system.bin` -> `system.bin.inf` -> the module manifest -> the root
+manifest. A replacement tone changes size, so the tar definitely changes; the `SIZE`
+fields are carried forward by exactly that change.

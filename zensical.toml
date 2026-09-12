@@ -19,6 +19,7 @@ nav = [
   { "Ring tones" = "RINGTONES.md" },
   { "Version strings" = "VERSION_STRINGS.md" },
   { "Patch reference" = "PATCHES.md" },
+  { "Running the tools" = "RUNNING.md" },
   { "Flashing" = "FLASHING.md" },
   { "Releasing" = "RELEASING.md" },
 ]

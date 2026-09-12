@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+
 """Ring tone / wait tone tool for SMEG+ — inspect, convert and stage custom audio.
 
 The unit plays plain PCM WAV:

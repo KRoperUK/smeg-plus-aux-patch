@@ -1,0 +1,30 @@
+[project]
+name = "smeg-plus-aux-patch"
+version = "0.2.0"
+description = "Reverse-engineering notes and tooling for PSA/Stellantis SMEG+ head units"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+[project.urls]
+Homepage = "https://smeg.kroper.uk/"
+Repository = "https://github.com/KRoperUK/smeg-plus-aux-patch"
+
+[project.optional-dependencies]
+# the GUI needs Qt; the CLI tools need nothing beyond the standard library
+gui = ["PySide6>=6.6"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+smeg-ringtones = "tools.ringtones:main"
+smeg-patch = "tools.patch_smeg:main"
+smeg-patch-media = "tools.patch_media:main"
+smeg-studio = "tools.ringtone_studio:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tools"]

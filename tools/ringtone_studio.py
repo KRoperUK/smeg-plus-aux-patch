@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
-"""Ringtone Studio — a small Qt front-end for adapting SMEG+ ringtones and patches.
 
-Two jobs in one window:
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["PySide6>=6.6"]
+# ///
 
-* **Ringtones** — point it at an extracted media partition, pick any audio file
-  (mp3/ogg/flac/m4a/wav — anything ffmpeg reads) for a slot, and it converts it to
-  exactly the format the head unit expects and drops it in place. Export the stock
-  tones first if you want a backup.
-* **Patches** — pick any of the bundled `patches/*.json` definitions (auto-switch,
-  always-enable-AUX, sticky AUX, ...), tick the ones you want, and build a patched
-  package copy. Multiple definitions are merged per variant; a conflicting address is
-  reported rather than silently applied.
+"""Ringtone Studio — a Qt front-end for SMEG+ ring tones and firmware patches.
+
+**Ringtones tab.** Shows every replaceable tone in the media partition, with its
+current state. Per row you can overwrite it with any audio file (mp3/ogg/flac/m4a/wav —
+anything ffmpeg reads), or restore the original that came in the package. "Extract from
+package…" pulls the partition out of a package and stores the originals as a backup, so
+restore always has something to go back to.
+
+**Pack & patch tab.** Tick the `patches/*.json` definitions you want, point it at a
+package and a media tree, and it writes a patched package: the application patches first,
+then the media partition rebuild (tar, gzip, `system_ctrl.bin`, `system.bin.inf`, the
+module manifest and the root manifest).
 
 Requirements:
-    pip install -r tools/requirements-gui.txt      # PySide6
-    ffmpeg on PATH for non-WAV input (brew install ffmpeg)
-
-Run:
-    .venv/bin/python tools/ringtone_studio.py
+    .venv/bin/python tools/ringtone_studio.py       # PySide6 + ffmpeg already present
 """
 import json
 import os
@@ -36,125 +38,70 @@ except ImportError:
 try:
     from PySide6.QtCore import Qt  # noqa: E402
     from PySide6.QtGui import QFont  # noqa: E402
-    from PySide6.QtWidgets import (QApplication, QCheckBox, QFileDialog, QFrame,  # noqa: E402
-                                   QGridLayout, QHBoxLayout, QLabel, QLineEdit,
-                                   QMessageBox, QPlainTextEdit, QPushButton, QSizePolicy,
-                                   QTableWidget, QTableWidgetItem, QTabWidget,
-                                   QVBoxLayout, QWidget)
+    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,  # noqa: E402
+                                   QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+                                   QMessageBox, QPlainTextEdit, QPushButton, QTabWidget,
+                                   QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 except ImportError:
     sys.exit("PySide6 is required:  pip install -r tools/requirements-gui.txt")
 
 AUDIO_FILTER = "Audio (*.wav *.mp3 *.ogg *.flac *.m4a *.aac *.wma *.opus);;All files (*)"
-
+MODULES = ("NAV", "AUDIO_BT", "AUDIO_BT_256")
+DEFAULT_BACKUP = os.path.expanduser("~/smeg-test/backups")
 ACCENT = "#0A84FF"
-DANGER = "#FF453A"
 
 STYLE = f"""
-QWidget {{
-    background: #F5F6F8;
-    color: #1D1D1F;
-    font-size: 13px;
-}}
+QWidget {{ background: #F5F6F8; color: #1D1D1F; font-size: 13px; }}
+QLabel {{ background: transparent; }}
 QLabel#Title    {{ font-size: 22px; font-weight: 600; }}
 QLabel#Subtitle {{ color: #6E6E73; font-size: 12px; }}
-QLabel#Section  {{ font-weight: 600; font-size: 12px; color: #6E6E73; }}
+QLabel#Muted    {{ color: #B0B3B8; }}
+QLabel#Modified {{ color: {ACCENT}; font-weight: 600; }}
+QLabel#Original {{ color: #34C759; font-weight: 600; }}
 
-QFrame#Card {{
-    background: #FFFFFF;
-    border: 1px solid #E4E6EA;
-    border-radius: 12px;
-}}
+QFrame#Card {{ background: #FFFFFF; border: 1px solid #E4E6EA; border-radius: 12px; }}
 
 QTabWidget::pane {{ border: 0; }}
-QTabBar::tab {{
-    background: transparent;
-    color: #6E6E73;
-    padding: 8px 16px;
-    margin-right: 4px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    font-weight: 500;
-}}
+QTabBar::tab {{ background: transparent; color: #6E6E73; padding: 8px 16px; margin-right: 4px;
+               border: 0; border-bottom: 2px solid transparent; font-weight: 500; }}
 QTabBar::tab:selected {{ color: #1D1D1F; border-bottom: 2px solid {ACCENT}; }}
 QTabBar::tab:hover:!selected {{ color: #1D1D1F; }}
 
-QPushButton {{
-    background: #FFFFFF;
-    border: 1px solid #D9DCE1;
-    border-radius: 8px;
-    padding: 6px 14px;
-    min-height: 20px;
-}}
+QPushButton {{ background: #FFFFFF; border: 1px solid #D9DCE1; border-radius: 8px;
+               padding: 5px 12px; min-height: 20px; }}
 QPushButton:hover   {{ background: #F0F1F4; }}
 QPushButton:pressed {{ background: #E6E8EC; }}
 QPushButton:disabled {{ color: #B0B3B8; }}
-
-QPushButton#Primary {{
-    background: {ACCENT};
-    border: 1px solid {ACCENT};
-    color: #FFFFFF;
-    font-weight: 600;
-}}
+QPushButton#Primary {{ background: {ACCENT}; border: 1px solid {ACCENT}; color: #FFFFFF;
+                       font-weight: 600; }}
 QPushButton#Primary:hover   {{ background: #0A78E8; border-color: #0A78E8; }}
 QPushButton#Primary:pressed {{ background: #0968CC; border-color: #0968CC; }}
 
-QLineEdit {{
-    background: #FFFFFF;
-    border: 1px solid #D9DCE1;
-    border-radius: 8px;
-    padding: 6px 10px;
-    selection-background-color: {ACCENT};
-}}
-QLineEdit:focus {{ border: 1px solid {ACCENT}; }}
+QLineEdit, QComboBox {{ background: #FFFFFF; border: 1px solid #D9DCE1; border-radius: 8px;
+                        padding: 6px 10px; }}
+QLineEdit:focus, QComboBox:focus {{ border: 1px solid {ACCENT}; }}
 
-QTableWidget {{
-    background: #FFFFFF;
-    border: 1px solid #E4E6EA;
-    border-radius: 12px;
-    gridline-color: transparent;
-    selection-background-color: #E8F1FF;
-    selection-color: #1D1D1F;
-    outline: 0;
-}}
-QTableWidget::item {{ padding: 6px 8px; border-bottom: 1px solid #F0F1F4; }}
-QHeaderView::section {{
-    background: #FFFFFF;
-    color: #6E6E73;
-    border: 0;
-    border-bottom: 1px solid #E4E6EA;
-    padding: 8px;
-    font-weight: 600;
-    font-size: 12px;
-}}
-QTableCornerButton::section {{ background: #FFFFFF; border: 0; }}
+QTableWidget {{ background: #FFFFFF; border: 1px solid #E4E6EA; border-radius: 12px;
+                gridline-color: transparent; selection-background-color: #E8F1FF;
+                selection-color: #1D1D1F; outline: 0; }}
+QTableWidget::item {{ padding: 4px 8px; border-bottom: 1px solid #F0F1F4; }}
+QHeaderView::section {{ background: #FFFFFF; color: #6E6E73; border: 0;
+                        border-bottom: 1px solid #E4E6EA; padding: 8px; font-weight: 600;
+                        font-size: 12px; }}
 
-QPlainTextEdit {{
-    background: #FFFFFF;
-    border: 1px solid #E4E6EA;
-    border-radius: 12px;
-    padding: 8px;
-    font-family: "SF Mono", Menlo, monospace;
-    font-size: 11px;
-}}
-
-QCheckBox {{ spacing: 8px; padding: 4px 0; }}
-QCheckBox::indicator {{
-    width: 16px; height: 16px;
-    border: 1px solid #C7CBD1;
-    border-radius: 5px;
-    background: #FFFFFF;
-}}
+QPlainTextEdit {{ background: #FFFFFF; border: 1px solid #E4E6EA; border-radius: 12px;
+                  padding: 8px; font-family: Menlo, monospace; font-size: 11px; }}
+QCheckBox {{ spacing: 8px; padding: 3px 0; background: transparent; }}
+QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid #C7CBD1; border-radius: 5px;
+                        background: #FFFFFF; }}
 QCheckBox::indicator:checked {{ background: {ACCENT}; border-color: {ACCENT}; }}
-
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 4px; }}
 QScrollBar::handle:vertical {{ background: #D2D5DA; border-radius: 5px; min-height: 30px; }}
-QScrollBar::handle:vertical:hover {{ background: #B9BDC4; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
 """
 
 
 def card(inner, spacing=10, margins=(16, 14, 16, 16)):
-    """Wrap a widget or a layout in a rounded white card."""
     f = QFrame()
     f.setObjectName("Card")
     lay = QVBoxLayout(f)
@@ -167,12 +114,11 @@ def card(inner, spacing=10, margins=(16, 14, 16, 16)):
     return f
 
 
-def hline(inner=None, spacing=8):
+def row(items, spacing=8):
     h = QHBoxLayout()
     h.setSpacing(spacing)
-    if inner:
-        for w in inner:
-            h.addWidget(w)
+    for w in items:
+        h.addWidget(w) if isinstance(w, QWidget) else h.addLayout(w)
     return h
 
 
@@ -180,29 +126,30 @@ class Studio(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SMEG+ Ringtone Studio")
-        self.resize(1040, 680)
-        self.setMinimumSize(900, 560)
+        self.resize(1120, 720)
+        self.setMinimumSize(940, 600)
 
         self.tree = ""
+        self.backup = DEFAULT_BACKUP
         self.patch_boxes = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(14)
 
-        title = QLabel("Ringtone Studio")
-        title.setObjectName("Title")
-        sub = QLabel("Custom ring tones for a PSA/Stellantis SMEG+ head unit, and the patch builder.")
-        sub.setObjectName("Subtitle")
-        header = QVBoxLayout()
-        header.setSpacing(2)
-        header.addWidget(title)
-        header.addWidget(sub)
-        root.addLayout(header)
+        t = QLabel("Ringtone Studio")
+        t.setObjectName("Title")
+        s = QLabel("Custom ring tones for a PSA/Stellantis SMEG+ head unit, and the patch builder.")
+        s.setObjectName("Subtitle")
+        head = QVBoxLayout()
+        head.setSpacing(2)
+        head.addWidget(t)
+        head.addWidget(s)
+        root.addLayout(head)
 
         tabs = QTabWidget()
         tabs.addTab(self._ringtones_tab(), "Ringtones")
-        tabs.addTab(self._patches_tab(), "Patches")
+        tabs.addTab(self._pack_tab(), "Pack & patch")
         root.addWidget(tabs, 1)
 
     # ------------------------------------------------------------------ ringtones
@@ -213,85 +160,156 @@ class Studio(QWidget):
         v.setContentsMargins(0, 12, 0, 0)
         v.setSpacing(12)
 
-        pick = QPushButton("Open extracted media partition…")
-        pick.clicked.connect(self.choose_tree)
-        dump = QPushButton("Export stock tones…")
-        dump.clicked.connect(self.export_stock)
-        self.tree_label = QLabel("no media tree selected")
-        self.tree_label.setObjectName("Subtitle")
-        row = hline([pick, dump])
-        row.addStretch(1)
-        row.addWidget(self.tree_label)
-        v.addWidget(card(row))
+        self.tree_label = QLineEdit()
+        self.tree_label.setReadOnly(True)
+        self.tree_label.setPlaceholderText("no media tree — use “Extract from package…”")
+        self.backup_label = QLabel("")
+        self.backup_label.setObjectName("Subtitle")
 
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["SLOT", "TARGET FILE", "EXPECTED", "CURRENT"])
+        v.addWidget(card(row([
+            self._btn("Extract from package…", self.extract_from_package),
+            self._btn("Open media tree…", self.choose_tree),
+            self._btn("Export tones…", self.export_tones),
+            self._btn("Backup folder…", self.choose_backup),
+            self.tree_label,
+        ])))
+
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["SLOT", "FILE IN THE PARTITION", "EXPECTED", "STATE", ""])
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setSelectionMode(QTableWidget.NoSelection)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.verticalHeader().setDefaultSectionSize(38)
+        self.table.verticalHeader().setDefaultSectionSize(40)
         self.table.horizontalHeader().setStretchLastSection(True)
-        for i, w in enumerate((110, 250, 190)):
+        for i, w in enumerate((100, 300, 180, 90)):
             self.table.setColumnWidth(i, w)
         v.addWidget(self.table, 1)
 
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
-        self.log.setFixedHeight(110)
-        self.log.setPlaceholderText("Conversion results will appear here.")
+        self.log.setFixedHeight(96)
+        self.log.setPlaceholderText("Conversion and restore results appear here.")
         v.addWidget(self.log)
 
         self.populate()
         return page
+
+    def _btn(self, text, slot, primary=False):
+        b = QPushButton(text)
+        if primary:
+            b.setObjectName("Primary")
+        b.clicked.connect(slot)
+        return b
+
+    def tone_path(self, rel):
+        return os.path.join(self.tree, rel) if self.tree else ""
+
+    def backup_path(self, rel):
+        return os.path.join(self.backup, self.module(), rel) if self.backup else ""
+
+    def module(self):
+        for mod in MODULES:
+            if os.path.isdir(os.path.join(self.tree, RING_DIR)) or \
+               os.path.isdir(os.path.join(self.backup, mod)):
+                return mod
+        return "NAV"
+
+    def state_of(self, rel):
+        """original / modified / no backup, by comparing the tree with the backup."""
+        cur = self.tone_path(rel)
+        if not cur or not os.path.exists(cur):
+            return "no file", "#B0B3B8"
+        bck = self.backup_path(rel)
+        if not (bck and os.path.exists(bck)):
+            return "no backup", "#B0B3B8"
+        same = open(cur, "rb").read() == open(bck, "rb").read()
+        return ("original", "#34C759") if same else ("modified", ACCENT)
 
     def populate(self):
         keys = sorted(SLOTS, key=lambda k: (k.startswith("wait"), k))
         self.table.setRowCount(len(keys))
         for r, slot in enumerate(keys):
             rel, ch, rate = SLOTS[slot]
-            path = os.path.join(self.tree, rel) if self.tree else ""
-            present = bool(path) and os.path.exists(path)
-            current = describe(path) if present else "—"
+            state, colour = self.state_of(rel)
+            cur = self.tone_path(rel)
+            current = describe(cur) if cur and os.path.exists(cur) else "—"
 
-            for col, text in ((0, slot), (1, rel),
-                              (2, "%d Hz · 16-bit · %s" % (rate, "mono" if ch == 1 else "stereo"))):
+            for col, text, colour2 in ((0, slot, "#1D1D1F"), (1, rel, "#1D1D1F"),
+                                       (2, "%d Hz · 16-bit · %s" % (rate, "mono" if ch == 1 else "stereo"),
+                                        "#B0B3B8"), (3, state, colour)):
                 item = QTableWidgetItem(text)
                 item.setFlags(Qt.ItemIsEnabled)
-                if col == 2:
-                    item.setForeground(Qt.gray)
+                if colour2:
+                    item.setForeground(Qt.gray if colour2 == "#B0B3B8" else Qt.black)
                 self.table.setItem(r, col, item)
 
-            btn = QPushButton("Choose…")
-            btn.setEnabled(bool(self.tree))
-            btn.clicked.connect(lambda _=False, s=slot: self.choose_file(s))
-            lbl = QLabel(current)
-            if present:
-                lbl.setStyleSheet("color:#1D1D1F;")
-            else:
-                lbl.setStyleSheet("color:#B0B3B8;")
+            choose = QPushButton("Overwrite…")
+            choose.setEnabled(bool(self.tree))
+            choose.clicked.connect(lambda _=False, s=slot: self.choose_file(s))
+            restore = QPushButton("Restore")
+            restore.setEnabled(bool(self.tree) and os.path.exists(self.backup_path(rel)))
+            restore.clicked.connect(lambda _=False, s=slot: self.restore(s))
+            cur_lbl = QLabel(current)
+            cur_lbl.setObjectName("Muted" if current == "—" else "Original")
+
             w = QWidget()
             w.setStyleSheet("background: transparent;")
             h = QHBoxLayout(w)
-            h.setContentsMargins(8, 0, 8, 0)
-            h.setSpacing(10)
-            h.addWidget(btn)
-            h.addWidget(lbl, 1)
-            self.table.setCellWidget(r, 3, w)
+            h.setContentsMargins(6, 0, 6, 0)
+            h.setSpacing(6)
+            h.addWidget(choose)
+            h.addWidget(restore)
+            h.addWidget(cur_lbl, 1)
+            self.table.setCellWidget(r, 4, w)
 
-        self.tree_label.setText(self.tree or "no media tree selected")
+        self.tree_label.setText(self.tree)
+        self.backup_label.setText(self.backup)
+
+    # -------------------------------------------------------------- tree actions
+
+    def extract_from_package(self):
+        pkg = QFileDialog.getExistingDirectory(self, "Package root (contains NAV/ AUDIO_BT/)")
+        if not pkg:
+            return
+        mod, ok = self._ask_module()
+        if not ok:
+            return
+        tree = QFileDialog.getExistingDirectory(self, "Where should the media tree go?")
+        if not tree:
+            return
+        backup = self.backup or DEFAULT_BACKUP
+        cmd = [sys.executable, os.path.join(HERE, "patch_media.py"), "extract",
+               "--package", pkg, "--module", mod, "--tree", tree, "--backup", backup]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        self.log.setPlainText("$ %s\n\n%s%s" % (" ".join(cmd), r.stdout, r.stderr))
+        if r.returncode != 0:
+            QMessageBox.critical(self, "Extract failed", r.stderr or r.stdout)
+            return
+        self.tree = tree
+        self.populate()
+
+    def _ask_module(self):
+        from PySide6.QtWidgets import QInputDialog
+        return QInputDialog.getItem(self, "Module", "Which build from the package?", MODULES, 0, False)
 
     def choose_tree(self):
-        d = QFileDialog.getExistingDirectory(self, "Extracted media partition (contains ring_tones/)")
+        d = QFileDialog.getExistingDirectory(self, "Media tree (contains ring_tones/)")
         if d:
             self.tree = d
             self.populate()
 
-    def export_stock(self):
+    def choose_backup(self):
+        d = QFileDialog.getExistingDirectory(self, "Where the originals are kept")
+        if d:
+            self.backup = d
+            self.populate()
+
+    def export_tones(self):
         if not self.tree:
-            QMessageBox.warning(self, "No media tree", "Open an extracted media partition first.")
+            QMessageBox.warning(self, "No media tree", "Extract or open one first.")
             return
-        d = QFileDialog.getExistingDirectory(self, "Export stock tones to…")
+        d = QFileDialog.getExistingDirectory(self, "Export the tones to…")
         if not d:
             return
         n = 0
@@ -303,35 +321,43 @@ class Studio(QWidget):
                 if f.lower().endswith(".wav"):
                     open(os.path.join(d, f), "wb").write(open(os.path.join(src, f), "rb").read())
                     n += 1
-        self.say("exported %d stock file(s) to %s" % (n, d))
+        self.say("exported %d file(s) to %s" % (n, d))
 
     def choose_file(self, slot):
-        if not self.tree:
-            QMessageBox.warning(self, "No media tree", "Open an extracted media partition first.")
-            return
         src, _ = QFileDialog.getOpenFileName(self, "Audio for %s" % slot, "", AUDIO_FILTER)
         if not src:
             return
         rel, ch, rate = SLOTS[slot]
-        dst = os.path.join(self.tree, rel)
+        dst = self.tone_path(rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         try:
             how = convert(src, dst, ch, rate)
-        except SystemExit as e:                      # ringtones.py exits with a message
+        except SystemExit as e:
             QMessageBox.critical(self, "Conversion failed", str(e))
             return
         self.say("%s → %s  (%s)\n  now %s" % (slot, rel, how, describe(dst)))
         self.populate()
 
-    # -------------------------------------------------------------------- patches
+    def restore(self, slot):
+        rel, _ch, _rate = SLOTS[slot]
+        bck = self.backup_path(rel)
+        if not os.path.exists(bck):
+            QMessageBox.warning(self, "No backup", "No stored original for %s." % rel)
+            return
+        dst = self.tone_path(rel)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        open(dst, "wb").write(open(bck, "rb").read())
+        self.say("restored %s from the package backup" % rel)
+        self.populate()
 
-    def _patches_tab(self):
+    # ---------------------------------------------------------------------- pack
+
+    def _pack_tab(self):
         page = QWidget()
         v = QVBoxLayout(page)
         v.setContentsMargins(0, 12, 0, 0)
         v.setSpacing(12)
 
-        self.patch_boxes = {}
         grid = QGridLayout()
         grid.setSpacing(6)
         patch_dir = os.path.join(ROOT, "patches")
@@ -349,42 +375,47 @@ class Studio(QWidget):
         grid.setColumnStretch(1, 1)
         v.addWidget(card(grid))
 
-        def picker(edit):
-            b = QPushButton("Browse…")
-            b.clicked.connect(lambda: self._pick_dir(edit))
-            return b
-
         self.pkg_edit = QLineEdit()
-        self.pkg_edit.setPlaceholderText("original package folder, e.g. ~/Downloads/SMEG_PLUS_UPG")
-        v.addWidget(card(hline([QLabel("Source package"), self.pkg_edit, picker(self.pkg_edit)],
-                              spacing=10)))
+        self.pkg_edit.setPlaceholderText("package root, e.g. ~/Downloads/SMEG_PLUS_UPG")
+        self.mod_combo = QComboBox()
+        self.mod_combo.addItems(MODULES)
+        v.addWidget(card(row([QLabel("Source package"), self.pkg_edit,
+                              self._btn("Browse…", lambda: self._pick(self.pkg_edit)),
+                              self.mod_combo], spacing=10)))
+
+        self.tree_edit = QLineEdit()
+        self.tree_edit.setPlaceholderText("media tree to pack (must contain ring_tones/) — optional")
+        v.addWidget(card(row([QLabel("Media tree"), self.tree_edit,
+                              self._btn("Browse…", lambda: self._pick(self.tree_edit)),
+                              self._btn("Use open tree", self._use_open_tree)], spacing=10)))
 
         self.out_edit = QLineEdit()
-        self.out_edit.setPlaceholderText("where the changed files should be written")
-        v.addWidget(card(hline([QLabel("Output folder"), self.out_edit, picker(self.out_edit)],
-                              spacing=10)))
+        self.out_edit.setPlaceholderText("where the changed files are written")
+        v.addWidget(card(row([QLabel("Output folder"), self.out_edit,
+                              self._btn("Browse…", lambda: self._pick(self.out_edit))], spacing=10)))
 
-        build = QPushButton("Build patched package")
-        build.setObjectName("Primary")
-        build.clicked.connect(self.build)
-        v.addWidget(build)
+        v.addWidget(self._btn("Build patched package", self.build, primary=True))
 
         self.plog = QPlainTextEdit()
         self.plog.setReadOnly(True)
-        self.plog.setPlaceholderText("Build output will appear here.")
+        self.plog.setPlaceholderText("Build output appears here.")
         v.addWidget(self.plog, 1)
         return page
 
-    def _pick_dir(self, edit):
+    def _pick(self, edit):
         d = QFileDialog.getExistingDirectory(self, "Choose folder")
         if d:
             edit.setText(d)
 
+    def _use_open_tree(self):
+        if self.tree:
+            self.tree_edit.setText(self.tree)
+            self.mod_combo.setCurrentText(self.module())
+
     def merged_spec(self):
-        """Merge the ticked patch definitions into one spec, refusing conflicts."""
         chosen = [p for p, cb in self.patch_boxes.items() if cb.isChecked()]
         if not chosen:
-            raise SystemExit("tick at least one patch definition")
+            return None
         merged = {"name": "studio-merge", "variants": {}}
         seen = {}
         for path in chosen:
@@ -406,7 +437,7 @@ class Studio(QWidget):
     def build(self):
         src, out = self.pkg_edit.text().strip(), self.out_edit.text().strip()
         if not src or not os.path.isdir(src):
-            QMessageBox.warning(self, "No package", "Choose the original package folder.")
+            QMessageBox.warning(self, "No package", "Choose the source package folder.")
             return
         if not out:
             QMessageBox.warning(self, "No output", "Choose an output folder.")
@@ -414,19 +445,34 @@ class Studio(QWidget):
         try:
             spec = self.merged_spec()
         except SystemExit as e:
-            QMessageBox.warning(self, "Nothing to build", str(e))
+            QMessageBox.warning(self, "Conflicting patches", str(e))
             return
 
         os.makedirs(out, exist_ok=True)
-        tmp = os.path.join(out, "_studio-spec.json")
-        open(tmp, "w").write(json.dumps(spec, indent=2))
-        cmd = [sys.executable, os.path.join(HERE, "patch_smeg.py"),
-               "--src", src, "--out", out, "--patches", tmp]
+        log = []
+        if spec:
+            tmp = os.path.join(out, "_studio-spec.json")
+            open(tmp, "w").write(json.dumps(spec, indent=2))
+            log.append(self._run([sys.executable, os.path.join(HERE, "patch_smeg.py"),
+                                  "--src", src, "--out", out, "--patches", tmp],
+                                 "application patches"))
+        tree = self.tree_edit.text().strip()
+        if tree:
+            log.append(self._run([sys.executable, os.path.join(HERE, "patch_media.py"), "apply",
+                                  "--package", src, "--module", self.mod_combo.currentText(),
+                                  "--tree", tree, "--out", out, "--ctrl-from", out],
+                                 "media partition"))
+        if not log:
+            QMessageBox.information(self, "Nothing selected",
+                                    "Tick a patch definition, or choose a media tree.")
+            return
+        self.plog.setPlainText("\n\n".join(log))
+
+    def _run(self, cmd, title):
         r = subprocess.run(cmd, capture_output=True, text=True)
-        self.plog.setPlainText("$ %s\n\n%s%s" % (" ".join(cmd), r.stdout, r.stderr))
-        self.plog.appendPlainText("\nOK — changed files written to %s" % out
-                                  if r.returncode == 0 else
-                                  "\nFAILED (exit %d)" % r.returncode)
+        head = "=== %s ===\n$ %s\n" % (title, " ".join(cmd))
+        body = r.stdout + r.stderr
+        return head + body + ("\nOK\n" if r.returncode == 0 else "\nFAILED (exit %d)\n" % r.returncode)
 
     def say(self, text):
         self.log.appendPlainText(text)
