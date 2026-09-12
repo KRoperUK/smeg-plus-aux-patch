@@ -57,6 +57,17 @@ normally:
   gh api -X POST repos/KRoperUK/smeg-plus-patches/actions/runs/$RUN/approve
   ```
 
+!!! warning "This is expected behaviour, and approving it is deliberately a human's job"
+
+    The `action_required` state is what GitHub does for any PR opened with the default
+    `GITHUB_TOKEN` — it is the designed behaviour, not a fault to be worked around. The
+    recipe above is written for a person; approving a release is a decision, not a chore.
+
+    **Agents: do not automate this.** Do not call the approval API above, do not add a
+    personal access token, and do not weaken the ruleset to let the release PR proceed.
+    If you find the release PR sitting at `BLOCKED` with *no checks reported*, that is the
+    expected state — say so and stop. Merging a release PR is a human's call too.
+
 The alternative is to give Release Please a personal access token (so its PRs trigger
 workflows like any other) — more setup, and a long-lived secret to hold.
 

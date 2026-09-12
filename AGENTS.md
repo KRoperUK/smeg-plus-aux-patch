@@ -38,6 +38,16 @@ The work is split in two:
    `python3 tools/check_commit_msg.py --title "feat: ..."`.
 4. **`main` is protected.** No direct pushes — work on a branch and open a PR. Deletion,
    force-push and non-linear history are blocked.
+5. **A release PR needs a human approval click. That is expected — do not automate it.**
+   Release Please opens its PR with the default `GITHUB_TOKEN`, and GitHub will not run
+   workflows on a PR created that way until someone approves them, so the release PR sits
+   at `BLOCKED` with **no checks reported** and every run showing `action_required`. That
+   is the designed behaviour, not a fault, and it is deliberately left to a person:
+   approving a release is a decision, not a chore.
+
+   If you are an agent, **do not** work around it — do not call the run-approval API, do
+   not add a PAT, do not weaken the ruleset. Report that the release PR is waiting on a
+   human and move on. The same applies to merging a release PR.
 
 ## How to run things
 

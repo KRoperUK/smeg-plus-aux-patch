@@ -1,0 +1,21 @@
+{
+  "name": "diagnostic-logging",
+  "description": "DIAGNOSTIC BUILD - turns on the application's own logging, which is compiled in but stubbed out. Every log call site in the image tests a global and, when logging is off, calls `dummyLogMsg` instead of `Log_msg`. `dummyLogMsg` is literally `li r3,0 ; blr`, so replacing that one instruction with a branch to the real `Log_msg` makes every one of those call sites live. One instruction, no code cave, trivially reversible. Intended for establishing whether a DBUS message is reaching the media app; expect a lot of output and do not drive on it. NAV only for now - the other builds need their own addresses checked before they are listed here.",
+  "variants": {
+    "NAV": {
+      "app_image": "NAV/AppBin/f_BigQuick.bin",
+      "inf": "NAV/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "NAV/smeg.inf",
+      "ctrl": "NAV_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        {
+          "addr": "0x010346d0",
+          "expect": "38600000",
+          "bytes": "4970de88",
+          "why": "dummyLogMsg (li r3,0 ; blr) -> b Log_msg @ 0x02742558. Log_msg takes r3=level, r4=format and the caller has already set those, so the branch passes them straight through and every gated log site in the image becomes live."
+        }
+      ]
+    }
+  }
+}
