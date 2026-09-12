@@ -3,15 +3,12 @@ import subprocess
 import sys
 import wave
 
-import pytest
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TOOLS = os.path.join(ROOT, "tools")
 sys.path.insert(0, TOOLS)
 sys.path.insert(0, HERE)
 
-import helpers  # noqa: E402
 
 
 def run(*args):

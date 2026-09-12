@@ -12,7 +12,6 @@ usage:
 import argparse
 import bisect
 import struct
-import sys
 
 SHF_ALLOC = 0x2
 SHF_EXECINSTR = 0x4

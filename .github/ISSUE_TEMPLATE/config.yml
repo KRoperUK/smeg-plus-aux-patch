@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How the firmware fits together
+    url: https://smeg.kroper.uk/ARCHITECTURE/
+    about: Modules, the HMI framework, messaging and the databases.
+  - name: Running the tools
+    url: https://smeg.kroper.uk/RUNNING/
+    about: uv/uvx one-liners and a cheat sheet for every command.
+  - name: Releasing
+    url: https://smeg.kroper.uk/RELEASING/
+    about: Conventional commits and the automatic version/changelog flow.
