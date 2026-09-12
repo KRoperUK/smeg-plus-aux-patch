@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/KRoperUK/smeg-plus-aux-patch/compare/v0.2.0...v0.3.0) (2026-09-12)
+
+
+### Features
+
+* preview ring tones from the studio ([#46](https://github.com/KRoperUK/smeg-plus-aux-patch/issues/46)) ([f7c72c9](https://github.com/KRoperUK/smeg-plus-aux-patch/commit/f7c72c986bb61a996052a8e1321e9f2fbc8fd341))
+
+
+### Documentation
+
+* add AGENTS.md and agent instructions ([#47](https://github.com/KRoperUK/smeg-plus-aux-patch/issues/47)) ([395283f](https://github.com/KRoperUK/smeg-plus-aux-patch/commit/395283ffa45be58399eb7c15a3abc21b6ff9ddae))
+
 ## [0.2.0](https://github.com/KRoperUK/smeg-plus-aux-patch/compare/v0.1.0...v0.2.0) (2026-09-12)
 
 
