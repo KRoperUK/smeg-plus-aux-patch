@@ -39,6 +39,30 @@ commit history but not in the changelog.
 Because the branch ruleset allows merge/squash/rebase and requires linear history, the
 release PR merges normally. The tag is not covered by the branch ruleset.
 
+## Approving the release PR's checks
+
+The branch ruleset requires the `test` check before anything merges to `main`.
+
+There is one wrinkle: **a pull request created with the default `GITHUB_TOKEN` does not
+trigger workflows automatically**, so the release PR's CI run arrives in
+`action_required` and sits there. It has to be approved once, then the checks run
+normally:
+
+- **UI:** the PR shows a *Workflow(s) awaiting approval* banner — click **Approve and run**.
+- **CLI:**
+  ```sh
+  RUN=$(gh run list --repo KRoperUK/smeg-plus-aux-patch \
+      --branch release-please--branches--main --workflow CI \
+      --json databaseId,conclusion --jq '[.[]|select(.conclusion=="action_required")][0].databaseId')
+  gh api -X POST repos/KRoperUK/smeg-plus-aux-patch/actions/runs/$RUN/approve
+  ```
+
+The alternative is to give Release Please a personal access token (so its PRs trigger
+workflows like any other) — more setup, and a long-lived secret to hold.
+
+Repository admins also have a `pull_request`-scoped bypass on the ruleset, so the release
+PR can be merged directly if you would rather not approve the run.
+
 ## Configuration
 
 - `release-please-config.json` — release type, changelog sections, version bump rules.
