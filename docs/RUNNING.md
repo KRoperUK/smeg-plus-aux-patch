@@ -7,8 +7,8 @@ metadata, so `uv` installs what each one needs, once, and caches it.
 ## From a checkout
 
 ```sh
-git clone https://github.com/KRoperUK/smeg-plus-aux-patch
-cd smeg-plus-aux-patch
+git clone https://github.com/KRoperUK/smeg-plus-patches
+cd smeg-plus-patches
 
 uv run tools/ringtone_studio.py                     # the Qt app (fetches PySide6)
 uv run tools/patch_media.py --help                  # media partition patcher
@@ -24,12 +24,12 @@ CLI tools pull nothing.
 `uvx` runs the packaged console scripts straight from the repository:
 
 ```sh
-uvx --from git+https://github.com/KRoperUK/smeg-plus-aux-patch smeg-patch-media --help
-uvx --from git+https://github.com/KRoperUK/smeg-plus-aux-patch smeg-ringtones list
-uvx --from git+https://github.com/KRoperUK/smeg-plus-aux-patch smeg-patch --help
+uvx --from git+https://github.com/KRoperUK/smeg-plus-patches smeg-patch-media --help
+uvx --from git+https://github.com/KRoperUK/smeg-plus-patches smeg-ringtones list
+uvx --from git+https://github.com/KRoperUK/smeg-plus-patches smeg-patch --help
 
 # the GUI needs the optional Qt extra
-uvx --from 'smeg-plus-aux-patch[gui] @ git+https://github.com/KRoperUK/smeg-plus-aux-patch' smeg-studio
+uvx --from 'smeg-plus-patches[gui] @ git+https://github.com/KRoperUK/smeg-plus-patches' smeg-studio
 ```
 
 | console script | equivalent |

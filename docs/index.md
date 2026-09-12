@@ -46,5 +46,5 @@ out, and it is back in the SRC cycle.
 **The automatic AUX switch has not yet been observed working.** That is the outstanding
 question; everything else on this site is supporting material. See
 [Hardware verification](VERIFICATION.md) for the full picture, and the
-[repository issues](https://github.com/KRoperUK/smeg-plus-aux-patch/issues) for open
+[repository issues](https://github.com/KRoperUK/smeg-plus-patches/issues) for open
 questions and ideas.

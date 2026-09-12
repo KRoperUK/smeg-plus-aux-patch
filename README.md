@@ -1,4 +1,4 @@
-# smeg-plus-aux-patch
+# smeg-plus-patches
 
 Reverse-engineering notes and tooling for patching **PSA / Stellantis "SMEG+"**
 infotainment firmware so the **AUX audio source is selected automatically** when a

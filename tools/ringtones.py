@@ -31,6 +31,7 @@ usage:
 """
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -162,6 +163,76 @@ def cmd_stage(args):
           "tracked separately - see docs/MEDIA_PARTITION.md.")
 
 
+# The names the phone UI shows are not in the WAVs — they are rows in
+# Data_base/sqlite/up_common.sqlite, table UP_Keys, Section 'phone', Name 'Ringing_List',
+# one row per Idx. Replacing a tone changes what you hear; renaming changes what you see.
+UP_COMMON = "Data_base/sqlite/up_common.sqlite"
+NAME_SECTION = "phone"
+NAME_KEY = "Ringing_List"
+
+
+def _name_db(tree):
+    import sqlite3
+    path = os.path.join(tree, UP_COMMON)
+    if not os.path.exists(path):
+        sys.exit("no %s in this tree — is it an extracted media partition?" % UP_COMMON)
+    return sqlite3.connect(path), path
+
+
+def ring_names(tree):
+    """The ringtone display names, in Idx order (empty if the tree has no such database)."""
+    path = os.path.join(tree or "", UP_COMMON)
+    if not os.path.exists(path):
+        return []
+    import sqlite3
+    con = sqlite3.connect(path)
+    try:
+        return [r[0] for r in con.execute(
+            "select StringValue from UP_Keys where Section=? and Name=? order by Idx",
+            (NAME_SECTION, NAME_KEY))]
+    finally:
+        con.close()
+
+
+def set_ring_name(tree, index, name):
+    """Rename one entry of the list. `index` is the Idx column, not the ring number."""
+    con, _ = _name_db(tree)
+    try:
+        cur = con.execute(
+            "update UP_Keys set StringValue=? where Section=? and Name=? and Idx=?",
+            (name, NAME_SECTION, NAME_KEY, index))
+        if cur.rowcount != 1:
+            sys.exit("expected to update exactly one row at Idx=%d, updated %d"
+                     % (index, cur.rowcount))
+        con.commit()
+    finally:
+        con.close()
+    return name
+
+
+def cmd_names(args):
+    names = ring_names(args.tree)
+    if not names:
+        print("no %s rows found" % NAME_KEY)
+        return
+    for i, n in enumerate(names):
+        print("  Idx %-2d  %s" % (i, n))
+    print("\nIdx 0..4 are the names for ring1..ring5 as the phone UI lists them.")
+
+
+def cmd_rename(args):
+    names = ring_names(args.tree)
+    m = re.match(r"ring(\d)$", args.slot)
+    if not m:
+        sys.exit("--slot must be ring1..ring5 (the names are the phone ringtone list)")
+    idx = int(m.group(1)) - 1
+    if idx >= len(names):
+        sys.exit("this tree only has %d names" % len(names))
+    old = names[idx]
+    set_ring_name(args.tree, idx, args.name)
+    print("%s: %r -> %r  (Idx %d)" % (args.slot, old, args.name, idx))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -189,6 +260,16 @@ def main():
     p.add_argument("--slot", required=True)
     p.add_argument("--tree", required=True, help="extracted media partition (contains ring_tones/)")
     p.set_defaults(fn=cmd_stage)
+
+    p = sub.add_parser("names", help="list the ringtone names the phone UI shows")
+    p.add_argument("--tree", required=True)
+    p.set_defaults(fn=cmd_names)
+
+    p = sub.add_parser("rename", help="change one of those names")
+    p.add_argument("--tree", required=True)
+    p.add_argument("--slot", required=True, help="ring1..ring5")
+    p.add_argument("--name", required=True)
+    p.set_defaults(fn=cmd_rename)
 
     args = ap.parse_args()
     args.fn(args)

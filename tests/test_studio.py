@@ -20,7 +20,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-import ringtone_studio as rs  # noqa: E402
+import patch_studio as rs  # noqa: E402
 
 
 @pytest.fixture(scope="module")

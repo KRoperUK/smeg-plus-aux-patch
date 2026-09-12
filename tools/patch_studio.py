@@ -35,7 +35,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
 try:
-    from ringtones import SLOTS, WAIT_DIR, RING_DIR, convert, describe  # noqa: E402
+    from ringtones import (SLOTS, WAIT_DIR, RING_DIR, convert, describe,  # noqa: E402
+                        ring_names, set_ring_name)  # noqa: E402
 except ImportError:
     sys.exit("cannot import tools/ringtones.py — run this from the repository")
 
@@ -48,7 +49,8 @@ try:
     from PySide6.QtCore import Qt, QUrl  # noqa: E402
     from PySide6.QtGui import QFont, QImage, QPixmap  # noqa: E402
     from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,  # noqa: E402
-                                   QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+                                   QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
+                                   QLineEdit,
                                    QMessageBox, QPlainTextEdit, QPushButton, QTabWidget,
                                    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 except ImportError:
@@ -142,7 +144,7 @@ def row(items, spacing=8):
 class Studio(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("SMEG+ Ringtone Studio")
+        self.setWindowTitle("SMEG+ Patch Studio")
         self.resize(1120, 720)
         self.setMinimumSize(940, 600)
 
@@ -164,7 +166,7 @@ class Studio(QWidget):
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(14)
 
-        t = QLabel("Ringtone Studio")
+        t = QLabel("Patch Studio")
         t.setObjectName("Title")
         s = QLabel("Custom ring tones for a PSA/Stellantis SMEG+ head unit, and the patch builder.")
         s.setObjectName("Subtitle")
@@ -202,15 +204,16 @@ class Studio(QWidget):
             self.tree_label,
         ])))
 
-        self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["SLOT", "FILE IN THE PARTITION", "EXPECTED", "STATE", ""])
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(["SLOT", "FILE IN THE PARTITION", "EXPECTED",
+                                              "STATE", "NAME IN THE PHONE UI", ""])
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setSelectionMode(QTableWidget.NoSelection)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.verticalHeader().setDefaultSectionSize(40)
         self.table.horizontalHeader().setStretchLastSection(True)
-        for i, w in enumerate((90, 250, 170, 90)):
+        for i, w in enumerate((70, 215, 150, 80, 165)):
             self.table.setColumnWidth(i, w)
         v.addWidget(self.table, 1)
 
@@ -255,6 +258,7 @@ class Studio(QWidget):
         return ("original", "#34C759") if same else ("modified", ACCENT)
 
     def populate(self):
+        names = ring_names(self.tree) if self.tree else []
         keys = sorted(SLOTS, key=lambda k: (k.startswith("wait"), k))
         self._preview_btns = {}
         self.table.setRowCount(len(keys))
@@ -264,9 +268,16 @@ class Studio(QWidget):
             cur = self.tone_path(rel)
             current = describe(cur) if cur and os.path.exists(cur) else "—"
 
+            ui_name = "—"
+            if slot.startswith("ring") and slot[4:].isdigit():
+                i = int(slot[4:]) - 1
+                if i < len(names):
+                    ui_name = names[i]
+
             for col, text, colour2 in ((0, slot, "#1D1D1F"), (1, rel, "#1D1D1F"),
                                        (2, "%d Hz · 16-bit · %s" % (rate, "mono" if ch == 1 else "stereo"),
-                                        "#B0B3B8"), (3, state, colour)):
+                                        "#B0B3B8"), (3, state, colour),
+                                       (4, ui_name, "#1D1D1F")):
                 item = QTableWidgetItem(text)
                 item.setFlags(Qt.ItemIsEnabled)
                 if colour2:
@@ -283,6 +294,10 @@ class Studio(QWidget):
             choose.setToolTip("Convert and install a different audio file")
             choose.setEnabled(bool(self.tree))
             choose.clicked.connect(lambda _=False, s=slot: self.choose_file(s))
+            name_btn = QPushButton("Name…")
+            name_btn.setToolTip("Change what the phone UI calls this ringtone")
+            name_btn.setEnabled(bool(self.tree) and ui_name != "—")
+            name_btn.clicked.connect(lambda _=False, s=slot: self.rename_tone(s))
             restore = QPushButton("Restore")
             restore.setToolTip("Put the original from the package backup back")
             restore.setEnabled(bool(self.tree) and os.path.exists(self.backup_path(rel)))
@@ -297,9 +312,10 @@ class Studio(QWidget):
             h.setSpacing(6)
             h.addWidget(preview)
             h.addWidget(choose)
+            h.addWidget(name_btn)
             h.addWidget(restore)
             h.addWidget(cur_lbl, 1)
-            self.table.setCellWidget(r, 4, w)
+            self.table.setCellWidget(r, 5, w)
 
         self.tree_label.setText(self.tree)
         self.backup_label.setText(self.backup)
@@ -455,6 +471,30 @@ class Studio(QWidget):
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         open(dst, "wb").write(open(bck, "rb").read())
         self.say("restored %s from the package backup" % rel)
+        self.populate()
+
+    def rename_tone(self, slot):
+        """Change the name the phone UI shows. That is a row in up_common.sqlite, not the
+        WAV — replacing a tone changes what you hear, renaming changes what you see."""
+        if not (slot.startswith("ring") and slot[4:].isdigit()):
+            return
+        idx = int(slot[4:]) - 1
+        names = ring_names(self.tree)
+        if idx >= len(names):
+            QMessageBox.information(self, "No name",
+                                    "This media tree has no name for that slot.")
+            return
+        new, ok = QInputDialog.getText(
+            self, "Rename %s" % slot, "Name shown in the phone UI:", text=names[idx])
+        if not ok or not new.strip():
+            return
+        try:
+            set_ring_name(self.tree, idx, new.strip())
+        except SystemExit as e:
+            QMessageBox.critical(self, "Could not rename", str(e))
+            return
+        self.say("%s is now shown as %r (was %r)" % (slot, new.strip(), names[idx]))
+        self.say("  rebuild the package and re-seal for this to reach the car")
         self.populate()
 
     # --------------------------------------------------------------------- splash

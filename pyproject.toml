@@ -1,5 +1,5 @@
 [project]
-name = "smeg-plus-aux-patch"
+name = "smeg-plus-patches"
 version = "0.2.0"
 description = "Reverse-engineering notes and tooling for PSA/Stellantis SMEG+ head units"
 readme = "README.md"
@@ -9,7 +9,7 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://smeg.kroper.uk/"
-Repository = "https://github.com/KRoperUK/smeg-plus-aux-patch"
+Repository = "https://github.com/KRoperUK/smeg-plus-patches"
 
 [project.optional-dependencies]
 # the GUI needs Qt; the CLI tools need nothing beyond the standard library
@@ -21,7 +21,7 @@ smeg-ringtones = "tools.ringtones:main"
 smeg-patch = "tools.patch_smeg:main"
 smeg-patch-media = "tools.patch_media:main"
 smeg-splash = "tools.splash:main"
-smeg-studio = "tools.ringtone_studio:main"
+smeg-studio = "tools.patch_studio:main"
 
 [tool.ruff]
 line-length = 100

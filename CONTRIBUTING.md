@@ -45,8 +45,8 @@ things, testing without firmware, and the firmware details that are easy to get 
 ## Working on it
 
 ```sh
-git clone https://github.com/KRoperUK/smeg-plus-aux-patch
-cd smeg-plus-aux-patch
+git clone https://github.com/KRoperUK/smeg-plus-patches
+cd smeg-plus-patches
 
 uv run python -m pytest tests -q      # 19 tests, no firmware required
 uv run ruff check tools tests
