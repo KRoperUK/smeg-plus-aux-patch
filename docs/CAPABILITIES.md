@@ -98,8 +98,52 @@ AddListOfZARorPOIofProduct
 `coords %ld,%ld` — so it stores coordinates and alerts on them.
 
 That means a **dedicated updater step, files in a partition we can already write, and no
-dependency on map data.** The open question is the file format, which is a contained,
-offline job.
+dependency on map data.**
+
+### And there is a user POI database, laid out in the clear
+
+A second, independent route exists, and it looks more promising than the ZA files. The unit
+has a **user POI store** with its paths visible in the application image:
+
+```
+/Mappe/POI_USER/%03d/%s
+/Mappe/POI_USER/%03d/%s.LZW
+/Mappe/POI_USER/CURR_VERS_POI.DAT
+/Mappe/POI_USER/TEMP_%03d/%s
+/sdhc:0/Data_Base/POILIST/
+/TEMP_POI_VER.POI
+```
+
+and a user-facing import with its own success and failure dialogs:
+
+```
+UPG_POPUP_MAP_POI_IMPORT_PRO_Z3        UPG_POPUP_MAP_POI_IMPORT_FAIL_INF_Z1
+```
+
+`C_BCM_UPGRADE` manages it, and goes as far as flipping the filesystem access mode to do so:
+
+```
+(C_BCM_UPGRADE) DeletePOIForAllCID: SetWriteAccess to R/W returns ERROR!!!
+(C_BCM_UPGRADE) DeleteAllPOI: SetWriteAccess to R/W returns ERROR
+C_BCM_UPGRADE::DeletePOIForAllCID
+```
+
+Three things follow:
+
+- POIs are stored **per index** (`%03d`), with a **version marker** (`CURR_VERS_POI.DAT`), so
+  the unit tracks what it has and can replace it.
+- Entries may be **LZW compressed** (`.LZW`) — a known, unencrypted, long-standing format
+  rather than a bespoke one, which is a far better starting point than the map database.
+- The upgrade code deliberately **sets the store read/write** to change it, so this is a
+  supported modification, not a hack.
+
+**What is still unknown:** the POI record layout itself, and whether the import is driven by
+a file on USB or only by the upgrade path. Those are the questions to answer before building
+anything, and both are answerable offline from the firmware.
+
+**Why this is the better lead than the maps:** a current speed-camera dataset exists publicly
+in a way map data does not, the container is a standard compression format, and the unit
+already has a UI for importing POIs. None of that is true of the cartography.
 
 ### Other settings-driven behaviour
 
