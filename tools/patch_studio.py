@@ -22,7 +22,7 @@ then the media partition rebuild (tar, gzip, `system_ctrl.bin`, `system.bin.inf`
 module manifest and the root manifest).
 
 Requirements:
-    .venv/bin/python tools/ringtone_studio.py       # PySide6 + ffmpeg already present
+    .venv/bin/python tools/patch_studio.py          # PySide6 + ffmpeg already present
 """
 import json
 import os

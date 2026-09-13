@@ -37,7 +37,7 @@ filename, ready to be packed back up.
 
 ## GUI
 
-`tools/ringtone_studio.py` (Qt / PySide6) wraps the same conversion, lets you preview
+`tools/patch_studio.py` (Qt / PySide6) wraps the same conversion, lets you preview
 and export the stock tones, and builds patched packages from the bundled
 `patches/*.json` definitions — including the always-enable-AUX and sticky-AUX variants.
 Multiple definitions can be ticked at once; a conflicting address is reported rather
@@ -49,7 +49,7 @@ It has three tabs: **Ringtones**, **Splash screens** (the brand artwork — see
 
 ```sh
 pip install -r tools/requirements-gui.txt
-python3 tools/ringtone_studio.py
+uv run tools/patch_studio.py
 ```
 
 The studio builds and runs (verified on macOS with PySide6 6.11.2 — it also has headless
