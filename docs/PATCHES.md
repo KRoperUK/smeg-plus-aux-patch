@@ -208,9 +208,19 @@ Both offsets were verified against all three images (`AUDIO_BT`, `AUDIO_BT_256`,
     path below it became unreachable, and the handler could never select AUX at all. Worse
     than stock, in a patch whose whole purpose is to select AUX.
 
-    Emulated, `HandleAudioAuxInputStatusChnged` with the shipped bytes: signal appears →
-    no `ActivateSource`; signal vanishes → no release. With `beq cr7,+0x140`: signal
-    appears → activates, signal vanishes → no release, which is what "sticky" means.
+    Emulated on **all three images**, with the call targets decoded from each build's own
+    `lis`/`addi` pairs rather than hard-coded, so the same run covers `NAV`,
+    `AUDIO_BT` and `AUDIO_BT_256`:
+
+    | bytes at the branch | signal appears | signal vanishes |
+    |---|---|---|
+    | `419e0058` stock | activates | releases |
+    | `48000140` as shipped | **nothing** | nothing |
+    | `419e0140` fixed | activates | does not release |
+
+    Identical on every build. The handler lives at `0x0230331c` on `NAV` and `0x023031dc`
+    on both `AUDIO_BT` variants, and the offsets within it (`+0x10c`, `+0x118`, `+0x258`)
+    are the same in all three.
 
     `tests/test_patch_definitions.py` now refuses any edit that turns a conditional branch
     into an unconditional one unless `why` says so in as many words.

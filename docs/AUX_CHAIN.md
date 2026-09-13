@@ -167,5 +167,5 @@ Settle where `Log_msg` output goes before building the stick.
 | every exit path logs | **executed** |
 | `Log_msg` is gated by a BSS mask | **executed** |
 | type 5 is AUX | inferred from call sites, strongly |
-| `aux-sticky`'s second edit does what it says | **executed** — after being corrected; it shipped unconditional |
+| `aux-sticky`'s second edit does what it says | **executed on all three builds** — after being corrected; it shipped unconditional |
 | link A's state on a real unit | **not known** — needs the car |
