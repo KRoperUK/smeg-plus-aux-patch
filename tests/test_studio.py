@@ -247,3 +247,26 @@ def test_splash_tab_reports_a_missing_tree(studio, tmp_path):
     studio.splash_load()
     assert studio.splash_table.rowCount() == 0
     assert "no package" in studio.splash_label.text()
+
+
+# ------------------------------------------------------------------- theming
+
+def test_both_palettes_format_without_leftovers():
+    """A stylesheet placeholder that never gets substituted is a silent cosmetic bug."""
+    for name, pal in (("light", rs.LIGHT), ("dark", rs.DARK)):
+        css = rs.STYLE.format(accent=rs.ACCENT, **pal)
+        for field in pal:
+            assert "{%s}" % field not in css, "%s left unresolved in the %s palette" % (field, name)
+        assert css.strip(), "the %s palette produced an empty stylesheet" % name
+
+
+def test_the_two_palettes_actually_differ():
+    light = rs.STYLE.format(accent=rs.ACCENT, **rs.LIGHT)
+    dark = rs.STYLE.format(accent=rs.ACCENT, **rs.DARK)
+    assert light != dark
+    assert rs.LIGHT["bg"] != rs.DARK["bg"]
+
+
+def test_stylesheet_is_never_empty_for_the_running_scheme():
+    """dark is a real branch, so it must resolve to something usable."""
+    assert rs.stylesheet().strip()
