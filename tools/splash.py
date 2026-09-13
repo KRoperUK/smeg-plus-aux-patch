@@ -257,7 +257,7 @@ def main():
         for i, c in enumerate(pk.chunks):
             tag = pk.records[i][1] if i < len(pk.records) else "image%d.bmp" % i
             dest = os.path.join(args.out, tag)
-            open(dest, "wb").write(pk.image(i))
+            Path(dest).write_bytes(pk.image(i))
             print("  %-24s -> %s (%d bytes)" % (tag, dest, len(pk.image(i))))
         print("note: the stored images are vertically mirrored; flip them to see them upright")
         return
@@ -274,7 +274,7 @@ def main():
         if os.path.abspath(dest) != os.path.abspath(path) and os.path.exists(dest):
             die("refusing to overwrite %s" % dest)
         before = len(pk.raw)
-        open(dest, "wb").write(out)
+        Path(dest).write_bytes(out)
         print("replaced image %d in %s" % (args.index, dest))
         print("  %d -> %d bytes" % (before, len(out)))
         print("  NOTE: unverified on a unit — the two-byte chunk trailer is preserved as-is")

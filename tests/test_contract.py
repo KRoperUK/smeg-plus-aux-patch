@@ -20,6 +20,7 @@ sys.path.insert(0, TOOLS)
 sys.path.insert(0, HERE)
 
 import patch_contract as pc  # noqa: E402
+from pathlib import Path
 
 
 # --------------------------------------------------------------- synthetic RSA
@@ -150,14 +151,14 @@ def test_contract_round_trip_and_record_refresh(rsakey, tmp_path):
     assert len(recs) == 2
     for rec in recs:
         fp = pc.resolve(str(pkg), rec[: rec.index(b"\0")].decode())
-        payload, _ = pc.check_of(rec, open(fp, "rb").read())
+        payload, _ = pc.check_of(rec, Path(fp).read_bytes())
         assert pc.rebuild_record(rec, payload) == rec
 
     # now modify a file and rebuild the contract
     (pkg / "ctrl.bin").write_bytes(b"A" * 600)
     _, recs2, _ = pc.load_contract(str(pkg / "contract.dat"), [rsakey])
     rec = recs2[0]
-    payload, how = pc.check_of(rec, open(str(pkg / "ctrl.bin"), "rb").read())
+    payload, how = pc.check_of(rec, Path(str(pkg / "ctrl.bin")).read_bytes())
     assert how == "crc32"
     updated = pc.rebuild_record(rec, payload)
     assert updated != rec

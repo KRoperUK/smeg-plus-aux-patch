@@ -242,8 +242,9 @@ def test_a_renamed_tone_survives_a_media_rebuild(tmp_path):
     )
     assert r.returncode == 0, r.stderr
 
-    reb = gzip.open(out / "NAV" / "system.bin", "rb").read()
-    tf = tarfile.open(fileobj=io.BytesIO(reb))
+    with gzip.open(out / "NAV" / "system.bin", "rb") as gz:
+        reb = gz.read()
+    tf = tarfile.open(fileobj=io.BytesIO(reb))  # noqa: SIM115  # reads a BytesIO, not a file descriptor
     db = tf.extractfile("Data_base/sqlite/up_common.sqlite").read()
     tmp_db = tmp_path / "readback.sqlite"
     tmp_db.write_bytes(db)

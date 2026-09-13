@@ -13,6 +13,7 @@ usage:
 import argparse
 import bisect
 import struct
+from pathlib import Path
 
 SHF_ALLOC = 0x2
 SHF_EXECINSTR = 0x4
@@ -33,16 +34,19 @@ def main():
     args = ap.parse_args()
 
     base = int(args.base, 16)
-    img = open(args.image, "rb").read()
+    img = Path(args.image).read_bytes()
 
     raw = {}
-    for line in open(args.symbols, "r", errors="replace"):
-        p = line.split()
-        if len(p) >= 3:
-            try:
-                raw[int(p[0], 16)] = (p[2], p[1])
-            except ValueError:
-                pass
+    with open(args.symbols, "r", errors="replace") as fh:
+        for line in fh:
+            p = line.split()
+            if len(p) >= 3:
+                try:
+                    raw[int(p[0], 16)] = (p[2], p[1])
+                except ValueError:
+                    # the symbol map has header and section lines whose first
+                    # field is not a hex address; those are not symbols
+                    pass
     addrs = sorted(raw)
 
     def size(a):
@@ -119,7 +123,7 @@ def main():
     out += shstr
     out += b"\x00" * (shtab_off - len(out))
     out += sh
-    open(args.output, "wb").write(out)
+    Path(args.output).write_bytes(out)
     print("wrote %s (%d bytes, %d symbols, base %#x)" % (args.output, len(out), len(addrs), base))
 
 

@@ -79,12 +79,10 @@ def have_ffmpeg():
 def probe(path):
     """Return (channels, rate, width) for a WAV, or None if it isn't one."""
     try:
-        w = wave.open(path, "rb")
+        with wave.open(path, "rb") as w:
+            return (w.getnchannels(), w.getframerate(), w.getsampwidth())
     except Exception:
         return None
-    info = (w.getnchannels(), w.getframerate(), w.getsampwidth())
-    w.close()
-    return info
 
 
 def describe(path):

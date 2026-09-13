@@ -11,6 +11,7 @@ import re
 import struct
 import tarfile
 import zlib
+from pathlib import Path
 
 BASE = 0x01000000
 STREAM_OFFSET = 0x801  # where the zlib stream starts
@@ -87,7 +88,7 @@ def build_package(root, variant="NAV", patch_addr=0x100, img=None):
     smeg_path = os.path.join(mod, "smeg.inf")
     ctrl_path = os.path.join(root, "%s_ctrl.bin" % variant)
 
-    open(bq_path, "wb").write(bq)
+    Path(bq_path).write_bytes(bq)
     write_inf(inf_path, crc32(bq))
     write_smeg_inf(smeg_path, crc32(bq))
 
@@ -95,14 +96,14 @@ def build_package(root, variant="NAV", patch_addr=0x100, img=None):
         ctrl_path,
         [
             (1, crc32(bq), "/%s/AppBin/f_BigQuick.bin" % variant),
-            (1, crc32(open(inf_path, "rb").read()), "/%s/AppBin/f_BigQuick.bin.inf" % variant),
-            (1, crc32(open(smeg_path, "rb").read()), "/%s/smeg.inf" % variant),
+            (1, crc32(Path(inf_path).read_bytes()), "/%s/AppBin/f_BigQuick.bin.inf" % variant),
+            (1, crc32(Path(smeg_path).read_bytes()), "/%s/smeg.inf" % variant),
         ],
     )
     write_ctrl(
         os.path.join(root, "ctrl.bin"),
         [
-            (1, crc32(open(ctrl_path, "rb").read()), "/%s_ctrl.bin" % variant),
+            (1, crc32(Path(ctrl_path).read_bytes()), "/%s_ctrl.bin" % variant),
         ],
     )
 
@@ -122,7 +123,7 @@ def set_root_ctrl(root, variants):
     entries = []
     for v in variants:
         p = os.path.join(root, "%s_ctrl.bin" % v)
-        entries.append((1, crc32(open(p, "rb").read()), "/%s_ctrl.bin" % v))
+        entries.append((1, crc32(Path(p).read_bytes()), "/%s_ctrl.bin" % v))
     write_ctrl(os.path.join(root, "ctrl.bin"), entries)
 
 
@@ -182,4 +183,4 @@ def build_media_tar(path, extra=None):
             ti = tarfile.TarInfo("ring_tones/%sRT.wav" % slot)
             ti.size = len(data)
             tf.addfile(ti, io.BytesIO(data))
-    open(path, "wb").write(gzip.compress(buf.getvalue()))
+    Path(path).write_bytes(gzip.compress(buf.getvalue()))

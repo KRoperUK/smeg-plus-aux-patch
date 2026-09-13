@@ -64,7 +64,7 @@ def up_common_bytes(names=None):
         "Red_tangerine",
         "Ufo",
     ]
-    tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
+    tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)  # noqa: SIM115  # closed on the next line; delete=False so sqlite can reopen it by name
     tmp.close()
     con = sqlite3.connect(tmp.name)
     con.execute(
@@ -113,7 +113,7 @@ def build_media_package(root, module="NAV", extra_constant=True, extra_files=Non
 
     mod_dir = os.path.join(root, module)
     os.makedirs(mod_dir, exist_ok=True)
-    open(os.path.join(mod_dir, "system.bin"), "wb").write(bin_bytes)
+    Path(os.path.join(mod_dir, "system.bin")).write_bytes(bin_bytes)
 
     sizes = {"SIZE": sum(len(v) for v in files.values())}
     for n in (1, 2, 4, 8, 16, 32):
@@ -123,12 +123,12 @@ def build_media_package(root, module="NAV", extra_constant=True, extra_files=Non
         sizes["SIZE_%d" % n] = v
     lines = ["CRC32: %d" % s32(zlib.crc32(bin_bytes) & 0xFFFFFFFF)]
     lines += ["%s: %d" % (k, v) for k, v in sizes.items()]
-    open(os.path.join(mod_dir, "system.bin.inf"), "wb").write(
+    Path(os.path.join(mod_dir, "system.bin.inf")).write_bytes(
         ("\r\n".join(lines) + "\r\n").encode()
     )
 
     ctrl = build_system_ctrl(files)
-    open(os.path.join(mod_dir, "system_ctrl.bin"), "wb").write(ctrl)
+    Path(os.path.join(mod_dir, "system_ctrl.bin")).write_bytes(ctrl)
 
     # module + root manifests (same shape as ctrl.bin: header, count, records)
     def manifest(entries):
@@ -150,8 +150,8 @@ def build_media_package(root, module="NAV", extra_constant=True, extra_files=Non
             (1, zlib.crc32(ctrl) & 0xFFFFFFFF, "/%s/system_ctrl.bin" % module),
         ]
     )
-    open(mod_ctrl_path, "wb").write(mod_ctrl)
-    open(os.path.join(root, "ctrl.bin"), "wb").write(
+    Path(mod_ctrl_path).write_bytes(mod_ctrl)
+    Path(os.path.join(root, "ctrl.bin")).write_bytes(
         manifest(
             [
                 (1, zlib.crc32(mod_ctrl) & 0xFFFFFFFF, "/%s_ctrl.bin" % module),

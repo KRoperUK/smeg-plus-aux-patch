@@ -839,7 +839,7 @@ class Studio(QWidget):
         new = {i: pk.image(i) for i in range(len(pk.chunks))}
         new[idx] = bmp
         out = splashmod.build(pk, new)
-        open(path, "wb").write(out)
+        Path(path).write_bytes(out)
         self.splash_say(
             "replaced image %d with %s (%d -> %d bytes)"
             % (idx + 1, os.path.basename(src), len(pk.raw), len(out))
@@ -883,7 +883,7 @@ class Studio(QWidget):
             else []
         )
         for i, f in enumerate(files):
-            spec = json.load(open(os.path.join(patch_dir, f)))
+            spec = json.loads(Path(os.path.join(patch_dir, f)).read_text())
             cb = QCheckBox(spec.get("name", f))
             cb.setToolTip(spec.get("description", ""))
             name = QLabel(f)
@@ -984,7 +984,7 @@ class Studio(QWidget):
         merged = {"name": "studio-merge", "variants": {}}
         seen = {}
         for path in chosen:
-            spec = json.load(open(path))
+            spec = json.loads(Path(path).read_text())
             for variant, vdef in spec["variants"].items():
                 dst = merged["variants"].setdefault(
                     variant, {k: vdef[k] for k in ("app_image", "inf", "smeg_inf", "ctrl", "base")}
@@ -1020,7 +1020,7 @@ class Studio(QWidget):
         log = []
         if spec:
             tmp = os.path.join(out, "_studio-spec.json")
-            open(tmp, "w").write(json.dumps(spec, indent=2))
+            Path(tmp).write_text(json.dumps(spec, indent=2))
             log.append(
                 self._run(
                     [

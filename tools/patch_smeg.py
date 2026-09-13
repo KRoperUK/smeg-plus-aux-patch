@@ -41,6 +41,7 @@ import shutil
 import struct
 import sys
 import zlib
+from pathlib import Path
 
 DEFAULT_BASE = 0x01000000
 HEADER_SIZE = 0x801
@@ -96,12 +97,12 @@ def swap_crc(buf, old, new, what):
 
 
 def load(path):
-    return open(path, "rb").read()
+    return Path(path).read_bytes()
 
 
 def write(path, data):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    open(path, "wb").write(data)
+    Path(path).write_bytes(data)
 
 
 def apply_patches(img, base, patches, label):
@@ -146,7 +147,7 @@ def main():
     ap.add_argument("--level", type=int, default=6, help="zlib level for re-packing (default 6)")
     args = ap.parse_args()
 
-    spec = json.load(open(args.patches))
+    spec = json.loads(Path(args.patches).read_text())
     variants = spec["variants"]
     if args.only:
         variants = {k: v for k, v in variants.items() if k in args.only}
