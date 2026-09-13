@@ -196,22 +196,57 @@ def test_a_missing_package_names_the_path_it_tried(tmp_path):
     assert str(tmp_path) in (r.stdout + r.stderr), "should say where it looked"
 
 
-def test_every_committed_scheme_parses_and_dry_runs():
-    """The schemes in builds/ are documentation; a broken one is worse than none."""
+def test_every_committed_scheme_is_structurally_valid():
+    """The schemes in builds/ are documentation; a broken one is worse than none.
+
+    This validates structure rather than requiring the referenced package to exist. A scheme
+    is a recipe and it points at a package on whoever's machine is building, so asserting the
+    paths resolve here passes locally and fails in CI - which is exactly what it did.
+    """
+    import glob
+    root = os.path.dirname(TOOLS)
+    schemes = sorted(glob.glob(os.path.join(root, "builds", "*.json")))
+    assert schemes, "no schemes found"
+
+    for s in schemes:
+        name = os.path.basename(s)
+        cfg = json.loads(open(s).read())
+        assert isinstance(cfg.get("package"), str) and cfg["package"], name
+        assert isinstance(cfg.get("out"), str) and cfg["out"], name
+        assert cfg.get("module", "NAV") in ("NAV", "AUDIO_BT", "AUDIO_BT_256"), name
+
+        for patch in (cfg.get("app") or {}).get("patches", []):
+            f = patch if patch.endswith(".json") else patch + ".json"
+            assert os.path.exists(os.path.join(root, "patches", f)), \
+                "%s references a patch set that does not exist: %s" % (name, patch)
+
+        tones = ((cfg.get("media") or {}).get("tones") or {})
+        if tones:
+            import ringtones as rt
+            for dest in tones:
+                assert any(v[0] == dest for v in rt.SLOTS.values()), \
+                    "%s writes to %s, which is not a known tone slot" % (name, dest)
+
+
+def test_committed_schemes_dry_run_where_the_package_exists():
+    """On a machine that has the package, the scheme must actually dry-run."""
     import glob
     import subprocess
     root = os.path.dirname(TOOLS)
-    schemes = glob.glob(os.path.join(root, "builds", "*.json"))
-    assert schemes, "no schemes found"
-    for s in schemes:
-        json.loads(open(s).read())          # parses
+    ran = 0
+    for s in sorted(glob.glob(os.path.join(root, "builds", "*.json"))):
+        cfg = json.loads(open(s).read())
+        if not os.path.isdir(os.path.expanduser(cfg["package"])):
+            continue
         r = subprocess.run([sys.executable, os.path.join(TOOLS, "build_package.py"),
-                            "--manifest", s, "--dry-run"],
-                           capture_output=True, text=True)
+                            "--manifest", s, "--dry-run"], capture_output=True, text=True)
         out = r.stdout + r.stderr
         # a previous run may have left the output directory behind; refusing to clobber it
         # is correct behaviour, not a broken scheme
         if "already exists" in out:
             continue
         assert r.returncode == 0, "%s failed to dry-run:\n%s" % (s, out)
-        assert "no such package" not in out, s
+        ran += 1
+    if ran == 0:
+        import pytest
+        pytest.skip("no scheme's package is present on this machine")
