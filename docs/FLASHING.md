@@ -37,26 +37,6 @@ risk.
 …
 ```
 
-!!! danger "The folder must be called `SMEG_PLUS_UPG`, especially with a `USER_DATA` payload"
-
-    Build schemes write to names like `SMEG_PLUS_UPG_auxdefault` so they do not clobber your
-    stock copy. **Rename it to `SMEG_PLUS_UPG` when you put it on the stick.**
-
-    For the firmware itself this is convention. For a `USER_DATA` payload it is not:
-    `C_UPGRADE::UpgradeTask` calls
-
-    ```
-    IsDirExist("/bd0/SMEG_PLUS_UPG/NAV/USER_DATA")
-    ```
-
-    and only then does `Copy of /USERDATA from /bd0 to NAND`. Both the folder name and the
-    module are **literal** in that string. If the folder is named anything else the copy is
-    skipped — silently, with the rest of the update succeeding normally, which looks exactly
-    like the settings having had no effect.
-
-    `tools/preflight.py` now fails on this, so run it against the folder as it will be named
-    on the stick, not as it came out of the build.
-
 ## Before you go to the car
 
 Confirm the patched image is present and the checksums agree, e.g. for a NAV unit:
