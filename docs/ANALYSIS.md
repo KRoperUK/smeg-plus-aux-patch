@@ -199,6 +199,13 @@ rewritten when its content differs from what is stored.
 
 ## 10. The AUX event chain, verified in the NAV image
 
+!!! info "This section is the original trace; [The AUX chain](AUX_CHAIN.md) is the current one"
+
+    That page carries the whole chain gate by gate, including the links found since — the
+    listener registration upstream of the dispatch, and the four gates inside the handler,
+    most of them executed rather than read. Prefer it when you want the state of play; this
+    section stays because it records how the dispatch was first found.
+
 Traced in `nav_app_image.bin` against `nav_syms.txt` — use those **together**; the 32 MB
 `app_image.bin` is the AUDIO_BT image and reading it with the base symbol map gives a
 different `HandleAudioAuxInputStatusChnged` address, which is an easy way to conclude the

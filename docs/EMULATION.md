@@ -183,20 +183,12 @@ directly answerable — the handler logs its own name on every exit, and
 `patches/diagnostic-logmask.json` makes that line appear. See
 [Patch reference](PATCHES.md).
 
-The chain it has to survive, for reference, is short and every link is a null check:
-
-```
-DBUS signal  ->  audio client
-                   if (client->0x50 == NULL) return;      no listener registered
-                 post message 203
-              ->  C_HMI_MEDIA_APP_BASE::HandleDBUSMessage  @ 0x02309398, case at 0x02309638
-              ->  HandleAudioAuxInputStatusChnged          @ 0x0230331c
-```
-
-The listener at `client->0x50` is set by `SetListener(app->0xc, app)`, itself guarded by
-`if (app->0xc == NULL)`. That same `->0xc` is what the AUX status query dereferences, and
-the query's failure is the one the handler discards. A single null pointer there would
-explain every symptom at once — which makes it the first thing to look for in the log.
+The whole chain, gate by gate, with the state of each link, is in
+[The AUX chain](AUX_CHAIN.md). The short version: every link is a null check, the four
+inside the handler have now been executed, and the one that has never been observed is the
+first — whether the audio client's listener was ever registered. A single null pointer
+there explains every symptom at once, which makes it the first thing to look for in the
+log.
 
 ## Reproducing this
 

@@ -130,9 +130,11 @@ the reason this patch exists:
   02303590  bctrl Log_msg
 ```
 
-The handler logs its own name at level 1 on its **shared return path** — every exit, every
-gate, no exceptions. So this patch answers the standing question in
-[Hardware verification](VERIFICATION.md) — *is that handler entered at all?* — while
+The handler logs its own name at level 1 on its **shared return path**. Every one of its
+four exit paths reaches that call, and so does the success path — checked by executing all
+five. So the line appearing at all means the message arrived and the handler ran; its
+absence means the event never got there. That is the standing question in
+[Hardware verification](VERIFICATION.md) and [The AUX chain](AUX_CHAIN.md), answered while
 changing no behaviour whatsoever. Verified in emulation: stock, the line is suppressed at
 the mask test; patched, it is emitted. See [Emulating the firmware](EMULATION.md).
 

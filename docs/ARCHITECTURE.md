@@ -13,8 +13,14 @@ and has its own symbol map.
 
 ## 1. System shape
 
-- **VxWorks** RTOS on a **PowerPC** SoC, with a **Renesas** front-panel MCU (display /
-  touch / audio-adjacent) and a **Blackfin/Maxim** DAB chipset.
+- **VxWorks** RTOS on a **Freescale MPC5121e** PowerPC SoC — an **e300** core, which is
+  plain 32-bit big-endian PowerPC with no vendor instruction set extensions. That is why
+  the shipped image can be executed on a desktop; see
+  [Emulating the firmware](EMULATION.md). The part number comes from
+  [bousqi/SMEG_PLUS](https://github.com/bousqi/SMEG_PLUS), which also documents the
+  U-Boot/VxWorks side and the TFFS partition layout.
+- Alongside it, a **Renesas** front-panel MCU (display / touch / audio-adjacent) and a
+  **Blackfin/Maxim** DAB chipset.
 - The HMI is a custom C++ framework (`C_HMI_*`) over **Qt** middleware, with an
   embedded **WebKit** browser in a separate loadable image.
 - Modules talk over **DBUS** (`com/MM/...` interfaces) via generated
