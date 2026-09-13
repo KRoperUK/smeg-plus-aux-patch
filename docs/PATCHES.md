@@ -165,18 +165,40 @@ the mask test; patched, it is emitted. See [Emulating the firmware](EMULATION.md
     that runs constantly. This page previously described the combination as "a flood
     rather than a diagnostic", which undersold it.
 
-### Making a diagnostic build that actually works
+### `diagnostic-logsink` — the other half
 
-The missing piece is a **sink**, and that is not a one-instruction patch — it needs
-`0x010346d0` pointed at something that really writes. The signature is in its favour: the
-caller passes a format string in `r3` and up to six arguments in `r4`–`r9`, which is
-exactly VxWorks `logMsg(fmt, a1…a6)`.
+The missing piece is a **sink**: `0x010346d0` pointed at something that really writes. The
+signature is in its favour — the caller passes a format string in `r3` and up to six
+arguments in `r4`–`r9`, which is exactly VxWorks `logMsg(fmt, a1…a6)`.
 
-The BSP image (`BSP/SMEG_PLUS_512/vxWorks.bin`) contains `logMsg`, `_func_logMsg`, `printf`
-and a telnet server — so a real output primitive exists on the unit. What is missing is its
-address: unlike the updater objects in the package root, that image carries no symbol table
-a reader can just pick up. Until someone pins it down, treat the diagnostic build as
-unfinished rather than as something to flash.
+**`logMsg` is at `0x00484a94`.** `BSP/SMEG_PLUS_512/vxWorks.bin` is a raw PowerPC image
+that begins with a function prologue at offset 0 and carries a **VxWorks symbol table**:
+20-byte entries holding a pointer to the name and then the address. Read at a load base of
+`0x00200000` the table is self-consistent, and the base is confirmed independently — the
+application's own call into the kernel at `0x0058c248`, the one `IsAUXSRCAvailable()` makes
+on its failure path, is named `tickGet` by that table at exactly that address.
+
+| build | sink | original | patched |
+|---|---|---|---|
+| `NAV` | `0x010346d0` | `38 60 00 00` (`li r3,0`) | `4b 45 03 c4` (`b 0x00484a94`) |
+| `AUDIO_BT`, `AUDIO_BT_256` | `0x01034578` | `38 60 00 00` | `4b 45 05 1c` (`b 0x00484a94`) |
+
+The displacement is about −11.7 MB, inside the 24-bit branch range, so no code cave is
+needed. The `blr` after the patched instruction becomes unreachable, which is harmless:
+`logMsg` returns to `Log_msg`'s caller itself.
+
+**Flash it with `diagnostic-logmask`, never with `diagnostic-logging`.** The mask patch is
+what lets `Log_msg` reach the sink at all, so neither half is any use alone;
+`diagnostic-logging` repoints the same sink and the two edits fight.
+`builds/diagnostic-logging.json` pairs the right two.
+
+!!! warning "Verified in emulation, not on a car"
+
+    Emulated, the patched sink jumps to `0x00484a94` — which the emulator reports as an
+    unmapped fetch, because that address is in the kernel rather than the application
+    image. That confirms the branch target and nothing more. **Where `logMsg` output
+    physically surfaces on this unit — serial, telnet, a file, or nowhere reachable — is
+    still unknown**, and is the open part. See issue #94.
 
 ### `diagnostic-logging` — the other half, and not the useful half alone
 

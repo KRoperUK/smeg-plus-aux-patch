@@ -155,8 +155,11 @@ sink is stubbed, so forcing the trace mask formats the message and then discards
 flashing both diagnostic patches makes the logger and the sink call each other. See
 [Patch reference](PATCHES.md).
 
-So the next step is not a flash. It is finding an output primitive on the unit to point the
-sink at — VxWorks `logMsg` is the shape that fits, and the BSP image contains one.
+The sink now has a candidate destination: VxWorks `logMsg` at `0x00484a94`, recovered from
+the symbol table inside the BSP image, with `patches/diagnostic-logsink.json` to point it
+there. What is still unknown is where `logMsg`'s output physically surfaces on this unit,
+which is issue #94. Until that is settled the diagnostic build is buildable but not
+readable.
 
 ## Status of each claim
 

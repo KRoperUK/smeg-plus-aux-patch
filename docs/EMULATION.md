@@ -187,10 +187,12 @@ Flashing both patches is worse than either: `diagnostic-logging` repoints the si
 `Log_msg` three times before unwinding in emulation; on the unit that runs on every log
 call in the firmware.
 
-A working diagnostic needs `0x010346d0` pointed at something that really writes. The
-signature suits VxWorks `logMsg(fmt, a1…a6)` — format in `r3`, six arguments in `r4`–`r9` —
-and the BSP image does contain `logMsg` and a telnet server. Its address is the open part.
-See [Patch reference](PATCHES.md).
+A working diagnostic needs `0x010346d0` pointed at something that really writes. That is
+now `patches/diagnostic-logsink.json`: VxWorks `logMsg` at `0x00484a94`, whose signature
+matches what the caller has already set up. Emulated, the patched sink jumps to that
+address and the emulator reports an unmapped fetch — which is the expected result, since
+the kernel is not part of the application image, and it confirms the branch target. Where
+that output surfaces on the unit is still open. See [Patch reference](PATCHES.md).
 
 ### 6. One device type is unreachable firmware-wide
 

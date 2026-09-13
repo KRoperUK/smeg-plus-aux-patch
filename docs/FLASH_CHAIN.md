@@ -166,6 +166,22 @@ these docs:
 | `C_UPGRADE::LogsOnTelnet` `000075a4` / `MakeLogArchive` `000077b8` | where the updater's own logs can go |
 | `C_UPG_LOGS::Instance` (in `UpgPlugin.out`) | the logging singleton on the application side |
 
+### The BSP image has a symbol table as well
+
+`BSP/SMEG_PLUS_512/vxWorks.bin` is not an ELF — it is a raw PowerPC image that begins with
+a function prologue at offset 0 — but it carries a **VxWorks symbol table** near the end.
+The entries are 20 bytes: a pointer to the name, then the address.
+
+It loads at **`0x00200000`**, and that is not a guess. Read at that base the table's name
+pointers resolve to readable strings, and the application's own call into the kernel at
+`0x0058c248` — the one `IsAUXSRCAvailable()` makes on its failure path — is named `tickGet`
+by the table at exactly that address. The application and the kernel therefore share one
+address space, which is what makes a branch from the application into a kernel function
+possible at all; `patches/diagnostic-logsink.json` relies on it.
+
+`tools/elfsyms.py` does not read this format — it is not ELF. Recovering a symbol means
+finding its name in the table and taking the word after the name pointer.
+
 ### The phases
 
 Seven phase strings exist, `Phase 0` … `Phase 6`, all set through

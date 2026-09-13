@@ -1,0 +1,51 @@
+{
+  "name": "diagnostic-logsink",
+  "description": "DIAGNOSTIC BUILD - gives the application's logging somewhere to go. `Log_msg` formats a message and hands it to 0x010346d0 (NAV), which the vendor shipped as `li r3,0 ; blr` - a no-op, so every log call in the firmware is discarded. This replaces that first instruction with a branch to VxWorks `logMsg` at 0x00484a94, whose signature matches what the caller has already set up: format string in r3, up to six arguments in r4-r9. PAIR IT WITH `diagnostic-logmask`, which is what lets Log_msg reach the sink at all - neither is any use alone. Do NOT pair it with `diagnostic-logging`, which repoints the same sink at Log_msg and would make the two call each other. The logMsg address comes from the symbol table inside BSP/SMEG_PLUS_512/vxWorks.bin, read at load base 0x00200000; the base is confirmed by the app's own call to 0x0058c248, which that table names as `tickGet`. NOT FLASHED - the branch target is verified in emulation only, and where logMsg's output physically surfaces on this unit is not yet known. See docs/PATCHES.md and issue #94.",
+  "variants": {
+    "NAV": {
+      "app_image": "NAV/AppBin/f_BigQuick.bin",
+      "inf": "NAV/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "NAV/smeg.inf",
+      "ctrl": "NAV_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        {
+          "addr": "0x010346d0",
+          "expect": "38600000",
+          "bytes": "4b4503c4",
+          "why": "the logging sink `li r3,0` -> `b 0x00484a94` (VxWorks logMsg). The `blr` after it becomes unreachable, which is fine; logMsg returns to Log_msg's caller on its own. 0x00484a94 - 0x010346d0 is -0xbafc3c, inside the 24-bit branch range, so no code cave is needed."
+        }
+      ]
+    },
+    "AUDIO_BT": {
+      "app_image": "AUDIO_BT/AppBin/f_BigQuick.bin",
+      "inf": "AUDIO_BT/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "AUDIO_BT/smeg.inf",
+      "ctrl": "AUDIO_BT_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        {
+          "addr": "0x01034578",
+          "expect": "38600000",
+          "bytes": "4b45051c",
+          "why": "the same edit for this build: the sink is at 0x01034578 and logMsg is at the same kernel address, so the displacement differs."
+        }
+      ]
+    },
+    "AUDIO_BT_256": {
+      "app_image": "AUDIO_BT_256/AppBin/f_BigQuick.bin",
+      "inf": "AUDIO_BT_256/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "AUDIO_BT_256/smeg.inf",
+      "ctrl": "AUDIO_BT_256_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        {
+          "addr": "0x01034578",
+          "expect": "38600000",
+          "bytes": "4b45051c",
+          "why": "identical to AUDIO_BT; the two images resolve to the same addresses throughout."
+        }
+      ]
+    }
+  }
+}

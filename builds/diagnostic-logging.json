@@ -1,0 +1,13 @@
+{
+  "_comment": "Diagnostic scheme that should actually emit. Two halves, and both are needed: `diagnostic-logmask` forces the global trace mask so Log_msg stops returning at its gate, and `diagnostic-logsink` points the sink it then calls at VxWorks logMsg instead of the no-op the vendor shipped. Do NOT add `diagnostic-logging` as well - it repoints the same sink at Log_msg and the two would call each other. NOT FLASHED: the branch target is verified in emulation only, and where logMsg's output surfaces on this unit is the open question (issue #94). Expect a lot of output on every path the firmware takes; do not drive on it.",
+  "package": "~/Downloads/SMEG_PLUS_UPG",
+  "out": "~/Downloads/SMEG_PLUS_UPG_diag_logging",
+  "module": "NAV",
+  "app": {
+    "patches": [
+      "diagnostic-logmask",
+      "diagnostic-logsink"
+    ]
+  },
+  "seal": true
+}
