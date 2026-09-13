@@ -88,6 +88,7 @@ Building those tests immediately caught two fixture bugs, so it is worth the eff
 | `tools/patch_smeg.py` | Checks `expect` bytes before writing, then rebuilds the whole CRC cascade. Prefer adding a `patches/*.json` entry over new code. |
 | `tools/ringtones.py` | Needs ffmpeg for non-WAV input, but degrades gracefully. Slot formats matter: ring/status tones are 16-bit **mono 44.1 kHz**, wait tones 16-bit **stereo 8 kHz**. |
 | `tools/patch_studio.py` | Qt GUI. Set `QT_QPA_PLATFORM=offscreen` to test it headlessly. |
+| `tools/ppcemu.py` | Executes one function at a time on an emulated PowerPC core (Unicorn). Reachability is proof; stub return values are assumptions. Prefer it over reasoning about a branch by eye — it has already overturned one conclusion. |
 | `tools/ppcdis.py`, `xref.py`, `callers.py`, `mkelf.py` | The analysis tools every patch address was derived with. Need `capstone`. Untested — see #38. |
 | `docs/` | Published with Zensical to <https://smeg.kroper.uk/>. A broken anchor fails the build; run `zensical build` before pushing docs. |
 

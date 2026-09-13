@@ -21,6 +21,7 @@ nav = [
   { "Ring tones" = "RINGTONES.md" },
   { "Version strings" = "VERSION_STRINGS.md" },
   { "What is reachable" = "CAPABILITIES.md" },
+  { "Emulating the firmware" = "EMULATION.md" },
   { "Patch reference" = "PATCHES.md" },
   { "Running the tools" = "RUNNING.md" },
   { "Flashing" = "FLASHING.md" },

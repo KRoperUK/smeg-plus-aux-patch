@@ -121,6 +121,7 @@ SMEG+ update on the car (engine running). See [`docs/FLASHING.md`](docs/FLASHING
 | `tools/patch_media.py` | rebuild a media partition (ring tones, resources) |
 | `tools/ringtones.py` | convert custom audio to the unit's ring/wait tone formats |
 | `tools/patch_studio.py` | Qt front-end: ringtone conversion + patch builder (optional) |
+| `tools/ppcemu.py` | run a single firmware function on an emulated PowerPC core |
 | `tools/apply_files.sh` | overlay patched files onto a package copy |
 
 ```sh
@@ -147,6 +148,7 @@ Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and de
 | [`docs/RELEASING.md`](docs/RELEASING.md) | conventional commits and the automatic release/changelog flow |
 | [`docs/RINGTONES.md`](docs/RINGTONES.md) | ring/wait tone formats, the converter, and the Qt studio |
 | [`docs/VERSION_STRINGS.md`](docs/VERSION_STRINGS.md) | what the version screens read, and how the updater gates on them |
+| [`docs/EMULATION.md`](docs/EMULATION.md) | executing firmware functions without a car — and what that proved about the AUX patches |
 
 ## Development environment
 
