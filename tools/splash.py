@@ -50,6 +50,7 @@ usage:
     python3 tools/splash.py replace --tree media/ --marque peugeot --image mine.png
     python3 tools/splash.py selftest --tree media/
 """
+
 import argparse
 import os
 import struct
@@ -80,7 +81,7 @@ class Chunk:
         self.index = index
         self.marker_off = marker_off
         self.data_off = data_off
-        self.length = length          # length of the zlib stream
+        self.length = length  # length of the zlib stream
         self.trailer_off = trailer_off
         self.trailer = trailer
 
@@ -105,13 +106,13 @@ class Pkg:
     def _records(self):
         out = []
         off = 0x10
-        while off + 32 <= HEADER and self._is_name(self.raw[off:off + 32]):
+        while off + 32 <= HEADER and self._is_name(self.raw[off : off + 32]):
             fields = []
             p = off + 32
-            while p + 32 <= HEADER and not self._is_name(self.raw[p:p + 32]):
+            while p + 32 <= HEADER and not self._is_name(self.raw[p : p + 32]):
                 fields.append(struct.unpack_from(">I", self.raw, p)[0])
                 p += 4
-            out.append((off, self.raw[off:off + 32].split(b"\x00")[0].decode(), fields))
+            out.append((off, self.raw[off : off + 32].split(b"\x00")[0].decode(), fields))
             off = p
         return out
 
@@ -136,7 +137,7 @@ class Pkg:
             if length <= 0:
                 break
             trailer_off = data_off + length
-            trailer = self.raw[trailer_off:trailer_off + 2]
+            trailer = self.raw[trailer_off : trailer_off + 2]
             chunks.append(Chunk(idx, marker_off, data_off, length, trailer_off, trailer))
             pos = trailer_off + len(trailer)
             idx += 1
@@ -144,10 +145,10 @@ class Pkg:
 
     def image(self, i):
         c = self.chunks[i]
-        return zlib.decompress(self.raw[c.data_off:c.data_off + c.length])
+        return zlib.decompress(self.raw[c.data_off : c.data_off + c.length])
 
     def check_hash(self):
-        return (zlib.crc32(self.raw[4:HEADER]) & 0xffffffff) == self.hash
+        return (zlib.crc32(self.raw[4:HEADER]) & 0xFFFFFFFF) == self.hash
 
 
 # -- BMP helpers -------------------------------------------------------------
@@ -164,15 +165,17 @@ def flip_bmp(bmp):
         die("expected 800x480 24-bit, uncompressed; got %dx%d %dbpp dib=%d" % (w, h, bpp, dib))
     stride = _roundup(w * 3, 4)
     body = bmp[pixoff:]
-    rows = [body[i * stride:(i + 1) * stride] for i in range(len(body) // stride)]
+    rows = [body[i * stride : (i + 1) * stride] for i in range(len(body) // stride)]
     return bmp[:pixoff] + b"".join(reversed(rows))
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--tree", default="media",
-                    help="an extracted media partition (contains %s/)" % DIR)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--tree", default="media", help="an extracted media partition (contains %s/)" % DIR
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("list", help="show the images in each marque's package")
@@ -181,8 +184,15 @@ def main():
     p.add_argument("-o", "--out", default="splash")
     p = sub.add_parser("replace", help="replace an image and rebuild the package")
     p.add_argument("--marque", default="peugeot", choices=MARQUES)
-    p.add_argument("--image", required=True, help="new 800x480 24-bit image (any format ffmpeg reads)")
-    p.add_argument("--index", type=int, default=0, help="which image to replace (default 0 = the main marque image)")
+    p.add_argument(
+        "--image", required=True, help="new 800x480 24-bit image (any format ffmpeg reads)"
+    )
+    p.add_argument(
+        "--index",
+        type=int,
+        default=0,
+        help="which image to replace (default 0 = the main marque image)",
+    )
     p.add_argument("--out", help="write here instead of in place")
     sub.add_parser("selftest", help="rebuild from the stock images and compare")
 
@@ -200,9 +210,15 @@ def main():
             if not os.path.exists(path):
                 continue
             pk = Pkg(Path(path).read_bytes())
-            print("%s.pkg  (%d bytes, %d images, directory hash %s)"
-                  % (m, os.path.getsize(path), len(pk.chunks),
-                     "ok" if pk.check_hash() else "MISMATCH"))
+            print(
+                "%s.pkg  (%d bytes, %d images, directory hash %s)"
+                % (
+                    m,
+                    os.path.getsize(path),
+                    len(pk.chunks),
+                    "ok" if pk.check_hash() else "MISMATCH",
+                )
+            )
             for o, name, f in pk.records:
                 extra = ""
                 if len(f) >= 2 and f[-2]:
@@ -219,11 +235,14 @@ def main():
                 if len(img) != BMP_SIZE:
                     print("  %s[%d]: unexpected size %d" % (m, i, len(img)))
                     ok = False
-            rebuild = build(pk, {i: pk.image(i) for i in range(len(pk.chunks))}, reuse_compressed=True)
+            rebuild = build(
+                pk, {i: pk.image(i) for i in range(len(pk.chunks))}, reuse_compressed=True
+            )
             same = rebuild == pk.raw
-            print("  %-8s %d images, hash %s, byte-identical rebuild: %s"
-                  % (m, len(pk.chunks), "ok" if pk.check_hash() else "BAD",
-                     "YES" if same else "NO"))
+            print(
+                "  %-8s %d images, hash %s, byte-identical rebuild: %s"
+                % (m, len(pk.chunks), "ok" if pk.check_hash() else "BAD", "YES" if same else "NO")
+            )
             ok &= same
             if not same and len(rebuild) == len(pk.raw):
                 diff = [i for i in range(len(rebuild)) if rebuild[i] != pk.raw[i]]
@@ -249,7 +268,7 @@ def main():
         if args.index < 0 or args.index >= len(pk.chunks):
             die("--index %d out of range (0..%d)" % (args.index, len(pk.chunks) - 1))
         new = {i: pk.image(i) for i in range(len(pk.chunks))}
-        new[args.index] = flip_bmp(bmp)          # store mirrored, as the unit expects
+        new[args.index] = flip_bmp(bmp)  # store mirrored, as the unit expects
         out = build(pk, new)
         dest = args.out or path
         if os.path.abspath(dest) != os.path.abspath(path) and os.path.exists(dest):
@@ -266,6 +285,7 @@ def to_bmp(src):
     """Convert anything ffmpeg reads into the exact 800x480 24-bit bottom-up BMP."""
     import shutil
     import subprocess
+
     if src.lower().endswith(".bmp"):
         d = Path(src).read_bytes()
         if len(d) == BMP_SIZE:
@@ -273,10 +293,24 @@ def to_bmp(src):
     if not shutil.which("ffmpeg"):
         die("ffmpeg is required to convert %s" % src)
     tmp = os.path.splitext(src)[0] + ".splash.bmp"
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src,
-                        "-vf", "scale=%d:%d" % (IMAGE_W, IMAGE_H),
-                        "-pix_fmt", "bgr24", tmp],
-                       capture_output=True, text=True)
+    r = subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            src,
+            "-vf",
+            "scale=%d:%d" % (IMAGE_W, IMAGE_H),
+            "-pix_fmt",
+            "bgr24",
+            tmp,
+        ],
+        capture_output=True,
+        text=True,
+    )
     if r.returncode != 0:
         die("ffmpeg failed: %s" % (r.stderr.strip() or r.stdout.strip()))
     d = Path(tmp).read_bytes()
@@ -306,8 +340,11 @@ def build(pk, images, reuse_compressed=False):
     """
     chunks = []
     for i, c in enumerate(pk.chunks):
-        comp = (pk.raw[c.data_off:c.data_off + c.length] if reuse_compressed
-                else zlib.compress(images[i], 6))
+        comp = (
+            pk.raw[c.data_off : c.data_off + c.length]
+            if reuse_compressed
+            else zlib.compress(images[i], 6)
+        )
         chunks.append((comp, c.trailer))
     if not chunks:
         die("no chunks to write")
@@ -326,12 +363,13 @@ def build(pk, images, reuse_compressed=False):
         if i + 1 >= len(chunks):
             continue
         start, end = off + 32, off + 32 + 4 * len(fields)
-        _patch_u32(header, start, end, pk.chunks[i + 1].marker_off, new_off[i + 1],
-                   "%s offset" % name)
+        _patch_u32(
+            header, start, end, pk.chunks[i + 1].marker_off, new_off[i + 1], "%s offset" % name
+        )
         _patch_u32(header, start, end, old_tot[i + 1], new_tot[i + 1], "%s size" % name)
 
     struct.pack_into(">I", header, 0x00, 0)
-    struct.pack_into(">I", header, 0x00, zlib.crc32(bytes(header[4:HEADER])) & 0xffffffff)
+    struct.pack_into(">I", header, 0x00, zlib.crc32(bytes(header[4:HEADER])) & 0xFFFFFFFF)
 
     body = b"".join(bytes([MARKER]) + comp + trailer for comp, trailer in chunks)
     return bytes(header) + body

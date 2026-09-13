@@ -8,7 +8,7 @@ from pathlib import Path
 
 # --- media partition (for patch_media.py) ----------------------------------
 
-CTRL_RECORD = 264          # system_ctrl.bin record stride
+CTRL_RECORD = 264  # system_ctrl.bin record stride
 CTRL_CRC_OFF = 260
 CTRL_HEADER = 0x30
 
@@ -37,7 +37,7 @@ def build_system_ctrl(files):
     for name, data in files.items():
         rec = bytearray(CTRL_RECORD)
         path = ("/SYSTEM/" + name).encode()
-        rec[0:len(path)] = path
+        rec[0 : len(path)] = path
         rec[259] = 2
         struct.pack_into(">I", rec, CTRL_CRC_OFF, zlib.crc32(data) & 0xFFFFFFFF)
         out += rec
@@ -51,19 +51,33 @@ def up_common_bytes(names=None):
     """
     import sqlite3
     import tempfile
-    names = names or ["Alien", "Blue_lemon", "Blue_tangerine", "Green_apple", "Green_lemon",
-                      "Green_pin_apple", "Green_tangerine", "Red_strawberry",
-                      "Red_tangerine", "Ufo"]
+
+    names = names or [
+        "Alien",
+        "Blue_lemon",
+        "Blue_tangerine",
+        "Green_apple",
+        "Green_lemon",
+        "Green_pin_apple",
+        "Green_tangerine",
+        "Red_strawberry",
+        "Red_tangerine",
+        "Ufo",
+    ]
     tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
     tmp.close()
     con = sqlite3.connect(tmp.name)
-    con.execute("create table UP_Keys (Section text, Name text, Type int, Idx int,"
-                " IntValue int, FloatValue real, StringValue text, BlobValue blob,"
-                " reset_factory_enabled int, modified int)")
+    con.execute(
+        "create table UP_Keys (Section text, Name text, Type int, Idx int,"
+        " IntValue int, FloatValue real, StringValue text, BlobValue blob,"
+        " reset_factory_enabled int, modified int)"
+    )
     for i, n in enumerate(names):
-        con.execute("insert into UP_Keys (Section, Name, Type, Idx, StringValue,"
-                    " reset_factory_enabled, modified) values ('phone','Ringing_List',4,?,?,0,0)",
-                    (i, n))
+        con.execute(
+            "insert into UP_Keys (Section, Name, Type, Idx, StringValue,"
+            " reset_factory_enabled, modified) values ('phone','Ringing_List',4,?,?,0,0)",
+            (i, n),
+        )
     con.commit()
     con.close()
     data = Path(tmp.name).read_bytes()
@@ -110,7 +124,8 @@ def build_media_package(root, module="NAV", extra_constant=True, extra_files=Non
     lines = ["CRC32: %d" % s32(zlib.crc32(bin_bytes) & 0xFFFFFFFF)]
     lines += ["%s: %d" % (k, v) for k, v in sizes.items()]
     open(os.path.join(mod_dir, "system.bin.inf"), "wb").write(
-        ("\r\n".join(lines) + "\r\n").encode())
+        ("\r\n".join(lines) + "\r\n").encode()
+    )
 
     ctrl = build_system_ctrl(files)
     open(os.path.join(mod_dir, "system_ctrl.bin"), "wb").write(ctrl)
@@ -124,16 +139,31 @@ def build_media_package(root, module="NAV", extra_constant=True, extra_files=Non
         return bytes(out)
 
     mod_ctrl_path = os.path.join(root, "%s_ctrl.bin" % module)
-    mod_ctrl = manifest([
-        (1, zlib.crc32(bin_bytes) & 0xFFFFFFFF, "/%s/system.bin" % module),
-        (1, zlib.crc32(Path(os.path.join(mod_dir, "system.bin.inf")).read_bytes()) & 0xFFFFFFFF,
-         "/%s/system.bin.inf" % module),
-        (1, zlib.crc32(ctrl) & 0xFFFFFFFF, "/%s/system_ctrl.bin" % module),
-    ])
+    mod_ctrl = manifest(
+        [
+            (1, zlib.crc32(bin_bytes) & 0xFFFFFFFF, "/%s/system.bin" % module),
+            (
+                1,
+                zlib.crc32(Path(os.path.join(mod_dir, "system.bin.inf")).read_bytes()) & 0xFFFFFFFF,
+                "/%s/system.bin.inf" % module,
+            ),
+            (1, zlib.crc32(ctrl) & 0xFFFFFFFF, "/%s/system_ctrl.bin" % module),
+        ]
+    )
     open(mod_ctrl_path, "wb").write(mod_ctrl)
-    open(os.path.join(root, "ctrl.bin"), "wb").write(manifest([
-        (1, zlib.crc32(mod_ctrl) & 0xFFFFFFFF, "/%s_ctrl.bin" % module),
-    ]))
+    open(os.path.join(root, "ctrl.bin"), "wb").write(
+        manifest(
+            [
+                (1, zlib.crc32(mod_ctrl) & 0xFFFFFFFF, "/%s_ctrl.bin" % module),
+            ]
+        )
+    )
 
-    return {"module": module, "files": files, "tar": tar_bytes, "bin": bin_bytes,
-            "ctrl": ctrl, "sizes": sizes}
+    return {
+        "module": module,
+        "files": files,
+        "tar": tar_bytes,
+        "bin": bin_bytes,
+        "ctrl": ctrl,
+        "sizes": sizes,
+    }

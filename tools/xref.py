@@ -13,6 +13,7 @@ usage:
     python3 tools/xref.py app_nav.bin abs_symbols_base.txt "Auxiliary_Input"
     python3 tools/xref.py app_nav.bin abs_symbols_base.txt 0x023031dc
 """
+
 import argparse
 import bisect
 import struct
@@ -32,8 +33,9 @@ def load_symbols(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("image")
     ap.add_argument("symbols")
     ap.add_argument("target")
@@ -79,23 +81,23 @@ def main():
         n += 1
 
     # 2. lis + addi/ori materialisation
-    words = struct.unpack(">%dI" % (len(img) // 4), img[:len(img) // 4 * 4])
+    words = struct.unpack(">%dI" % (len(img) // 4), img[: len(img) // 4 * 4])
     m = 0
     for i, w in enumerate(words):
         op = w >> 26
-        if op not in (14, 24):          # addi / ori
+        if op not in (14, 24):  # addi / ori
             continue
         ra = (w >> 16) & 31
-        imm = w & 0xffff
+        imm = w & 0xFFFF
         if op == 14 and imm & 0x8000:
             imm -= 0x10000
         for k in range(1, 30):
             if i - k < 0:
                 break
             pw = words[i - k]
-            if (pw >> 26) == 15 and ((pw >> 21) & 31) == ra:   # lis ra,hi
-                hi = (pw & 0xffff) << 16
-                val = (hi | (imm & 0xffff)) if op == 24 else ((hi + imm) & 0xffffffff)
+            if (pw >> 26) == 15 and ((pw >> 21) & 31) == ra:  # lis ra,hi
+                hi = (pw & 0xFFFF) << 16
+                val = (hi | (imm & 0xFFFF)) if op == 24 else ((hi + imm) & 0xFFFFFFFF)
                 if val == target:
                     print("  immediate @ %#x  in %s" % (base + i * 4, name(base + i * 4)))
                     m += 1

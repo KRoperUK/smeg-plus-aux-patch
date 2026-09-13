@@ -57,8 +57,15 @@ def test_list_shows_partition_contents(media):
     for name in info["files"]:
         assert name in r.stdout
 
-    r = run(os.path.join(TOOLS, "patch_media.py"), "list", "--package", str(pkg),
-            "--module", "NAV", "--tones")
+    r = run(
+        os.path.join(TOOLS, "patch_media.py"),
+        "list",
+        "--package",
+        str(pkg),
+        "--module",
+        "NAV",
+        "--tones",
+    )
     assert "ring_tones/ring1RT.wav" in r.stdout
     assert "Data_base/smeg.inf" not in r.stdout
 
@@ -68,15 +75,26 @@ def test_extract_restores_the_tree_and_backs_up_originals(media, tmp_path):
     tree = extract(tmp_path, pkg, backup=True)
     for name, data in info["files"].items():
         assert (tree / name).read_bytes() == data
-    assert (tmp_path / "backup" / "NAV" / "ring_tones" / "ring1RT.wav").read_bytes() == \
-        info["files"]["ring_tones/ring1RT.wav"]
+    assert (tmp_path / "backup" / "NAV" / "ring_tones" / "ring1RT.wav").read_bytes() == info[
+        "files"
+    ]["ring_tones/ring1RT.wav"]
 
 
 def test_apply_refuses_when_nothing_changed(media, tmp_path):
     pkg, _ = media
     tree = extract(tmp_path, pkg)
-    r = run(os.path.join(TOOLS, "patch_media.py"), "apply", "--package", str(pkg),
-            "--module", "NAV", "--tree", str(tree), "--out", str(tmp_path / "out"))
+    r = run(
+        os.path.join(TOOLS, "patch_media.py"),
+        "apply",
+        "--package",
+        str(pkg),
+        "--module",
+        "NAV",
+        "--tree",
+        str(tree),
+        "--out",
+        str(tmp_path / "out"),
+    )
     assert r.returncode != 0
     assert "no differences" in (r.stdout + r.stderr)
 
@@ -85,12 +103,22 @@ def test_apply_rebuilds_the_whole_cascade(media, tmp_path):
     pkg, info = media
     tree = extract(tmp_path, pkg)
 
-    new_tone = mh.wav_bytes(frames=2000)          # bigger than the 441-frame original
+    new_tone = mh.wav_bytes(frames=2000)  # bigger than the 441-frame original
     (tree / "ring_tones" / "ring1RT.wav").write_bytes(new_tone)
     out = tmp_path / "out"
 
-    r = run(os.path.join(TOOLS, "patch_media.py"), "apply", "--package", str(pkg),
-            "--module", "NAV", "--tree", str(tree), "--out", str(out))
+    r = run(
+        os.path.join(TOOLS, "patch_media.py"),
+        "apply",
+        "--package",
+        str(pkg),
+        "--module",
+        "NAV",
+        "--tree",
+        str(tree),
+        "--out",
+        str(out),
+    )
     assert r.returncode == 0, r.stderr
 
     new_bin = (out / "NAV" / "system.bin").read_bytes()
@@ -119,8 +147,9 @@ def test_apply_rebuilds_the_whole_cascade(media, tmp_path):
     assert struct.unpack_from(">I", ctrl, off + 260)[0] == crc(new_tone)
     # ...and the unchanged file still has its original CRC
     off2 = ctrl.index(b"/SYSTEM/ring_tones/ring2RT.wav")
-    assert struct.unpack_from(">I", ctrl, off2 + 260)[0] == \
-        crc(info["files"]["ring_tones/ring2RT.wav"])
+    assert struct.unpack_from(">I", ctrl, off2 + 260)[0] == crc(
+        info["files"]["ring_tones/ring2RT.wav"]
+    )
 
     # manifests
     mod = (out / "NAV_ctrl.bin").read_bytes()
@@ -137,6 +166,7 @@ def test_size_fields_are_preserved_exactly_when_untouched(media):
     """The vendor's SIZE values carry an offset we do not model — the delta must be zero."""
     sys.path.insert(0, TOOLS)
     import patch_media as pm
+
     pkg, info = media
     part = pm.Partition(str(pkg), "NAV")
     inf = (pkg / "NAV" / "system.bin.inf").read_bytes()
@@ -151,9 +181,18 @@ def test_restore_puts_the_original_back(media, tmp_path):
     tone = tree / "ring_tones" / "ring1RT.wav"
     tone.write_bytes(b"not the original at all")
 
-    r = run(os.path.join(TOOLS, "patch_media.py"), "restore",
-            "--backup", str(tmp_path / "backup"), "--tree", str(tree),
-            "--module", "NAV", "--only", "ring_tones/ring1RT.wav")
+    r = run(
+        os.path.join(TOOLS, "patch_media.py"),
+        "restore",
+        "--backup",
+        str(tmp_path / "backup"),
+        "--tree",
+        str(tree),
+        "--module",
+        "NAV",
+        "--only",
+        "ring_tones/ring1RT.wav",
+    )
     assert r.returncode == 0, r.stderr
     assert tone.read_bytes() == info["files"]["ring_tones/ring1RT.wav"]
 
@@ -165,9 +204,20 @@ def test_apply_only_limits_the_change(media, tmp_path):
     (tree / "ring_tones" / "ring2RT.wav").write_bytes(mh.wav_bytes(frames=2000))
 
     out = tmp_path / "out"
-    r = run(os.path.join(TOOLS, "patch_media.py"), "apply", "--package", str(pkg),
-            "--module", "NAV", "--tree", str(tree), "--out", str(out),
-            "--only", "ring_tones/ring1RT.wav")
+    r = run(
+        os.path.join(TOOLS, "patch_media.py"),
+        "apply",
+        "--package",
+        str(pkg),
+        "--module",
+        "NAV",
+        "--tree",
+        str(tree),
+        "--out",
+        str(out),
+        "--only",
+        "ring_tones/ring1RT.wav",
+    )
     assert r.returncode == 0, r.stderr
     data = members((out / "NAV" / "system.bin").read_bytes())
     assert data["ring_tones/ring1RT.wav"] != info["files"]["ring_tones/ring1RT.wav"]

@@ -3,6 +3,7 @@
 Everything here is generated from scratch — no vendor firmware is involved, which is
 the point: the patch tools must be testable without any copyrighted files.
 """
+
 import gzip
 import io
 import os
@@ -12,8 +13,8 @@ import tarfile
 import zlib
 
 BASE = 0x01000000
-STREAM_OFFSET = 0x801      # where the zlib stream starts
-HEADER_LEN = 0x800         # the byte at 0x800 is the 0x08 compression marker
+STREAM_OFFSET = 0x801  # where the zlib stream starts
+HEADER_LEN = 0x800  # the byte at 0x800 is the 0x08 compression marker
 
 
 def crc32(b):
@@ -27,8 +28,8 @@ def s32(v):
 def make_image(size=0x200000, fill=0xAA):
     """A fake application image, sized like a real one (>1 MB, which the tools require)."""
     img = bytearray([fill]) * size
-    img[0x100:0x104] = bytes.fromhex("9421ffa0")   # stwu r1,-0x60(r1)
-    img[0x104:0x108] = bytes.fromhex("7c0802a6")   # mflr r0
+    img[0x100:0x104] = bytes.fromhex("9421ffa0")  # stwu r1,-0x60(r1)
+    img[0x104:0x108] = bytes.fromhex("7c0802a6")  # mflr r0
     return bytes(img)
 
 
@@ -38,7 +39,7 @@ def pack_bigquick(img, header_len=HEADER_LEN):
     header[0:4] = struct.pack(">I", 0x00010004)
     header[4:8] = struct.pack(">I", len(img))
     for off in (0x1C, 0x3C):
-        header[off:off + 4] = b"\xde\xad\xbe\xef"
+        header[off : off + 4] = b"\xde\xad\xbe\xef"
     return bytes(header) + b"\x08" + zlib.compress(img, 6)
 
 
@@ -49,10 +50,14 @@ def write_inf(path, crc):
 
 def write_smeg_inf(path, bigquick_crc, ver="SMEG0.0.0.A.R0", gui_ver="00.00"):
     with open(path, "wb") as fh:
-        fh.write(("BSP_CRC32: 0 \r\n"
-                  "BIGQUICK_CRC32: %d \r\n"
-                  "VER: %s \r\n"
-                  "GUI_VER:%s \r\n" % (s32(bigquick_crc), ver, gui_ver)).encode())
+        fh.write(
+            (
+                "BSP_CRC32: 0 \r\n"
+                "BIGQUICK_CRC32: %d \r\n"
+                "VER: %s \r\n"
+                "GUI_VER:%s \r\n" % (s32(bigquick_crc), ver, gui_ver)
+            ).encode()
+        )
 
 
 def write_ctrl(path, entries):
@@ -64,7 +69,7 @@ def write_ctrl(path, entries):
         out += bytes([check])
         out += struct.pack(">I", crc)
         out += rel.encode() + b"\x00"
-        out += b"\x00" * ((-len(rel) - 1) % 8)   # pad to a stride
+        out += b"\x00" * ((-len(rel) - 1) % 8)  # pad to a stride
     with open(path, "wb") as fh:
         fh.write(bytes(out))
 
@@ -86,14 +91,20 @@ def build_package(root, variant="NAV", patch_addr=0x100, img=None):
     write_inf(inf_path, crc32(bq))
     write_smeg_inf(smeg_path, crc32(bq))
 
-    write_ctrl(ctrl_path, [
-        (1, crc32(bq), "/%s/AppBin/f_BigQuick.bin" % variant),
-        (1, crc32(open(inf_path, "rb").read()), "/%s/AppBin/f_BigQuick.bin.inf" % variant),
-        (1, crc32(open(smeg_path, "rb").read()), "/%s/smeg.inf" % variant),
-    ])
-    write_ctrl(os.path.join(root, "ctrl.bin"), [
-        (1, crc32(open(ctrl_path, "rb").read()), "/%s_ctrl.bin" % variant),
-    ])
+    write_ctrl(
+        ctrl_path,
+        [
+            (1, crc32(bq), "/%s/AppBin/f_BigQuick.bin" % variant),
+            (1, crc32(open(inf_path, "rb").read()), "/%s/AppBin/f_BigQuick.bin.inf" % variant),
+            (1, crc32(open(smeg_path, "rb").read()), "/%s/smeg.inf" % variant),
+        ],
+    )
+    write_ctrl(
+        os.path.join(root, "ctrl.bin"),
+        [
+            (1, crc32(open(ctrl_path, "rb").read()), "/%s_ctrl.bin" % variant),
+        ],
+    )
 
     return {
         "variant": variant,
@@ -115,8 +126,7 @@ def set_root_ctrl(root, variants):
     write_ctrl(os.path.join(root, "ctrl.bin"), entries)
 
 
-def patch_spec(variant="NAV", addr=0x100, base=0x0, expect="9421ffa0",
-               new="386000014e800020"):
+def patch_spec(variant="NAV", addr=0x100, base=0x0, expect="9421ffa0", new="386000014e800020"):
     return {
         "name": "synthetic",
         "variants": {
@@ -145,6 +155,7 @@ def read_crc_field(text, field="CRC32"):
 
 # --- media partition helper (for the ringtone tool tests) -------------------
 
+
 def build_media_tar(path, extra=None):
     """A tar shaped like the real media partition, with ring_tones/ populated."""
     import wave
@@ -152,8 +163,11 @@ def build_media_tar(path, extra=None):
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w") as tf:
         for name in ("Data_base/media.inf", "Data_base/smeg.inf"):
-            data = b"00000000\nVER:0\n" if "media" in name else \
-                   b"BSP_CRC32: 0 \r\nBIGQUICK_CRC32: 0 \r\nVER: X \r\nGUI_VER:00.00 \r\n"
+            data = (
+                b"00000000\nVER:0\n"
+                if "media" in name
+                else b"BSP_CRC32: 0 \r\nBIGQUICK_CRC32: 0 \r\nVER: X \r\nGUI_VER:00.00 \r\n"
+            )
             ti = tarfile.TarInfo(name)
             ti.size = len(data)
             tf.addfile(ti, io.BytesIO(data))

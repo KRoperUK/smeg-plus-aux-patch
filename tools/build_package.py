@@ -43,6 +43,7 @@ usage:
     python3 tools/build_package.py --manifest build.json
     python3 tools/build_package.py --manifest build.json --dry-run
 """
+
 import argparse
 import json
 import os
@@ -64,6 +65,7 @@ def tool(name):
 def load_module(name):
     """Import one of the sibling tools by path (they are scripts, not a package)."""
     import importlib.util
+
     path = os.path.join(HERE, name + ".py")
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
@@ -110,15 +112,34 @@ def convert_tone(rt, source, dest, channels, rate, gain_db=None):
         return rt.convert(source, dest, channels, rate)
     if not shutil.which("ffmpeg"):
         sys.exit("ffmpeg is needed for gain_db")
-    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", source,
-           "-af", "volume=%gdB" % gain_db, "-ar", str(rate), "-ac", str(channels),
-           "-c:a", "pcm_s16le", dest]
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        source,
+        "-af",
+        "volume=%gdB" % gain_db,
+        "-ar",
+        str(rate),
+        "-ac",
+        str(channels),
+        "-c:a",
+        "pcm_s16le",
+        dest,
+    ]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit("ffmpeg failed for %s:\n%s" % (source, r.stderr or r.stdout))
     dst_info = rt.probe(dest)
     return "%d Hz, %d-bit, %s (gain %+g dB)" % (
-        dst_info[1], dst_info[2] * 8, "mono" if dst_info[0] == 1 else "stereo", gain_db)
+        dst_info[1],
+        dst_info[2] * 8,
+        "mono" if dst_info[0] == 1 else "stereo",
+        gain_db,
+    )
 
 
 def set_up_key(tree, dotted, value):
@@ -129,6 +150,7 @@ def set_up_key(tree, dotted, value):
     the worst case is that the firmware ignores the value.
     """
     import sqlite3
+
     section, _, name = dotted.partition(".")
     if not name:
         sys.exit("%r should be Section.Name, e.g. supervisor.Last_Source" % dotted)
@@ -137,8 +159,9 @@ def set_up_key(tree, dotted, value):
         sys.exit("no up_common.sqlite in this tree - is it an extracted media partition?")
     con = sqlite3.connect(path)
     try:
-        cur = con.execute("update UP_Keys set IntValue=? where Section=? and Name=?",
-                          (value, section, name))
+        cur = con.execute(
+            "update UP_Keys set IntValue=? where Section=? and Name=?", (value, section, name)
+        )
         if cur.rowcount < 1:
             sys.exit("no UP_Keys row for %s" % dotted)
         con.commit()
@@ -200,13 +223,20 @@ def ship_user_data(out, tree, names, module):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--manifest", required=True)
-    ap.add_argument("--skip-preflight", action="store_true",
-                    help="do not run the final pre-flight check (not recommended)")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="show the steps and what would change, without writing")
+    ap.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        help="do not run the final pre-flight check (not recommended)",
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show the steps and what would change, without writing",
+    )
     args = ap.parse_args()
 
     cfg = json.loads(Path(args.manifest).read_text())
@@ -241,9 +271,11 @@ def main():
 
     ud_sqlite = user_data.get("sqlite") or []
     if ud_sqlite and not user_data.get("accept_data_loss"):
-        sys.exit(warn_user_data(ud_sqlite) +
-                 "\nRefusing to build. Add \"accept_data_loss\": true to the user_data "
-                 "section once the person who owns the car has agreed to it.")
+        sys.exit(
+            warn_user_data(ud_sqlite)
+            + '\nRefusing to build. Add "accept_data_loss": true to the user_data '
+            "section once the person who owns the car has agreed to it."
+        )
 
     if ud_sqlite:
         print(warn_user_data(ud_sqlite))
@@ -256,8 +288,7 @@ def main():
 
     # 1. start from a copy, so the source stays a rollback
     if not args.dry_run:
-        shutil.copytree(src, out, symlinks=True,
-                        ignore=shutil.ignore_patterns("._*", ".DS_Store"))
+        shutil.copytree(src, out, symlinks=True, ignore=shutil.ignore_patterns("._*", ".DS_Store"))
         for root, dirs, _ in os.walk(out):
             for d in list(dirs):
                 if d in (".stage6", ".commandcode", ".git"):
@@ -272,8 +303,22 @@ def main():
         if not os.path.exists(p):
             sys.exit("no such patch set: %s" % p)
         o1 = os.path.join(work, "app-%s" % os.path.basename(name))
-        run([PY, tool("patch_smeg.py"), "--src", src, "--out", o1, "--only", module,
-             "--patches", p], "applying patch set %s" % name, args.dry_run)
+        run(
+            [
+                PY,
+                tool("patch_smeg.py"),
+                "--src",
+                src,
+                "--out",
+                o1,
+                "--only",
+                module,
+                "--patches",
+                p,
+            ],
+            "applying patch set %s" % name,
+            args.dry_run,
+        )
         if not args.dry_run:
             overlay(o1, out)
 
@@ -281,9 +326,24 @@ def main():
         # 3. extract the media partition and make the edits in the tree
         tree = os.path.join(work, "media")
         backup = os.path.join(work, "backup")
-        run([PY, tool("patch_media.py"), "extract", "--package", out, "--module", module,
-             "--tree", tree, "--backup", backup, "--backup-tones-only"],
-            "extracting the media partition", args.dry_run)
+        run(
+            [
+                PY,
+                tool("patch_media.py"),
+                "extract",
+                "--package",
+                out,
+                "--module",
+                module,
+                "--tree",
+                tree,
+                "--backup",
+                backup,
+                "--backup-tones-only",
+            ],
+            "extracting the media partition",
+            args.dry_run,
+        )
         if not args.dry_run:
             rt = load_module("ringtones")
             sl = load_module("splash")
@@ -299,8 +359,10 @@ def main():
                 out_path = os.path.join(tree, dest_rel)
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
                 print("==> %s: %s -> %s" % (slot, source, dest_rel))
-                print("    %s" % convert_tone(rt, source, out_path, rt.SLOTS[slot][1],
-                                              rt.SLOTS[slot][2], gain))
+                print(
+                    "    %s"
+                    % convert_tone(rt, source, out_path, rt.SLOTS[slot][1], rt.SLOTS[slot][2], gain)
+                )
             for marque, image in splash_map.items():
                 print("==> splash %s <- %s" % (marque, image))
                 path = os.path.join(tree, sl.DIR, marque + ".pkg")
@@ -320,8 +382,23 @@ def main():
 
         # 4. rebuild the partition and the checksum cascade
         o2 = os.path.join(work, "media-overlay")
-        run([PY, tool("patch_media.py"), "apply", "--package", out, "--module", module,
-             "--tree", tree, "--out", o2], "rebuilding the media partition", args.dry_run)
+        run(
+            [
+                PY,
+                tool("patch_media.py"),
+                "apply",
+                "--package",
+                out,
+                "--module",
+                module,
+                "--tree",
+                tree,
+                "--out",
+                o2,
+            ],
+            "rebuilding the media partition",
+            args.dry_run,
+        )
         if not args.dry_run:
             overlay(o2, out)
             if user_data.get("sqlite"):
@@ -329,27 +406,35 @@ def main():
 
     # 5. seal LAST — anything changed after this is unsealed and the unit rejects it
     if cfg.get("seal", True):
-        run([PY, tool("patch_contract.py"), "--package", out], "re-sealing the contract",
-            args.dry_run)
+        run(
+            [PY, tool("patch_contract.py"), "--package", out],
+            "re-sealing the contract",
+            args.dry_run,
+        )
 
     # 6. final gate: the package must pass its own pre-flight. A build that would be
     #    rejected, or that sets a value the unit cannot accept, should fail here rather
     #    than on a stick in a car.
     if not args.dry_run and not args.skip_preflight:
-        r = subprocess.run([PY, tool("preflight.py"), "--package", out],
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            [PY, tool("preflight.py"), "--package", out], capture_output=True, text=True
+        )
         print(r.stdout.rstrip())
         if r.returncode != 0:
-            sys.exit("\n%s failed its own pre-flight (above) - not fit to flash.\n"
-                     "Fix it, or pass --skip-preflight if you know better." % out)
+            sys.exit(
+                "\n%s failed its own pre-flight (above) - not fit to flash.\n"
+                "Fix it, or pass --skip-preflight if you know better." % out
+            )
 
     shutil.rmtree(work, ignore_errors=True)
     if args.dry_run:
         print("\ndry run complete — nothing was written")
         return
     print("\nbuilt %s" % out)
-    print("check it before flashing:  python3 tools/splash.py --tree <tree> selftest"
-          "  (and the cascade in docs/RUNNING.md)")
+    print(
+        "check it before flashing:  python3 tools/splash.py --tree <tree> selftest"
+        "  (and the cascade in docs/RUNNING.md)"
+    )
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ a real one out of band. What is covered here is the orchestration's own logic an
 guards that stop it doing something destructive — those are the parts that would fail
 *silently* if they were wrong.
 """
+
 import json
 import pathlib
 import os
@@ -21,8 +22,10 @@ sys.path.insert(0, HERE)
 
 def load_build():
     import importlib.util
+
     spec = importlib.util.spec_from_file_location(
-        "build_package", os.path.join(TOOLS, "build_package.py"))
+        "build_package", os.path.join(TOOLS, "build_package.py")
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -30,10 +33,18 @@ def load_build():
 
 def run_cli(manifest, *extra):
     import subprocess
+
     return subprocess.run(
-        [sys.executable, os.path.join(TOOLS, "build_package.py"),
-         "--manifest", str(manifest), *extra],
-        capture_output=True, text=True)
+        [
+            sys.executable,
+            os.path.join(TOOLS, "build_package.py"),
+            "--manifest",
+            str(manifest),
+            *extra,
+        ],
+        capture_output=True,
+        text=True,
+    )
 
 
 def manifest(tmp_path, **over):
@@ -53,6 +64,7 @@ def fake_pkg(tmp_path):
 
 
 # ------------------------------------------------------------------- helpers
+
 
 def test_overlay_preserves_relative_paths(tmp_path):
     bp = load_build()
@@ -84,6 +96,7 @@ def test_overlay_dry_run_writes_nothing(tmp_path):
 
 # ------------------------------------------------------------------- guards
 
+
 def test_refuses_to_build_in_place(tmp_path, fake_pkg):
     m = manifest(tmp_path, package=str(fake_pkg), out=str(fake_pkg))
     r = run_cli(m)
@@ -113,8 +126,12 @@ def test_refuses_a_missing_package(tmp_path):
 
 
 def test_refuses_an_unknown_patch_set(tmp_path, fake_pkg):
-    m = manifest(tmp_path, package=str(fake_pkg), out=str(tmp_path / "o"),
-                 app={"patches": ["not-a-real-patch-set"]})
+    m = manifest(
+        tmp_path,
+        package=str(fake_pkg),
+        out=str(tmp_path / "o"),
+        app={"patches": ["not-a-real-patch-set"]},
+    )
     r = run_cli(m)
     assert r.returncode != 0
     assert "no such patch set" in (r.stdout + r.stderr)
@@ -122,8 +139,7 @@ def test_refuses_an_unknown_patch_set(tmp_path, fake_pkg):
 
 def test_dry_run_writes_nothing(tmp_path, fake_pkg):
     out = tmp_path / "out"
-    m = manifest(tmp_path, package=str(fake_pkg), out=str(out),
-                 app={"patches": ["aux-autoswitch"]})
+    m = manifest(tmp_path, package=str(fake_pkg), out=str(out), app={"patches": ["aux-autoswitch"]})
 
     r = run_cli(m, "--dry-run")
 
@@ -134,9 +150,13 @@ def test_dry_run_writes_nothing(tmp_path, fake_pkg):
 
 def test_dry_run_shows_the_order(tmp_path, fake_pkg):
     """The ordering is the reason this tool exists, so assert it is what gets printed."""
-    m = manifest(tmp_path, package=str(fake_pkg), out=str(tmp_path / "o"),
-                 app={"patches": ["aux-autoswitch"]},
-                 media={"tones": {"ring_tones/ring1RT.wav": "tone.wav"}})
+    m = manifest(
+        tmp_path,
+        package=str(fake_pkg),
+        out=str(tmp_path / "o"),
+        app={"patches": ["aux-autoswitch"]},
+        media={"tones": {"ring_tones/ring1RT.wav": "tone.wav"}},
+    )
     r = run_cli(m, "--dry-run")
     assert r.returncode == 0, r.stderr
     seq = [ln for ln in r.stdout.splitlines() if ln.startswith("==>")]
@@ -152,8 +172,12 @@ def test_dry_run_shows_the_order(tmp_path, fake_pkg):
 
 def test_refuses_user_data_without_acknowledgement(tmp_path, fake_pkg):
     """Shipping to /USER_DATA can wipe the car's own settings, so it cannot happen quietly."""
-    m = manifest(tmp_path, package=str(fake_pkg), out=str(tmp_path / "o"),
-                 user_data={"sqlite": ["up_common.sqlite"]})
+    m = manifest(
+        tmp_path,
+        package=str(fake_pkg),
+        out=str(tmp_path / "o"),
+        user_data={"sqlite": ["up_common.sqlite"]},
+    )
     r = run_cli(m)
     assert r.returncode != 0
     out = r.stdout + r.stderr
@@ -163,8 +187,12 @@ def test_refuses_user_data_without_acknowledgement(tmp_path, fake_pkg):
 
 
 def test_warns_but_proceeds_with_acknowledgement(tmp_path, fake_pkg):
-    m = manifest(tmp_path, package=str(fake_pkg), out=str(tmp_path / "o"),
-                 user_data={"sqlite": ["up_common.sqlite"], "accept_data_loss": True})
+    m = manifest(
+        tmp_path,
+        package=str(fake_pkg),
+        out=str(tmp_path / "o"),
+        user_data={"sqlite": ["up_common.sqlite"], "accept_data_loss": True},
+    )
     r = run_cli(m, "--dry-run")
     assert "accept_data_loss" not in (r.stderr or ""), "a recorded decision must not be refused"
     assert "USER DATA" in r.stdout or "USER_DATA" in r.stdout
@@ -205,6 +233,7 @@ def test_every_committed_scheme_is_structurally_valid():
     paths resolve here passes locally and fails in CI - which is exactly what it did.
     """
     import glob
+
     root = os.path.dirname(TOOLS)
     schemes = sorted(glob.glob(os.path.join(root, "builds", "*.json")))
     assert schemes, "no schemes found"
@@ -218,29 +247,36 @@ def test_every_committed_scheme_is_structurally_valid():
 
         for patch in (cfg.get("app") or {}).get("patches", []):
             f = patch if patch.endswith(".json") else patch + ".json"
-            assert os.path.exists(os.path.join(root, "patches", f)), \
+            assert os.path.exists(os.path.join(root, "patches", f)), (
                 "%s references a patch set that does not exist: %s" % (name, patch)
+            )
 
-        tones = ((cfg.get("media") or {}).get("tones") or {})
+        tones = (cfg.get("media") or {}).get("tones") or {}
         if tones:
             import ringtones as rt
+
             for dest in tones:
-                assert any(v[0] == dest for v in rt.SLOTS.values()), \
+                assert any(v[0] == dest for v in rt.SLOTS.values()), (
                     "%s writes to %s, which is not a known tone slot" % (name, dest)
+                )
 
 
 def test_committed_schemes_dry_run_where_the_package_exists():
     """On a machine that has the package, the scheme must actually dry-run."""
     import glob
     import subprocess
+
     root = os.path.dirname(TOOLS)
     ran = 0
     for s in sorted(glob.glob(os.path.join(root, "builds", "*.json"))):
         cfg = json.loads(pathlib.Path(s).read_text())
         if not os.path.isdir(os.path.expanduser(cfg["package"])):
             continue
-        r = subprocess.run([sys.executable, os.path.join(TOOLS, "build_package.py"),
-                            "--manifest", s, "--dry-run"], capture_output=True, text=True)
+        r = subprocess.run(
+            [sys.executable, os.path.join(TOOLS, "build_package.py"), "--manifest", s, "--dry-run"],
+            capture_output=True,
+            text=True,
+        )
         out = r.stdout + r.stderr
         # a previous run may have left the output directory behind; refusing to clobber it
         # is correct behaviour, not a broken scheme
@@ -250,4 +286,5 @@ def test_committed_schemes_dry_run_where_the_package_exists():
         ran += 1
     if ran == 0:
         import pytest
+
         pytest.skip("no scheme's package is present on this machine")

@@ -3,6 +3,7 @@
 Skipped unless PySide6 is importable, so the suite still runs for contributors without
 the optional GUI dependencies. Runs headless via the offscreen platform plugin.
 """
+
 import os
 import sys
 import wave
@@ -125,6 +126,7 @@ def test_switching_slots_stops_the_previous(studio, tmp_path):
 def test_studio_still_builds_its_tabs(studio):
     """Smoke test: the window and every tab construct without raising."""
     from PySide6.QtWidgets import QTabWidget
+
     tabs = studio.findChildren(QTabWidget)[0]
     assert tabs.count() == 3
     assert studio.table.rowCount() == len(rs.SLOTS)
@@ -145,8 +147,9 @@ def solid_bmp(rgb):
     """A real 800x480 24-bit bottom-up BMP, built by hand so no encoder is involved."""
     body = bytes((rgb[2], rgb[1], rgb[0])) * (splash.IMAGE_W * splash.IMAGE_H)
     file_hdr = b"BM" + struct.pack("<IHHI", 54 + len(body), 0, 0, 54)
-    dib = struct.pack("<IiiHHIIiiII", 40, splash.IMAGE_W, splash.IMAGE_H, 1, 24, 0,
-                      len(body), 2835, 2835, 0, 0)
+    dib = struct.pack(
+        "<IiiHHIIiiII", 40, splash.IMAGE_W, splash.IMAGE_H, 1, 24, 0, len(body), 2835, 2835, 0, 0
+    )
     out = file_hdr + dib + body
     assert len(out) == splash.BMP_SIZE
     return out
@@ -166,7 +169,7 @@ def make_pkg(path, marque="peugeot", count=4, rgb=(0, 0, 0)):
     p = 0x10
     for i, nm in enumerate(names):
         nb = nm.encode()
-        header[p:p + 32] = nb + b"\x00" * (32 - len(nb))
+        header[p : p + 32] = nb + b"\x00" * (32 - len(nb))
         f = p + 32
         vals = [0, 0, 0, 0, 0, 0]
         if i + 1 < count:
@@ -176,7 +179,7 @@ def make_pkg(path, marque="peugeot", count=4, rgb=(0, 0, 0)):
             struct.pack_into(">I", header, f, v)
             f += 4
         p = f
-    struct.pack_into(">I", header, 0x00, zlib.crc32(bytes(header[4:])) & 0xffffffff)
+    struct.pack_into(">I", header, 0x00, zlib.crc32(bytes(header[4:])) & 0xFFFFFFFF)
     body = b"".join(b"\x08" + raw + tr for raw, tr in chunks)
     path.write_bytes(bytes(header) + body)
     return path
@@ -198,8 +201,9 @@ def test_splash_selftest_rebuilds_a_package_byte_for_byte(media_tree):
         pk = splash.Pkg(p.read_bytes())
         assert len(pk.chunks) == 4
         assert pk.check_hash()
-        same = splash.build(pk, {i: pk.image(i) for i in range(len(pk.chunks))},
-                            reuse_compressed=True)
+        same = splash.build(
+            pk, {i: pk.image(i) for i in range(len(pk.chunks))}, reuse_compressed=True
+        )
         assert same == p.read_bytes()
 
 
@@ -250,6 +254,7 @@ def test_splash_tab_reports_a_missing_tree(studio, tmp_path):
 
 
 # ------------------------------------------------------------------- theming
+
 
 def test_both_palettes_format_without_leftovers():
     """A stylesheet placeholder that never gets substituted is a silent cosmetic bug."""

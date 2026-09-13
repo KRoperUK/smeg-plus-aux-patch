@@ -9,6 +9,7 @@ usage:
     python3 tools/ppcdis.py IMAGE SYMFILE ADDRESS END
     python3 tools/ppcdis.py app_nav.bin abs_symbols_base.txt 0x0230331c 0x02303460
 """
+
 import argparse
 import bisect
 import sys
@@ -33,8 +34,9 @@ def load_symbols(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("image")
     ap.add_argument("symbols")
     ap.add_argument("start")
@@ -60,7 +62,7 @@ def main():
     md.detail = True
 
     regs, ctr, lr = {}, None, None
-    for ins in md.disasm(img[start - base:end - base], start):
+    for ins in md.disasm(img[start - base : end - base], start):
         m, ops = ins.mnemonic, ins.op_str
         o = ins.operands
         ann = ""
@@ -69,7 +71,7 @@ def main():
         elif m == "addi" and len(o) == 3 and o[1].type == PPC_OP_REG and o[2].type == PPC_OP_IMM:
             b = regs.get(o[1].reg)
             if b is not None:
-                regs[o[0].reg] = (b + o[2].imm) & 0xffffffff
+                regs[o[0].reg] = (b + o[2].imm) & 0xFFFFFFFF
         elif m == "ori" and len(o) == 3 and o[1].type == PPC_OP_REG and o[2].type == PPC_OP_IMM:
             b = regs.get(o[1].reg)
             if b is not None:

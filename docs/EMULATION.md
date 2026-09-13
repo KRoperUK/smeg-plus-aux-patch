@@ -242,26 +242,33 @@ The handler comparison needs two stubs, so it is a short script rather than a co
 
 ```python
 import struct, sys
+
 sys.path.insert(0, "tools")
 from ppcemu import Emulator, SCRATCH
 from unicorn.ppc_const import UC_PPC_REG_4
 
-IMG  = open("app_nav.bin", "rb").read()
-DEV  = SCRATCH + 0x9000
-REAL = {0x022f3750, 0x02368080, 0x022f3608}      # GetMediaDevice, ctor, FindDevice
+IMG = open("app_nav.bin", "rb").read()
+DEV = SCRATCH + 0x9000
+REAL = {0x022F3750, 0x02368080, 0x022F3608}  # GetMediaDevice, ctor, FindDevice
+
 
 def run(patched, device_found):
     e = Emulator(IMG)
     if patched:
         e.apply_patch_file("patches/aux-autoswitch.json", "NAV")
     e.stub_all, e.stub_default, e.run_for_real = True, 0x60002000, REAL
-    e.stub(0x025cb258, lambda uc: uc.mem_write(          # the AUX signal appears
-        uc.reg_read(UC_PPC_REG_4), struct.pack(">I", 1)))
-    e.stub(0x022f3608, DEV if device_found else 0)       # FindDevice
+    e.stub(
+        0x025CB258,
+        lambda uc: uc.mem_write(  # the AUX signal appears
+            uc.reg_read(UC_PPC_REG_4), struct.pack(">I", 1)
+        ),
+    )
+    e.stub(0x022F3608, DEV if device_found else 0)  # FindDevice
     e.write(DEV, b"\x00" * 0x20)
-    e.write_u32(DEV + 0x10, 0xC0FFEE00)                  # the device's source manager
-    e.call(0x0230331c, [SCRATCH])
-    return e.reached(0x0273a248), e.call_sequence()      # ActivateSource?
+    e.write_u32(DEV + 0x10, 0xC0FFEE00)  # the device's source manager
+    e.call(0x0230331C, [SCRATCH])
+    return e.reached(0x0273A248), e.call_sequence()  # ActivateSource?
+
 
 for patched in (False, True):
     for found in (False, True):

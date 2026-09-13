@@ -13,12 +13,24 @@ usage:
     check_commit_msg.py .git/COMMIT_EDITMSG     # hook form
     check_commit_msg.py --title "feat: a thing"  # CI form
 """
+
 import argparse
 import re
 import sys
 
-TYPES = ("feat", "fix", "docs", "style", "refactor", "perf", "test",
-         "build", "ci", "chore", "revert")
+TYPES = (
+    "feat",
+    "fix",
+    "docs",
+    "style",
+    "refactor",
+    "perf",
+    "test",
+    "build",
+    "ci",
+    "chore",
+    "revert",
+)
 
 # type[(scope)][!]: description
 HEADER = re.compile(
@@ -32,7 +44,8 @@ MAX_HEADER = 100
 # git generates these; they are not ours to police
 SKIP = re.compile(
     r"^(Merge |Revert \"|fixup! |squash! |amend! |"
-    r"Apply .* patch|Auto-merged |Reapply )")
+    r"Apply .* patch|Auto-merged |Reapply )"
+)
 
 HELP = """\
 Conventional Commits are required on this repository.
@@ -72,11 +85,13 @@ def check(text):
 
     problems = []
     if m.group("type") not in TYPES:
-        problems.append("unknown type %r — expected one of: %s"
-                        % (m.group("type"), ", ".join(TYPES)))
+        problems.append(
+            "unknown type %r — expected one of: %s" % (m.group("type"), ", ".join(TYPES))
+        )
     if len(header) > MAX_HEADER:
-        problems.append("the first line is %d characters; keep it under %d"
-                        % (len(header), MAX_HEADER))
+        problems.append(
+            "the first line is %d characters; keep it under %d" % (len(header), MAX_HEADER)
+        )
     if m.group("desc")[0].isupper():
         problems.append("the description starts with a capital; use lower case after ': '")
     if m.group("desc").endswith("."):
@@ -89,10 +104,12 @@ def check(text):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("msgfile", nargs="?",
-                    help="a commit message file (what the commit-msg hook passes)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "msgfile", nargs="?", help="a commit message file (what the commit-msg hook passes)"
+    )
     ap.add_argument("--title", help="validate a string instead, e.g. a PR title")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()

@@ -4,6 +4,7 @@ Everything here is synthetic: the test generates its own RSA key pair and embeds
 decimal literals, exactly as the firmware does. No vendor key material, and no firmware,
 is needed.
 """
+
 import os
 import random
 import struct
@@ -22,6 +23,7 @@ import patch_contract as pc  # noqa: E402
 
 
 # --------------------------------------------------------------- synthetic RSA
+
 
 def _is_probable_prime(n, rounds=24):
     if n < 2:
@@ -68,11 +70,12 @@ def make_image_with_key(key, filler=0xAA, size=0x200000):
     """A fake application image carrying the key as decimal literals, as the firmware does."""
     img = bytearray([filler]) * size
     blob = ("%d\0%d\0%d\0%d\0" % (key["n"], key["d"], key["p"], key["q"])).encode()
-    img[0x1000:0x1000 + len(blob)] = blob
+    img[0x1000 : 0x1000 + len(blob)] = blob
     return bytes(img)
 
 
 # ------------------------------------------------------------------- the tests
+
 
 def test_oaep_round_trip():
     msg = b"a synthetic contract payload" * 4
@@ -93,6 +96,7 @@ def test_find_keys_recovers_the_generated_pair(rsakey):
     assert (found["d"] * pc.DEFAULT_E) % ((found["p"] - 1) * (found["q"] - 1)) == 0 or True
     # the returned d really is the inverse of e
     import math
+
     lam = (found["p"] - 1) * (found["q"] - 1) // math.gcd(found["p"] - 1, found["q"] - 1)
     assert (found["d"] * pc.DEFAULT_E) % lam == 1
 
@@ -115,7 +119,7 @@ def make_contract(key, entries):
         rec = bytearray(pc.RECORD_SIZE)
         p = path.encode()
         assert len(p) < 63
-        rec[0:len(p)] = p
+        rec[0 : len(p)] = p
         rec[63] = 2
         struct.pack_into(">II", rec, 64, pc.UNUSED, pc.UNUSED)
         struct.pack_into(">I", rec, 72, zlib.crc32(data) & 0xFFFFFFFF)
@@ -132,17 +136,20 @@ def test_contract_round_trip_and_record_refresh(rsakey, tmp_path):
     (pkg / "ctrl.bin").write_bytes(a)
     (pkg / "NAV" / "AppBin" / "f_BigQuick.bin").write_bytes(b)
 
-    blob = make_contract(rsakey, [
-        ("/SMEG_PLUS_UPG/ctrl.bin", a),
-        ("/SMEG_PLUS_UPG/NAV/AppBin/f_BigQuick.bin", b),
-    ])
+    blob = make_contract(
+        rsakey,
+        [
+            ("/SMEG_PLUS_UPG/ctrl.bin", a),
+            ("/SMEG_PLUS_UPG/NAV/AppBin/f_BigQuick.bin", b),
+        ],
+    )
     (pkg / "contract.dat").write_bytes(blob)
 
     # the stock contract should need no changes
     hdr, recs, key = pc.load_contract(str(pkg / "contract.dat"), [rsakey])
     assert len(recs) == 2
     for rec in recs:
-        fp = pc.resolve(str(pkg), rec[:rec.index(b"\0")].decode())
+        fp = pc.resolve(str(pkg), rec[: rec.index(b"\0")].decode())
         payload, _ = pc.check_of(rec, open(fp, "rb").read())
         assert pc.rebuild_record(rec, payload) == rec
 
@@ -158,7 +165,7 @@ def test_contract_round_trip_and_record_refresh(rsakey, tmp_path):
 
 
 def test_all_three_check_types_recompute(rsakey):
-    data = bytes(range(256)) * 4          # 1024 bytes
+    data = bytes(range(256)) * 4  # 1024 bytes
     size_rec = bytearray(pc.RECORD_SIZE)
     size_rec[63] = 1
     struct.pack_into(">I", size_rec, 64, pc.UNUSED)

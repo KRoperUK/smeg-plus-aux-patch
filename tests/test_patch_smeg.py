@@ -25,16 +25,24 @@ def pkg(tmp_path):
     src.mkdir()
     info = helpers.build_package(str(src))
     spec = tmp_path / "spec.json"
-    spec.write_text(json.dumps(helpers.patch_spec(variant=info["variant"],
-                                                  addr=info["patch_addr"])))
+    spec.write_text(
+        json.dumps(helpers.patch_spec(variant=info["variant"], addr=info["patch_addr"]))
+    )
     return src, spec, info
 
 
 def test_patches_image_and_rebuilds_crc_cascade(pkg, tmp_path):
     src, spec, info = pkg
     out = tmp_path / "out"
-    r = run(os.path.join(TOOLS, "patch_smeg.py"), "--src", str(src), "--out", str(out),
-            "--patches", str(spec))
+    r = run(
+        os.path.join(TOOLS, "patch_smeg.py"),
+        "--src",
+        str(src),
+        "--out",
+        str(out),
+        "--patches",
+        str(spec),
+    )
     assert r.returncode == 0, r.stderr
 
     bq = os.path.join(str(out), info["variant"], "AppBin", "f_BigQuick.bin")
@@ -42,18 +50,23 @@ def test_patches_image_and_rebuilds_crc_cascade(pkg, tmp_path):
 
     # the patch is present in the inflated image, and the original bytes are gone
     img = helpers.inflate_container(raw)
-    assert img[info["patch_addr"]:info["patch_addr"] + 8].hex() == "386000014e800020"
+    assert img[info["patch_addr"] : info["patch_addr"] + 8].hex() == "386000014e800020"
     assert img != info["image"]
 
     # cascade: .inf, smeg.inf and the module manifest all agree with the new file CRC
     new_crc = zlib.crc32(raw) & 0xFFFFFFFF
-    inf_crc = int(open(os.path.join(str(out), info["variant"], "AppBin",
-                                    "f_BigQuick.bin.inf")).readline().strip().split()[-1])
+    inf_crc = int(
+        open(os.path.join(str(out), info["variant"], "AppBin", "f_BigQuick.bin.inf"))
+        .readline()
+        .strip()
+        .split()[-1]
+    )
     smeg = open(os.path.join(str(out), info["variant"], "smeg.inf"), "rb").read()
     assert helpers.read_crc_field(smeg, "BIGQUICK_CRC32") == new_crc
     assert inf_crc & 0xFFFFFFFF == new_crc
 
     import struct
+
     mod_ctrl = open(os.path.join(str(out), "%s_ctrl.bin" % info["variant"]), "rb").read()
     assert struct.pack(">I", new_crc) in mod_ctrl
     root_ctrl = open(os.path.join(str(out), "ctrl.bin"), "rb").read()
@@ -63,8 +76,15 @@ def test_patches_image_and_rebuilds_crc_cascade(pkg, tmp_path):
 def test_original_untouched(pkg, tmp_path):
     src, spec, info = pkg
     before = open(info["app_image"], "rb").read()
-    run(os.path.join(TOOLS, "patch_smeg.py"), "--src", str(src),
-        "--out", str(tmp_path / "out"), "--patches", str(spec))
+    run(
+        os.path.join(TOOLS, "patch_smeg.py"),
+        "--src",
+        str(src),
+        "--out",
+        str(tmp_path / "out"),
+        "--patches",
+        str(spec),
+    )
     assert open(info["app_image"], "rb").read() == before
 
 
@@ -73,8 +93,15 @@ def test_expect_mismatch_fails_loudly(pkg, tmp_path):
     bad = json.loads(spec.read_text())
     bad["variants"][info["variant"]]["patches"][0]["expect"] = "deadbeef"
     spec.write_text(json.dumps(bad))
-    r = run(os.path.join(TOOLS, "patch_smeg.py"), "--src", str(src),
-            "--out", str(tmp_path / "out"), "--patches", str(spec))
+    r = run(
+        os.path.join(TOOLS, "patch_smeg.py"),
+        "--src",
+        str(src),
+        "--out",
+        str(tmp_path / "out"),
+        "--patches",
+        str(spec),
+    )
     assert r.returncode != 0
     assert "expected" in (r.stdout + r.stderr).lower()
 
@@ -86,13 +113,29 @@ def test_only_flag_skips_other_variants(tmp_path):
     helpers.build_package(str(src), variant="AUDIO_BT")
     helpers.set_root_ctrl(str(src), ["NAV", "AUDIO_BT"])
     spec = tmp_path / "spec.json"
-    spec.write_text(json.dumps({"name": "synthetic", "variants": {
-        **helpers.patch_spec(variant="NAV")["variants"],
-        **helpers.patch_spec(variant="AUDIO_BT")["variants"],
-    }}))
+    spec.write_text(
+        json.dumps(
+            {
+                "name": "synthetic",
+                "variants": {
+                    **helpers.patch_spec(variant="NAV")["variants"],
+                    **helpers.patch_spec(variant="AUDIO_BT")["variants"],
+                },
+            }
+        )
+    )
     out = tmp_path / "out"
-    r = run(os.path.join(TOOLS, "patch_smeg.py"), "--src", str(src), "--out", str(out),
-            "--patches", str(spec), "--only", "NAV")
+    r = run(
+        os.path.join(TOOLS, "patch_smeg.py"),
+        "--src",
+        str(src),
+        "--out",
+        str(out),
+        "--patches",
+        str(spec),
+        "--only",
+        "NAV",
+    )
     assert r.returncode == 0, r.stderr
     assert os.path.exists(os.path.join(str(out), "NAV", "AppBin", "f_BigQuick.bin"))
     assert not os.path.exists(os.path.join(str(out), "AUDIO_BT", "AppBin", "f_BigQuick.bin"))
@@ -111,6 +154,7 @@ def test_unpack_round_trip(tmp_path):
 def test_zensical_nav_matches_docs():
     """Every page listed in the site nav must exist (guards against broken nav)."""
     import re
+
     cfg = open(os.path.join(ROOT, "zensical.toml")).read()
     pages = re.findall(r'"([A-Za-z0-9_./-]+\.md)"', cfg)
     assert pages, "no pages found in zensical.toml nav"

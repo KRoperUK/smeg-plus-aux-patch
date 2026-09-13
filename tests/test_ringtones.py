@@ -10,7 +10,6 @@ sys.path.insert(0, TOOLS)
 sys.path.insert(0, HERE)
 
 
-
 def run(*args):
     return subprocess.run([sys.executable, *args], capture_output=True, text=True)
 
@@ -37,8 +36,9 @@ def test_stage_rejects_a_directory_that_is_not_a_media_tree(tmp_path):
     bad = tmp_path / "not-a-tree"
     bad.mkdir()
 
-    r = run(os.path.join(TOOLS, "ringtones.py"), "stage", src,
-            "--slot", "ring1", "--tree", str(bad))
+    r = run(
+        os.path.join(TOOLS, "ringtones.py"), "stage", src, "--slot", "ring1", "--tree", str(bad)
+    )
 
     assert r.returncode != 0
     assert "extracted media partition" in (r.stdout + r.stderr)
@@ -50,8 +50,9 @@ def test_stage_writes_the_format_the_slot_expects(tmp_path):
     (tree / "ring_tones").mkdir(parents=True)
     src = make_wav(tmp_path / "song.wav", channels=1, rate=44100)
 
-    r = run(os.path.join(TOOLS, "ringtones.py"), "stage", src,
-            "--slot", "ring1", "--tree", str(tree))
+    r = run(
+        os.path.join(TOOLS, "ringtones.py"), "stage", src, "--slot", "ring1", "--tree", str(tree)
+    )
     assert r.returncode == 0, r.stderr
 
     out = tree / "ring_tones" / "ring1RT.wav"
@@ -65,8 +66,9 @@ def test_wait_tone_slot_targets_stereo_8k(tmp_path):
     (tree / "wait_tones").mkdir(parents=True)
     src = make_wav(tmp_path / "hold.wav", channels=2, rate=8000)
 
-    r = run(os.path.join(TOOLS, "ringtones.py"), "stage", src,
-            "--slot", "wait:ENG", "--tree", str(tree))
+    r = run(
+        os.path.join(TOOLS, "ringtones.py"), "stage", src, "--slot", "wait:ENG", "--tree", str(tree)
+    )
     assert r.returncode == 0, r.stderr
 
     out = tree / "wait_tones" / "MM_HoldOn_ENG_8kHz.wav"
@@ -78,8 +80,14 @@ def test_wait_tone_slot_targets_stereo_8k(tmp_path):
 def test_export_needs_a_media_tree(tmp_path):
     bad = tmp_path / "nope"
     bad.mkdir()
-    r = run(os.path.join(TOOLS, "ringtones.py"), "export",
-            "--tree", str(bad), "-o", str(tmp_path / "out"))
+    r = run(
+        os.path.join(TOOLS, "ringtones.py"),
+        "export",
+        "--tree",
+        str(bad),
+        "-o",
+        str(tmp_path / "out"),
+    )
     assert r.returncode != 0
     assert "extracted media partition" in (r.stdout + r.stderr)
 
@@ -160,8 +168,16 @@ def test_names_cli(tmp_path):
 
 def test_rename_cli(tmp_path):
     tree = make_tree(tmp_path)
-    r = run(os.path.join(TOOLS, "ringtones.py"), "rename",
-            "--tree", str(tree), "--slot", "ring1", "--name", "Piano Riff")
+    r = run(
+        os.path.join(TOOLS, "ringtones.py"),
+        "rename",
+        "--tree",
+        str(tree),
+        "--slot",
+        "ring1",
+        "--name",
+        "Piano Riff",
+    )
     assert r.returncode == 0, r.stderr
     assert "Piano Riff" in r.stdout
     assert rt.ring_names(str(tree))[0] == "Piano Riff"
@@ -169,8 +185,16 @@ def test_rename_cli(tmp_path):
 
 def test_rename_cli_rejects_a_non_ring_slot(tmp_path):
     tree = make_tree(tmp_path)
-    r = run(os.path.join(TOOLS, "ringtones.py"), "rename",
-            "--tree", str(tree), "--slot", "busy", "--name", "x")
+    r = run(
+        os.path.join(TOOLS, "ringtones.py"),
+        "rename",
+        "--tree",
+        str(tree),
+        "--slot",
+        "busy",
+        "--name",
+        "x",
+    )
     assert r.returncode != 0
     assert "ring1..ring5" in (r.stdout + r.stderr)
 
@@ -182,19 +206,40 @@ def test_a_renamed_tone_survives_a_media_rebuild(tmp_path):
     import tarfile
 
     pkg = tmp_path / "pkg"
-    mh.build_media_package(pkg, extra_files={
-        "Data_base/sqlite/up_common.sqlite": mh.up_common_bytes()})
+    mh.build_media_package(
+        pkg, extra_files={"Data_base/sqlite/up_common.sqlite": mh.up_common_bytes()}
+    )
     tree = tmp_path / "extracted"
     out = tmp_path / "out"
 
-    r = run(os.path.join(TOOLS, "patch_media.py"), "extract", "--package", str(pkg),
-            "--module", "NAV", "--tree", str(tree), "--backup", str(tmp_path / "bk"))
+    r = run(
+        os.path.join(TOOLS, "patch_media.py"),
+        "extract",
+        "--package",
+        str(pkg),
+        "--module",
+        "NAV",
+        "--tree",
+        str(tree),
+        "--backup",
+        str(tmp_path / "bk"),
+    )
     assert r.returncode == 0, r.stderr
 
     rt.set_ring_name(str(tree), 0, "Piano Riff")
 
-    r = run(os.path.join(TOOLS, "patch_media.py"), "apply", "--package", str(pkg),
-            "--module", "NAV", "--tree", str(tree), "--out", str(out))
+    r = run(
+        os.path.join(TOOLS, "patch_media.py"),
+        "apply",
+        "--package",
+        str(pkg),
+        "--module",
+        "NAV",
+        "--tree",
+        str(tree),
+        "--out",
+        str(out),
+    )
     assert r.returncode == 0, r.stderr
 
     reb = gzip.open(out / "NAV" / "system.bin", "rb").read()
@@ -203,7 +248,8 @@ def test_a_renamed_tone_survives_a_media_rebuild(tmp_path):
     tmp_db = tmp_path / "readback.sqlite"
     tmp_db.write_bytes(db)
     con = sqlite3.connect(tmp_db)
-    got = con.execute("select StringValue from UP_Keys where Section='phone'"
-                      " and Name='Ringing_List' and Idx=0").fetchone()[0]
+    got = con.execute(
+        "select StringValue from UP_Keys where Section='phone' and Name='Ringing_List' and Idx=0"
+    ).fetchone()[0]
     con.close()
     assert got == "Piano Riff"

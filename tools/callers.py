@@ -7,6 +7,7 @@ pointers (`bctrl`) are not, which is normal for C++ code.
 usage:
     python3 tools/callers.py app_nav.bin abs_symbols_base.txt 0x02324928
 """
+
 import argparse
 import bisect
 import struct
@@ -25,8 +26,9 @@ def load_symbols(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("image")
     ap.add_argument("symbols")
     ap.add_argument("targets", nargs="+", help="addresses to look for callers of")
@@ -44,10 +46,10 @@ def main():
             return syms[addrs[i]] + ("+0x%x" % (a - addrs[i]) if a - addrs[i] else "")
         return "?"
 
-    words = struct.unpack(">%dI" % (len(img) // 4), img[:len(img) // 4 * 4])
+    words = struct.unpack(">%dI" % (len(img) // 4), img[: len(img) // 4 * 4])
     index = {}
     for i, w in enumerate(words):
-        if (w & 0xFC000003) == 0x48000001:      # bl
+        if (w & 0xFC000003) == 0x48000001:  # bl
             off = w & 0x03FFFFFC
             if off & 0x02000000:
                 off -= 0x04000000

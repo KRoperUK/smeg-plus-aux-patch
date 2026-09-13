@@ -24,6 +24,7 @@ module manifest and the root manifest).
 Requirements:
     .venv/bin/python tools/patch_studio.py          # PySide6 + ffmpeg already present
 """
+
 import json
 import os
 import shutil
@@ -36,8 +37,15 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
 try:
-    from ringtones import (SLOTS, WAIT_DIR, RING_DIR, convert, describe,  # noqa: E402
-                        ring_names, set_ring_name)  # noqa: E402
+    from ringtones import (
+        SLOTS,
+        WAIT_DIR,
+        RING_DIR,
+        convert,
+        describe,  # noqa: E402
+        ring_names,
+        set_ring_name,
+    )  # noqa: E402
 except ImportError:
     sys.exit("cannot import tools/ringtones.py — run this from the repository")
 
@@ -49,18 +57,34 @@ except ImportError:
 try:
     from PySide6.QtCore import Qt, QUrl  # noqa: E402
     from PySide6.QtGui import QFont, QImage, QPixmap  # noqa: E402
-    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,  # noqa: E402
-                                   QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel,
-                                   QLineEdit,
-                                   QMessageBox, QPlainTextEdit, QPushButton, QStyle,
-                                   QTabWidget,
-                                   QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
+    from PySide6.QtWidgets import (
+        QApplication,
+        QCheckBox,
+        QComboBox,
+        QFileDialog,  # noqa: E402
+        QFrame,
+        QGridLayout,
+        QHBoxLayout,
+        QInputDialog,
+        QLabel,
+        QLineEdit,
+        QMessageBox,
+        QPlainTextEdit,
+        QPushButton,
+        QStyle,
+        QTabWidget,
+        QTableWidget,
+        QTableWidgetItem,
+        QVBoxLayout,
+        QWidget,
+    )
 except ImportError:
     sys.exit("PySide6 is required:  pip install -r tools/requirements-gui.txt")
 
 # QtMultimedia ships in pyside6-addons and may be absent; fall back to a system player.
 try:
     from PySide6.QtMultimedia import QSoundEffect  # noqa: E402
+
     HAVE_SOUNDEFFECT = True
 except ImportError:
     QSoundEffect = None
@@ -75,14 +99,32 @@ ACCENT = "#0A84FF"
 # scheme through styleHints().colorScheme(), which means there is no preference of our own to
 # store and the app matches whatever else on the machine is doing.
 LIGHT = {
-    "bg": "#F5F6F8", "bg2": "#E9ECF1", "fg": "#1D1D1F", "dim": "#6E6E73", "faint": "#B0B3B8",
-    "card": "#FFFFFF", "line": "#E4E6EA", "line2": "#D9DCE1", "hover": "#F0F1F4",
-    "press": "#E6E8EC", "sel": "#E8F1FF", "ok": "#34C759",
+    "bg": "#F5F6F8",
+    "bg2": "#E9ECF1",
+    "fg": "#1D1D1F",
+    "dim": "#6E6E73",
+    "faint": "#B0B3B8",
+    "card": "#FFFFFF",
+    "line": "#E4E6EA",
+    "line2": "#D9DCE1",
+    "hover": "#F0F1F4",
+    "press": "#E6E8EC",
+    "sel": "#E8F1FF",
+    "ok": "#34C759",
 }
 DARK = {
-    "bg": "#191A1F", "bg2": "#101116", "fg": "#F2F3F5", "dim": "#9A9CA3", "faint": "#6A6D74",
-    "card": "#212328", "line": "#2E3036", "line2": "#3A3D44", "hover": "#2A2C32",
-    "press": "#34373E", "sel": "#1E3A5F", "ok": "#30D158",
+    "bg": "#191A1F",
+    "bg2": "#101116",
+    "fg": "#F2F3F5",
+    "dim": "#9A9CA3",
+    "faint": "#6A6D74",
+    "card": "#212328",
+    "line": "#2E3036",
+    "line2": "#3A3D44",
+    "hover": "#2A2C32",
+    "press": "#34373E",
+    "sel": "#1E3A5F",
+    "ok": "#30D158",
 }
 
 STYLE = """
@@ -153,12 +195,14 @@ def stylesheet():
     dark = False
     try:
         from PySide6.QtGui import QGuiApplication
+
         dark = QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
     except Exception as exc:
-        print(f"warning: failed to detect system colour scheme, using light theme: {exc}",
-              file=sys.stderr)
+        print(
+            f"warning: failed to detect system colour scheme, using light theme: {exc}",
+            file=sys.stderr,
+        )
     return STYLE.format(accent=ACCENT, **(DARK if dark else LIGHT))
-
 
 
 def card(inner, spacing=10, margins=(16, 14, 16, 16)):
@@ -237,17 +281,32 @@ class Studio(QWidget):
         self.backup_label = QLabel("")
         self.backup_label.setObjectName("Subtitle")
 
-        v.addWidget(card(row([
-            self._btn("Extract from package…", self.extract_from_package, icon=QStyle.SP_DriveHDIcon),
-            self._btn("Open media tree…", self.choose_tree, icon=QStyle.SP_DirOpenIcon),
-            self._btn("Export tones…", self.export_tones, icon=QStyle.SP_DialogSaveButton),
-            self._btn("Backup folder…", self.choose_backup, icon=QStyle.SP_FileDialogNewFolder),
-            self.tree_label,
-        ])))
+        v.addWidget(
+            card(
+                row(
+                    [
+                        self._btn(
+                            "Extract from package…",
+                            self.extract_from_package,
+                            icon=QStyle.SP_DriveHDIcon,
+                        ),
+                        self._btn("Open media tree…", self.choose_tree, icon=QStyle.SP_DirOpenIcon),
+                        self._btn(
+                            "Export tones…", self.export_tones, icon=QStyle.SP_DialogSaveButton
+                        ),
+                        self._btn(
+                            "Backup folder…", self.choose_backup, icon=QStyle.SP_FileDialogNewFolder
+                        ),
+                        self.tree_label,
+                    ]
+                )
+            )
+        )
 
         self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(["SLOT", "FILE IN THE PARTITION", "EXPECTED",
-                                              "STATE", "NAME IN THE PHONE UI", ""])
+        self.table.setHorizontalHeaderLabels(
+            ["SLOT", "FILE IN THE PARTITION", "EXPECTED", "STATE", "NAME IN THE PHONE UI", ""]
+        )
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setSelectionMode(QTableWidget.NoSelection)
@@ -297,8 +356,9 @@ class Studio(QWidget):
 
     def module(self):
         for mod in MODULES:
-            if os.path.isdir(os.path.join(self.tree, RING_DIR)) or \
-               os.path.isdir(os.path.join(self.backup, mod)):
+            if os.path.isdir(os.path.join(self.tree, RING_DIR)) or os.path.isdir(
+                os.path.join(self.backup, mod)
+            ):
                 return mod
         return "NAV"
 
@@ -330,10 +390,13 @@ class Studio(QWidget):
                 if i < len(names):
                     ui_name = names[i]
 
-            for col, text, colour2 in ((0, slot, "#1D1D1F"), (1, rel, "#1D1D1F"),
-                                       (2, "%d Hz · 16-bit · %s" % (rate, "mono" if ch == 1 else "stereo"),
-                                        "#B0B3B8"), (3, state, colour),
-                                       (4, ui_name, "#1D1D1F")):
+            for col, text, colour2 in (
+                (0, slot, "#1D1D1F"),
+                (1, rel, "#1D1D1F"),
+                (2, "%d Hz · 16-bit · %s" % (rate, "mono" if ch == 1 else "stereo"), "#B0B3B8"),
+                (3, state, colour),
+                (4, ui_name, "#1D1D1F"),
+            ):
                 item = QTableWidgetItem(text)
                 item.setFlags(Qt.ItemIsEnabled)
                 if colour2:
@@ -391,8 +454,9 @@ class Studio(QWidget):
         rel = SLOTS[slot][0]
         path = self.tone_path(rel)
         if not path or not os.path.exists(path):
-            QMessageBox.information(self, "Nothing to preview",
-                                    "There is no file in the tree for %s yet." % rel)
+            QMessageBox.information(
+                self, "Nothing to preview", "There is no file in the tree for %s yet." % rel
+            )
             return
         if self._playing_slot == slot:
             self.stop_preview()
@@ -416,9 +480,11 @@ class Studio(QWidget):
             cmd = None
         if not cmd or not shutil.which(cmd[0]):
             QMessageBox.information(
-                self, "Playback unavailable",
-                "Previewing needs QtMultimedia (\"pip install PySide6\") or a system "
-                "audio player such as afplay or paplay.")
+                self,
+                "Playback unavailable",
+                'Previewing needs QtMultimedia ("pip install PySide6") or a system '
+                "audio player such as afplay or paplay.",
+            )
             return
         self._ext_proc = subprocess.Popen(cmd)
         self._playing_slot = slot
@@ -443,8 +509,7 @@ class Studio(QWidget):
     def _refresh_preview_buttons(self):
         for slot, btn in self._preview_btns.items():
             playing = slot == self._playing_slot
-            btn.setIcon(self._icon(QStyle.SP_MediaStop if playing
-                                   else QStyle.SP_MediaPlay))
+            btn.setIcon(self._icon(QStyle.SP_MediaStop if playing else QStyle.SP_MediaPlay))
             btn.setStyleSheet("font-weight: 600;" if playing else "")
             btn.setToolTip("Stop preview" if playing else "Play this tone")
             btn.setAccessibleName(btn.toolTip())
@@ -466,8 +531,19 @@ class Studio(QWidget):
         if not tree:
             return
         backup = self.backup or DEFAULT_BACKUP
-        cmd = [sys.executable, os.path.join(HERE, "patch_media.py"), "extract",
-               "--package", pkg, "--module", mod, "--tree", tree, "--backup", backup]
+        cmd = [
+            sys.executable,
+            os.path.join(HERE, "patch_media.py"),
+            "extract",
+            "--package",
+            pkg,
+            "--module",
+            mod,
+            "--tree",
+            tree,
+            "--backup",
+            backup,
+        ]
         r = subprocess.run(cmd, capture_output=True, text=True)
         self.log.setPlainText("$ %s\n\n%s%s" % (" ".join(cmd), r.stdout, r.stderr))
         if r.returncode != 0:
@@ -478,7 +554,10 @@ class Studio(QWidget):
 
     def _ask_module(self):
         from PySide6.QtWidgets import QInputDialog
-        return QInputDialog.getItem(self, "Module", "Which build from the package?", MODULES, 0, False)
+
+        return QInputDialog.getItem(
+            self, "Module", "Which build from the package?", MODULES, 0, False
+        )
 
     def choose_tree(self):
         d = QFileDialog.getExistingDirectory(self, "Media tree (contains ring_tones/)")
@@ -547,11 +626,11 @@ class Studio(QWidget):
         idx = int(slot[4:]) - 1
         names = ring_names(self.tree)
         if idx >= len(names):
-            QMessageBox.information(self, "No name",
-                                    "This media tree has no name for that slot.")
+            QMessageBox.information(self, "No name", "This media tree has no name for that slot.")
             return
         new, ok = QInputDialog.getText(
-            self, "Rename %s" % slot, "Name shown in the phone UI:", text=names[idx])
+            self, "Rename %s" % slot, "Name shown in the phone UI:", text=names[idx]
+        )
         if not ok or not new.strip():
             return
         try:
@@ -577,13 +656,27 @@ class Studio(QWidget):
         self.splash_label = QLabel("")
         self.splash_label.setObjectName("Subtitle")
 
-        v.addWidget(card(row([
-            QLabel("Marque"), self.splash_marque,
-            self._btn("Import image…", self.splash_import, primary=True, icon=QStyle.SP_DialogOpenButton),
-            self._btn("Export as PNG…", self.splash_export, icon=QStyle.SP_DialogSaveButton),
-            self._btn("Open media tree…", self.choose_tree, icon=QStyle.SP_DirOpenIcon),
-            self.splash_label,
-        ])))
+        v.addWidget(
+            card(
+                row(
+                    [
+                        QLabel("Marque"),
+                        self.splash_marque,
+                        self._btn(
+                            "Import image…",
+                            self.splash_import,
+                            primary=True,
+                            icon=QStyle.SP_DialogOpenButton,
+                        ),
+                        self._btn(
+                            "Export as PNG…", self.splash_export, icon=QStyle.SP_DialogSaveButton
+                        ),
+                        self._btn("Open media tree…", self.choose_tree, icon=QStyle.SP_DirOpenIcon),
+                        self.splash_label,
+                    ]
+                )
+            )
+        )
 
         split = QHBoxLayout()
         split.setSpacing(12)
@@ -607,13 +700,16 @@ class Studio(QWidget):
         self.splash_view.setAlignment(Qt.AlignCenter)
         self.splash_view.setMinimumSize(400, 240)
         self.splash_view.setStyleSheet(
-            "background:#FFFFFF;border:1px solid #E4E6EA;border-radius:12px;")
+            "background:#FFFFFF;border:1px solid #E4E6EA;border-radius:12px;"
+        )
         split.addWidget(self.splash_view, 1)
         v.addLayout(split, 1)
 
-        note = QLabel("Stored images are vertically mirrored — the unit flips them when "
-                      "rendering, so the preview is shown flipped back. "
-                      "Note: these are marque artwork, not the boot splash — see the docs.")
+        note = QLabel(
+            "Stored images are vertically mirrored — the unit flips them when "
+            "rendering, so the preview is shown flipped back. "
+            "Note: these are marque artwork, not the boot splash — see the docs."
+        )
         note.setObjectName("Subtitle")
         note.setWordWrap(True)
         v.addWidget(note)
@@ -636,8 +732,11 @@ class Studio(QWidget):
         return self.splash_marque.currentText() or "peugeot"
 
     def splash_path(self):
-        return os.path.join(self.tree, splashmod.DIR,
-                            self.splash_marque_name() + ".pkg") if self.tree and splashmod else ""
+        return (
+            os.path.join(self.tree, splashmod.DIR, self.splash_marque_name() + ".pkg")
+            if self.tree and splashmod
+            else ""
+        )
 
     def splash_pkg(self):
         p = self.splash_path()
@@ -656,9 +755,14 @@ class Studio(QWidget):
         if pk is None:
             self.splash_label.setText("no package — open a media tree first")
             return
-        self.splash_label.setText("%s  ·  %d images  ·  %s" % (
-            os.path.basename(p), len(pk.chunks),
-            "directory hash ok" if pk.check_hash() else "directory hash MISMATCH"))
+        self.splash_label.setText(
+            "%s  ·  %d images  ·  %s"
+            % (
+                os.path.basename(p),
+                len(pk.chunks),
+                "directory hash ok" if pk.check_hash() else "directory hash MISMATCH",
+            )
+        )
 
         self.splash_table.setRowCount(len(pk.chunks))
         for i, c in enumerate(pk.chunks):
@@ -682,7 +786,7 @@ class Studio(QWidget):
         if pk is None or idx >= len(pk.chunks):
             return
         try:
-            shown = splashmod.flip_bmp(pk.image(idx))       # undo the stored mirror
+            shown = splashmod.flip_bmp(pk.image(idx))  # undo the stored mirror
         except SystemExit:
             shown = pk.image(idx)
         img = QImage.fromData(shown, "BMP")
@@ -697,9 +801,14 @@ class Studio(QWidget):
         if pix is None or pix.isNull():
             return
         avail = self.splash_view.size()
-        self.splash_view.setPixmap(pix.scaled(max(avail.width() - 16, 100),
-                                              max(avail.height() - 16, 100),
-                                              Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.splash_view.setPixmap(
+            pix.scaled(
+                max(avail.width() - 16, 100),
+                max(avail.height() - 16, 100),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+        )
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -715,8 +824,11 @@ class Studio(QWidget):
             QMessageBox.information(self, "No package", "Open a media tree first.")
             return
         src, _ = QFileDialog.getOpenFileName(
-            self, "Image to use (scaled to %dx%d)" % (splashmod.IMAGE_W, splashmod.IMAGE_H),
-            "", "Images (*.png *.jpg *.jpeg *.bmp *.webp);;All files (*)")
+            self,
+            "Image to use (scaled to %dx%d)" % (splashmod.IMAGE_W, splashmod.IMAGE_H),
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp);;All files (*)",
+        )
         if not src:
             return
         try:
@@ -728,8 +840,10 @@ class Studio(QWidget):
         new[idx] = bmp
         out = splashmod.build(pk, new)
         open(path, "wb").write(out)
-        self.splash_say("replaced image %d with %s (%d -> %d bytes)"
-                        % (idx + 1, os.path.basename(src), len(pk.raw), len(out)))
+        self.splash_say(
+            "replaced image %d with %s (%d -> %d bytes)"
+            % (idx + 1, os.path.basename(src), len(pk.raw), len(out))
+        )
         self.splash_say("  remember: the package still has to be rebuilt and re-sealed")
         self.splash_load()
         self.splash_table.selectRow(idx)
@@ -740,8 +854,9 @@ class Studio(QWidget):
         if idx is None or pk is None:
             return
         name = pk.records[idx][1] if idx < len(pk.records) else "image%d" % idx
-        dest, _ = QFileDialog.getSaveFileName(self, "Export as PNG",
-                                              os.path.splitext(name)[0] + ".png", "PNG (*.png)")
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Export as PNG", os.path.splitext(name)[0] + ".png", "PNG (*.png)"
+        )
         if not dest:
             return
         shown = splashmod.flip_bmp(pk.image(idx))
@@ -762,8 +877,11 @@ class Studio(QWidget):
         grid = QGridLayout()
         grid.setSpacing(6)
         patch_dir = os.path.join(ROOT, "patches")
-        files = sorted(f for f in os.listdir(patch_dir) if f.endswith(".json")) \
-            if os.path.isdir(patch_dir) else []
+        files = (
+            sorted(f for f in os.listdir(patch_dir) if f.endswith(".json"))
+            if os.path.isdir(patch_dir)
+            else []
+        )
         for i, f in enumerate(files):
             spec = json.load(open(os.path.join(patch_dir, f)))
             cb = QCheckBox(spec.get("name", f))
@@ -780,23 +898,68 @@ class Studio(QWidget):
         self.pkg_edit.setPlaceholderText("package root, e.g. ~/Downloads/SMEG_PLUS_UPG")
         self.mod_combo = QComboBox()
         self.mod_combo.addItems(MODULES)
-        v.addWidget(card(row([QLabel("Source package"), self.pkg_edit,
-                              self._btn("Browse…", lambda: self._pick(self.pkg_edit), icon=QStyle.SP_DirOpenIcon),
-                              self.mod_combo], spacing=10)))
+        v.addWidget(
+            card(
+                row(
+                    [
+                        QLabel("Source package"),
+                        self.pkg_edit,
+                        self._btn(
+                            "Browse…", lambda: self._pick(self.pkg_edit), icon=QStyle.SP_DirOpenIcon
+                        ),
+                        self.mod_combo,
+                    ],
+                    spacing=10,
+                )
+            )
+        )
 
         self.tree_edit = QLineEdit()
-        self.tree_edit.setPlaceholderText("media tree to pack (must contain ring_tones/) — optional")
-        v.addWidget(card(row([QLabel("Media tree"), self.tree_edit,
-                              self._btn("Browse…", lambda: self._pick(self.tree_edit), icon=QStyle.SP_DirOpenIcon),
-                              self._btn("Use open tree", self._use_open_tree, icon=QStyle.SP_BrowserReload)], spacing=10)))
+        self.tree_edit.setPlaceholderText(
+            "media tree to pack (must contain ring_tones/) — optional"
+        )
+        v.addWidget(
+            card(
+                row(
+                    [
+                        QLabel("Media tree"),
+                        self.tree_edit,
+                        self._btn(
+                            "Browse…",
+                            lambda: self._pick(self.tree_edit),
+                            icon=QStyle.SP_DirOpenIcon,
+                        ),
+                        self._btn(
+                            "Use open tree", self._use_open_tree, icon=QStyle.SP_BrowserReload
+                        ),
+                    ],
+                    spacing=10,
+                )
+            )
+        )
 
         self.out_edit = QLineEdit()
         self.out_edit.setPlaceholderText("where the changed files are written")
-        v.addWidget(card(row([QLabel("Output folder"), self.out_edit,
-                              self._btn("Browse…", lambda: self._pick(self.out_edit), icon=QStyle.SP_DirOpenIcon)], spacing=10)))
+        v.addWidget(
+            card(
+                row(
+                    [
+                        QLabel("Output folder"),
+                        self.out_edit,
+                        self._btn(
+                            "Browse…", lambda: self._pick(self.out_edit), icon=QStyle.SP_DirOpenIcon
+                        ),
+                    ],
+                    spacing=10,
+                )
+            )
+        )
 
-        v.addWidget(self._btn("Build patched package", self.build, primary=True,
-                              icon=QStyle.SP_DialogApplyButton))
+        v.addWidget(
+            self._btn(
+                "Build patched package", self.build, primary=True, icon=QStyle.SP_DialogApplyButton
+            )
+        )
 
         self.plog = QPlainTextEdit()
         self.plog.setReadOnly(True)
@@ -823,14 +986,17 @@ class Studio(QWidget):
         for path in chosen:
             spec = json.load(open(path))
             for variant, vdef in spec["variants"].items():
-                dst = merged["variants"].setdefault(variant, {
-                    k: vdef[k] for k in ("app_image", "inf", "smeg_inf", "ctrl", "base")})
+                dst = merged["variants"].setdefault(
+                    variant, {k: vdef[k] for k in ("app_image", "inf", "smeg_inf", "ctrl", "base")}
+                )
                 dst.setdefault("patches", [])
                 for p in vdef["patches"]:
                     key = (variant, p["addr"])
                     if key in seen and seen[key] != p["bytes"]:
-                        raise SystemExit("conflict at %s %s: %s vs %s"
-                                         % (variant, p["addr"], seen[key], p["bytes"]))
+                        raise SystemExit(
+                            "conflict at %s %s: %s vs %s"
+                            % (variant, p["addr"], seen[key], p["bytes"])
+                        )
                     if key not in seen:
                         seen[key] = p["bytes"]
                         dst["patches"].append(p)
@@ -855,18 +1021,47 @@ class Studio(QWidget):
         if spec:
             tmp = os.path.join(out, "_studio-spec.json")
             open(tmp, "w").write(json.dumps(spec, indent=2))
-            log.append(self._run([sys.executable, os.path.join(HERE, "patch_smeg.py"),
-                                  "--src", src, "--out", out, "--patches", tmp],
-                                 "application patches"))
+            log.append(
+                self._run(
+                    [
+                        sys.executable,
+                        os.path.join(HERE, "patch_smeg.py"),
+                        "--src",
+                        src,
+                        "--out",
+                        out,
+                        "--patches",
+                        tmp,
+                    ],
+                    "application patches",
+                )
+            )
         tree = self.tree_edit.text().strip()
         if tree:
-            log.append(self._run([sys.executable, os.path.join(HERE, "patch_media.py"), "apply",
-                                  "--package", src, "--module", self.mod_combo.currentText(),
-                                  "--tree", tree, "--out", out, "--ctrl-from", out],
-                                 "media partition"))
+            log.append(
+                self._run(
+                    [
+                        sys.executable,
+                        os.path.join(HERE, "patch_media.py"),
+                        "apply",
+                        "--package",
+                        src,
+                        "--module",
+                        self.mod_combo.currentText(),
+                        "--tree",
+                        tree,
+                        "--out",
+                        out,
+                        "--ctrl-from",
+                        out,
+                    ],
+                    "media partition",
+                )
+            )
         if not log:
-            QMessageBox.information(self, "Nothing selected",
-                                    "Tick a patch definition, or choose a media tree.")
+            QMessageBox.information(
+                self, "Nothing selected", "Tick a patch definition, or choose a media tree."
+            )
             return
         self.plog.setPlainText("\n\n".join(log))
 
@@ -874,7 +1069,9 @@ class Studio(QWidget):
         r = subprocess.run(cmd, capture_output=True, text=True)
         head = "=== %s ===\n$ %s\n" % (title, " ".join(cmd))
         body = r.stdout + r.stderr
-        return head + body + ("\nOK\n" if r.returncode == 0 else "\nFAILED (exit %d)\n" % r.returncode)
+        return (
+            head + body + ("\nOK\n" if r.returncode == 0 else "\nFAILED (exit %d)\n" % r.returncode)
+        )
 
     def say(self, text):
         self.log.appendPlainText(text)

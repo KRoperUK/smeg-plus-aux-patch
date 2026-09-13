@@ -14,7 +14,7 @@ Repository = "https://github.com/KRoperUK/smeg-plus-patches"
 [project.optional-dependencies]
 # the GUI needs Qt; the CLI tools need nothing beyond the standard library
 gui = ["PySide6>=6.6"]
-dev = ["pytest>=8", "ruff>=0.6", "unicorn>=2.0", "capstone>=5.0"]
+dev = ["pytest>=8", "ruff>=0.16", "unicorn>=2.0", "capstone>=5.0"]
 
 [project.scripts]
 smeg-ringtones = "tools.ringtones:main"

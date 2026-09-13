@@ -9,6 +9,7 @@ usage:
     python3 tools/mkelf.py app_nav.bin abs_symbols_base.txt app_nav.elf
     objdump -d app_nav.elf            # any PPC-capable objdump / llvm-objdump
 """
+
 import argparse
 import bisect
 import struct
@@ -22,8 +23,9 @@ def align(x, n):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("image")
     ap.add_argument("symbols")
     ap.add_argument("output")
@@ -47,9 +49,21 @@ def main():
         i = bisect.bisect_right(addrs, a)
         return (addrs[i] - a) if i < len(addrs) else 4
 
-    types = {"T": 0x12, "t": 0x02, "W": 0x12, "w": 0x02, "D": 0x11, "d": 0x01,
-             "B": 0x11, "b": 0x01, "R": 0x11, "r": 0x01, "V": 0x11, "v": 0x01,
-             "A": 0x10}
+    types = {
+        "T": 0x12,
+        "t": 0x02,
+        "W": 0x12,
+        "w": 0x02,
+        "D": 0x11,
+        "d": 0x01,
+        "B": 0x11,
+        "b": 0x01,
+        "R": 0x11,
+        "r": 0x01,
+        "V": 0x11,
+        "v": 0x01,
+        "A": 0x10,
+    }
 
     shstr = b"\x00.text\x00.symtab\x00.strtab\x00.shstrtab\x00"
 
@@ -68,8 +82,7 @@ def main():
     syms = [struct.pack(">IIIBBH", 0, 0, 0, 0, 0, 0)]
     for a in addrs:
         nm, typ = raw[a]
-        syms.append(struct.pack(">IIIBBH", addsym(nm), a, size(a),
-                                types.get(typ, 0x10), 0, 1))
+        syms.append(struct.pack(">IIIBBH", addsym(nm), a, size(a), types.get(typ, 0x10), 0, 1))
     symdata = b"".join(syms)
 
     text_off = 0x1000
@@ -81,17 +94,20 @@ def main():
     def sec(name, typ, flags, addr, off, size, link, info, al, ent):
         return struct.pack(">IIIIIIIIII", name, typ, flags, addr, off, size, link, info, al, ent)
 
-    sh = b"".join([
-        sec(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        sec(shoff(".text"), 1, SHF_ALLOC | SHF_EXECINSTR, base, text_off, len(img), 0, 0, 4, 0),
-        sec(shoff(".symtab"), 2, 0, 0, symtab_off, len(symdata), 3, 1, 4, 16),
-        sec(shoff(".strtab"), 3, 0, 0, strtab_off, len(strtab), 0, 0, 1, 0),
-        sec(shoff(".shstrtab"), 3, 0, 0, shstr_off, len(shstr), 0, 0, 1, 0),
-    ])
+    sh = b"".join(
+        [
+            sec(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            sec(shoff(".text"), 1, SHF_ALLOC | SHF_EXECINSTR, base, text_off, len(img), 0, 0, 4, 0),
+            sec(shoff(".symtab"), 2, 0, 0, symtab_off, len(symdata), 3, 1, 4, 16),
+            sec(shoff(".strtab"), 3, 0, 0, strtab_off, len(strtab), 0, 0, 1, 0),
+            sec(shoff(".shstrtab"), 3, 0, 0, shstr_off, len(shstr), 0, 0, 1, 0),
+        ]
+    )
 
     ident = b"\x7fELF" + bytes([1, 2, 1, 0]) + bytes(8)
-    ehdr = ident + struct.pack(">HHIIIIIHHHHHH", 2, 20, 1, base, 0, shtab_off, 0,
-                               52, 32, 0, 40, 5, 4)
+    ehdr = ident + struct.pack(
+        ">HHIIIIIHHHHHH", 2, 20, 1, base, 0, shtab_off, 0, 52, 32, 0, 40, 5, 4
+    )
 
     out = bytearray(ehdr)
     out += b"\x00" * (text_off - len(out))

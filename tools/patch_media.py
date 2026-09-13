@@ -42,6 +42,7 @@ usage:
     python3 tools/patch_media.py apply --package SMEG_PLUS_UPG --module NAV \\
         --tree media --out SMEG_PLUS_UPG_mod
 """
+
 import argparse
 import gzip
 import io
@@ -54,8 +55,8 @@ import tarfile
 import zlib
 
 SYSTEM_PREFIX = "/SYSTEM/"
-RECORD_SIZE = 264          # system_ctrl.bin record stride
-RECORD_CRC_OFF = 260       # CRC32 sits at path_offset + 260
+RECORD_SIZE = 264  # system_ctrl.bin record stride
+RECORD_CRC_OFF = 260  # CRC32 sits at path_offset + 260
 MODULES = ("AUDIO_BT", "AUDIO_BT_256", "NAV")
 TONE_DIRS = ("ring_tones", "wait_tones")
 
@@ -73,6 +74,7 @@ def roundup(v, b):
 
 
 # --------------------------------------------------------------------- partition
+
 
 class Partition:
     def __init__(self, package, module):
@@ -167,12 +169,12 @@ def adjusted_size_fields(old_data, new_data, old_fields):
         if key not in old_fields:
             continue
         if key == "SIZE":
-            delta = (sum(len(v) for v in new_data.values())
-                     - sum(len(v) for v in old_data.values()))
+            delta = sum(len(v) for v in new_data.values()) - sum(len(v) for v in old_data.values())
         else:
             n = int(key.split("_")[1]) * 1024
-            delta = (sum(roundup(len(v), n) for v in new_data.values())
-                     - sum(roundup(len(v), n) for v in old_data.values()))
+            delta = sum(roundup(len(v), n) for v in new_data.values()) - sum(
+                roundup(len(v), n) for v in old_data.values()
+            )
         out[key] = old_fields[key] + delta
     return out
 
@@ -192,8 +194,10 @@ def patch_system_ctrl(ctrl_bytes, changes, old_data):
         old_crc, new_crc = crc32(old_data[name]), crc32(new)
         have = struct.unpack_from(">I", buf, pos)[0]
         if have != old_crc:
-            die("system_ctrl.bin record for %s holds %#010x, expected %#010x"
-                % (name, have, old_crc))
+            die(
+                "system_ctrl.bin record for %s holds %#010x, expected %#010x"
+                % (name, have, old_crc)
+            )
         struct.pack_into(">I", buf, pos, new_crc)
     return bytes(buf)
 
@@ -213,19 +217,23 @@ def patch_inf(inf_bytes, new_crc, size_fields):
 def swap_crc(buf, old, new, what):
     pat = struct.pack(">I", old)
     if buf.count(pat) != 1:
-        die("expected exactly one %s CRC %#010x in the manifest, found %d"
-            % (what, old, buf.count(pat)))
+        die(
+            "expected exactly one %s CRC %#010x in the manifest, found %d"
+            % (what, old, buf.count(pat))
+        )
     return buf.replace(pat, struct.pack(">I", new))
 
 
 # --------------------------------------------------------------------- commands
 
+
 def cmd_list(args):
     part = Partition(args.package, args.module)
-    tones = {n: len(d) for n, d in part.data.items()
-             if n.split("/")[0] in TONE_DIRS}
-    print("module %s: %d files in the partition, %d tone files"
-          % (args.module, len(part.data), len(tones)))
+    tones = {n: len(d) for n, d in part.data.items() if n.split("/")[0] in TONE_DIRS}
+    print(
+        "module %s: %d files in the partition, %d tone files"
+        % (args.module, len(part.data), len(tones))
+    )
     print("%-52s %10s" % ("PATH", "SIZE"))
     for name in sorted(part.data):
         if args.tones and name.split("/")[0] not in TONE_DIRS:
@@ -286,13 +294,16 @@ def cmd_apply(args):
     changes, missing, same, extra = diff_tree(part, args.tree, only)
 
     if extra:
-        print("note: %d file(s) in the tree are not in the partition and will be ignored:"
-              % len(extra))
+        print(
+            "note: %d file(s) in the tree are not in the partition and will be ignored:"
+            % len(extra)
+        )
         for e in extra[:10]:
             print("   ", e)
     if not changes:
-        die("tree has no differences against %s/%s — nothing to patch"
-            % (args.module, "system.bin"))
+        die(
+            "tree has no differences against %s/%s — nothing to patch" % (args.module, "system.bin")
+        )
 
     print("changes (%d):" % len(changes))
     for name in sorted(changes):
@@ -307,8 +318,9 @@ def cmd_apply(args):
     new_data.update(changes)
     new_tar = part.build_tar(new_data)
     new_bin = gzip.compress(new_tar, args.level)
-    new_ctrl = patch_system_ctrl(open(os.path.join(part.dir, "system_ctrl.bin"), "rb").read(),
-                                 changes, part.data)
+    new_ctrl = patch_system_ctrl(
+        open(os.path.join(part.dir, "system_ctrl.bin"), "rb").read(), changes, part.data
+    )
     old_inf_bytes = open(os.path.join(part.dir, "system.bin.inf"), "rb").read()
     old_fields = read_size_fields(old_inf_bytes)
     new_fields = adjusted_size_fields(part.data, new_data, old_fields)
@@ -327,8 +339,7 @@ def cmd_apply(args):
 
     mod_ctrl = swap_crc(old_mod, old_bin_crc, crc32(new_bin), "%s/system.bin" % args.module)
     mod_ctrl = swap_crc(mod_ctrl, old_inf_crc, crc32(new_inf), "%s/system.bin.inf" % args.module)
-    mod_ctrl = swap_crc(mod_ctrl, old_ctrl_crc, crc32(new_ctrl),
-                        "%s/system_ctrl.bin" % args.module)
+    mod_ctrl = swap_crc(mod_ctrl, old_ctrl_crc, crc32(new_ctrl), "%s/system_ctrl.bin" % args.module)
     root_ctrl = swap_crc(old_root, crc32(old_mod), crc32(mod_ctrl), "%s_ctrl.bin" % args.module)
 
     out = args.out
@@ -347,13 +358,16 @@ def cmd_apply(args):
     print("\nwrote:")
     for rel, data in writes.items():
         print("   %-40s %d bytes" % (rel, len(data)))
-    print("\ntar %d -> %d bytes, gzip %d -> %d bytes"
-          % (len(part.tar_bytes), len(new_tar), os.path.getsize(part.bin), len(new_bin)))
+    print(
+        "\ntar %d -> %d bytes, gzip %d -> %d bytes"
+        % (len(part.tar_bytes), len(new_tar), os.path.getsize(part.bin), len(new_bin))
+    )
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def common(p, package=True):
@@ -366,12 +380,17 @@ def main():
     p.add_argument("--tones", action="store_true", help="only ring_tones/ and wait_tones/")
     p.set_defaults(fn=cmd_list)
 
-    p = sub.add_parser("extract", help="extract the partition (and optionally back up the originals)")
+    p = sub.add_parser(
+        "extract", help="extract the partition (and optionally back up the originals)"
+    )
     common(p)
     p.add_argument("--tree", required=True, help="where to extract the tree")
     p.add_argument("--backup", help="also copy the originals here, for restore")
-    p.add_argument("--backup-tones-only", action="store_true",
-                   help="restrict the backup to ring_tones/ and wait_tones/")
+    p.add_argument(
+        "--backup-tones-only",
+        action="store_true",
+        help="restrict the backup to ring_tones/ and wait_tones/",
+    )
     p.set_defaults(fn=cmd_extract)
 
     p = sub.add_parser("restore", help="put original files back into a tree")
@@ -386,8 +405,10 @@ def main():
     p.add_argument("--tree", required=True, help="the extracted tree to pack")
     p.add_argument("--out", required=True, help="where the changed files are written")
     p.add_argument("--only", nargs="*", help="restrict to specific member paths")
-    p.add_argument("--ctrl-from", help="read <module>_ctrl.bin/ctrl.bin from here instead "
-                                       "(for chaining after patch_smeg.py)")
+    p.add_argument(
+        "--ctrl-from",
+        help="read <module>_ctrl.bin/ctrl.bin from here instead (for chaining after patch_smeg.py)",
+    )
     p.add_argument("--level", type=int, default=6, help="gzip level (default 6)")
     p.add_argument("--dry-run", action="store_true", help="show what would change")
     p.set_defaults(fn=cmd_apply)
