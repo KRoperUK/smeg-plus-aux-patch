@@ -203,6 +203,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--manifest", required=True)
+    ap.add_argument("--skip-preflight", action="store_true",
+                    help="do not run the final pre-flight check (not recommended)")
     ap.add_argument("--dry-run", action="store_true",
                     help="show the steps and what would change, without writing")
     args = ap.parse_args()
@@ -320,6 +322,17 @@ def main():
     if cfg.get("seal", True):
         run([PY, tool("patch_contract.py"), "--package", out], "re-sealing the contract",
             args.dry_run)
+
+    # 6. final gate: the package must pass its own pre-flight. A build that would be
+    #    rejected, or that sets a value the unit cannot accept, should fail here rather
+    #    than on a stick in a car.
+    if not args.dry_run and not args.skip_preflight:
+        r = subprocess.run([PY, tool("preflight.py"), "--package", out],
+                           capture_output=True, text=True)
+        print(r.stdout.rstrip())
+        if r.returncode != 0:
+            sys.exit("\n%s failed its own pre-flight (above) - not fit to flash.\n"
+                     "Fix it, or pass --skip-preflight if you know better." % out)
 
     shutil.rmtree(work, ignore_errors=True)
     if args.dry_run:
