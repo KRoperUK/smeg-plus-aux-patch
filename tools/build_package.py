@@ -147,6 +147,28 @@ def set_up_key(tree, dotted, value):
         con.close()
 
 
+def ship_user_data(out, tree, names, module):
+    """Copy settings databases into the package's USER_DATA payload.
+
+    `system.bin` extracts to /SYSTEM/, which is read-only: the application reads its live
+    settings from a separate NAND partition, /USER_DATA. The updater has a step for this
+    (`C_UPGRADE::ManageSQLiteFiles`) which copies them from
+    `<stick>/<module>/USER_DATA/user_data/sqlite/`, but only if the package ships that
+    directory - ours never did, which is why editing system.bin changed nothing on the unit.
+
+    Shipping the whole tree would take the unit's personal state with it, so this copies only
+    the named databases.
+    """
+    dest_dir = os.path.join(out, module, "USER_DATA", "user_data", "sqlite")
+    os.makedirs(dest_dir, exist_ok=True)
+    for name in names:
+        src = os.path.join(tree, "Data_base", "sqlite", name)
+        if not os.path.exists(src):
+            sys.exit("no %s in the extracted media tree" % name)
+        shutil.copy2(src, os.path.join(dest_dir, name))
+        print("==> USER_DATA/%s (%d bytes)" % (name, os.path.getsize(src)))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -173,6 +195,7 @@ def main():
     splash_map = media.get("splash") or {}
     name_map = media.get("names") or {}
     settings = media.get("settings") or {}
+    user_data = cfg.get("user_data") or {}
     any_media = bool(tone_map or splash_map or name_map or settings)
 
     print("building %s -> %s (%s)" % (src, out, module))
@@ -251,6 +274,8 @@ def main():
              "--tree", tree, "--out", o2], "rebuilding the media partition", args.dry_run)
         if not args.dry_run:
             overlay(o2, out)
+            if user_data.get("sqlite"):
+                ship_user_data(out, tree, user_data["sqlite"], module)
 
     # 5. seal LAST — anything changed after this is unsealed and the unit rejects it
     if cfg.get("seal", True):
