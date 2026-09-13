@@ -138,10 +138,38 @@ Type **5**. Two independent lines of evidence:
   written in exactly **two places in the whole image, both constructors, both storing 0**.
   Nothing sets it, so type 4 can never be registered at all.
 
-Note the trap: this is not the same enum as the **source** list (`FM=1 AM=2 DAB=3 BT=5
-CDC=6 AUX=7 …`) recovered from the HMI `OnEventSelect*` handlers and used by
-`supervisor.Last_Source`. Two namespaces, overlapping numbers. Do not carry a value from
-one into the other.
+Note the trap: this is not the same enum as the **source** list recovered from the HMI
+`OnEventSelect*` handlers. Two namespaces, overlapping numbers. Do not carry a value from
+one into the other — and there are more than two.
+
+### Three source numberings, and which one `Last_Source` uses is not settled
+
+| numbering | where it comes from | AUX is |
+|---|---|---|
+| media device type | the table `GetMediaDevice` searches | **5** |
+| HMI source | `OnEventSelect*` → `CreateNotificationCommand` | **7** |
+| audio module `SRC_*` | the name table at `0x02f9d60c`, printed as `Current_source` | **5** |
+| screen position | `GetSourceAtPosition`, 0-based | **4** |
+
+The audio module's table is contiguous from `SRC_NO_SOURCE = 0`:
+
+```
+0 SRC_NO_SOURCE   1 SRC_TUNER   2 SRC_CD    3 SRC_MP3      4 SRC_CDC
+5 SRC_AUX         6 SRC_PHONE   7 SRC_TTS   8 SRC_TA_PTY   9 SRC_TTS_ON_AUX
+10 SRC_AUX_CONVERGENCE  11 SRC_BLUETOOTH  12 SRC_MTB  13 SRC_MLDIPO_RECO_PHONE
+```
+
+**Which of these `supervisor.Last_Source` holds is not established.** The factory value is
+`1`, which is the radio in the HMI numbering *and* `SRC_TUNER` in the audio one, so it does
+not discriminate. `4` and `7` have both been flashed without the unit starting on AUX —
+but see [Flashing](FLASHING.md): a `USER_DATA` payload in a folder not named
+`SMEG_PLUS_UPG` is skipped silently, so neither of those flashes is yet known to have
+applied at all.
+
+What is known about the key itself: it is read and written through the generic config
+loader in the core middleware — read at `0x01699390`, written at `0x01695e2c` from the
+field at `+0xb4` of the config object — so finding what sets that field is what would
+settle the numbering.
 
 ## What to do next
 
