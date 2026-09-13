@@ -2,8 +2,8 @@
 # https://zensical.org/docs/setup/basics/
 
 [project]
-site_name = "SMEG+ AUX patch"
-site_description = "Reverse-engineering notes and tooling for PSA/Stellantis SMEG+ head units"
+site_name = "SMEG+ Patches"
+site_description = "Reverse-engineering notes and tooling for PSA / Stellantis SMEG+ head units — how the firmware fits together, what can be changed, and what cannot."
 site_url = "https://smeg.kroper.uk/"
 repo_url = "https://github.com/KRoperUK/smeg-plus-patches"
 repo_name = "KRoperUK/smeg-plus-patches"
@@ -31,18 +31,28 @@ nav = [
 language = "en"
 features = [
   "content.code.copy",
+  "content.code.annotate",
+  "content.tabs.link",
+  "content.action.edit",
+  "navigation.instant",
+  "navigation.footer",
   "navigation.sections",
   "navigation.top",
   "search.highlight",
+  "search.suggest",
   "toc.follow",
 ]
 
 [[project.theme.palette]]
 scheme = "default"
+primary = "indigo"
+accent = "indigo"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
 [[project.theme.palette]]
 scheme = "slate"
+primary = "indigo"
+accent = "indigo"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
