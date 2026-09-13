@@ -85,3 +85,35 @@ def test_diagnostic_sets_say_so_loudly(path):
         return
     assert "DIAGNOSTIC" in spec["description"], \
         "a diagnostic patch set must announce itself in its description"
+
+
+# --- the mistake that shipped once -------------------------------------------
+
+def _opcode(hexbytes):
+    return int(hexbytes[:8], 16) >> 26
+
+
+CONDITIONAL_BRANCH, UNCONDITIONAL_BRANCH = 16, 18       # bc / b
+
+
+@pytest.mark.parametrize("path", PATCH_FILES, ids=lambda p: os.path.basename(p))
+def test_dropping_a_branch_condition_has_to_be_deliberate(path):
+    """`beq X` -> `b Y` keeps the displacement and silently loses the test.
+
+    `aux-sticky` shipped exactly that: it retargeted the "AUX signal absent" branch to the
+    return path but wrote it unconditional, so the activate path below became unreachable
+    and the handler could never select AUX. The displacement was right; the condition was
+    gone. Executing it found that; nothing in the definition hinted at it.
+    """
+    for module, variant in load(path)["variants"].items():
+        for edit in variant["patches"]:
+            if len(edit["expect"]) < 8 or len(edit["bytes"]) < 8:
+                continue
+            if _opcode(edit["expect"]) != CONDITIONAL_BRANCH:
+                continue
+            if _opcode(edit["bytes"]) != UNCONDITIONAL_BRANCH:
+                continue
+            assert "unconditional" in edit.get("why", "").lower(), (
+                "%s/%s %s replaces a conditional branch with an unconditional one. That is "
+                "occasionally what you want and usually a bug — say which in `why`."
+                % (os.path.basename(path), module, edit["addr"]))

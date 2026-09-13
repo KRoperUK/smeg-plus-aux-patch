@@ -137,7 +137,25 @@ out-param if its proxy (`obj->0xc`) is null — and the handler reads the untouc
 lands in gate 2 as "no change". That is a silent failure mode, and it is the shape of
 failure that matches the symptom.
 
-### 4. The logging is gated by one global, and it is zero
+### 4. `aux-sticky` was broken, and only executing it showed that
+
+The patch's second edit retargets the "AUX signal absent" branch to the shared return path,
+so an activated AUX is not handed back to radio when the signal drops. It shipped as
+`b +0x140` — the right displacement, with the condition dropped. Unconditional, so the
+branch was taken regardless of the signal, and the activate path immediately below it became
+unreachable.
+
+| bytes at `0x02303434` | signal appears | signal vanishes |
+|---|---|---|
+| `419e0058` (stock, `beq +0x58`) | activates | releases |
+| `48000140` (shipped, `b +0x140`) | **does nothing** | does nothing |
+| `419e0140` (fixed, `beq +0x140`) | activates | does not release |
+
+Reading the patch does not show this; the displacement is correct and `+0x140` really is
+the return path. Running it does, immediately. This is the case the emulator was worth
+building for.
+
+### 5. The logging is gated by one global, and it is zero
 
 `Log_msg` begins `if ((GetLogMask() & level) == 0) return;`. `GetLogMask` reads a single
 global at `0x036d42a8` — past the end of the image, so BSS, so **zero at boot** — and
@@ -160,7 +178,7 @@ the mask — including `HandleAudioAuxInputStatusChnged()`, which logs its own n
 on its shared return path. Forcing the mask answers whether that handler is entered without
 changing any behaviour.
 
-### 5. One device type is unreachable firmware-wide
+### 6. One device type is unreachable firmware-wide
 
 Device **type 4** is registered only when the byte at `this+0x51450` is non-zero. That byte
 is written in exactly **two places in the entire 39 MB image** — both constructors, both

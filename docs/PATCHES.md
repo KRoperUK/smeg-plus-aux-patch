@@ -85,7 +85,7 @@ being corrupted.
 |---|---|---|
 | `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | the combined build — flashed successfully, first patch confirmed on hardware |
 | `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | behavioural, no switching |
-| `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate, untested |
+| `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate — control flow verified under emulation, **never flashed** |
 | `patches/diagnostic-logmask.json` | forces the global trace mask, so the logging already in the image emits | diagnostic build, **not for driving** |
 | `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | diagnostic build, needs the mask patch too, **not for driving** |
 
@@ -193,10 +193,24 @@ Two edits in `HandleAudioAuxInputStatusChnged()`:
 | offset | original | patched | effect |
 |---|---|---|---|
 | `+0x10c` (AUDIO_BT `0x023032e8`, NAV `0x02303428`) | `beq` | `nop` | drop the `GetMediaDevice` early exit — **inert**, see [Emulating the firmware](EMULATION.md) |
-| `+0x118` (AUDIO_BT `0x023032f4`, NAV `0x02303434`) | `beq cr7,+0x58` | `b +0x140` | when the AUX signal is absent, jump to the return path instead of the release branch |
+| `+0x118` (AUDIO_BT `0x023032f4`, NAV `0x02303434`) | `beq cr7,+0x58` | `beq cr7,+0x140` | when the AUX signal is absent, branch to the return path instead of the release branch |
 
 The second edit means that once AUX has been activated it **stays** selected until the
 user changes source — for intermittent CarPlay audio that otherwise flaps between AUX
 and radio. It is a deliberate trade: AUX will no longer hand back to radio on its own.
 
 Both offsets were verified against all three images (`AUDIO_BT`, `AUDIO_BT_256`, `NAV`).
+
+!!! bug "This patch was wrong until it was executed"
+
+    It shipped as `b +0x140` — **unconditional**. The displacement was right and the
+    condition was gone, so the branch was taken whatever the signal was doing, the activate
+    path below it became unreachable, and the handler could never select AUX at all. Worse
+    than stock, in a patch whose whole purpose is to select AUX.
+
+    Emulated, `HandleAudioAuxInputStatusChnged` with the shipped bytes: signal appears →
+    no `ActivateSource`; signal vanishes → no release. With `beq cr7,+0x140`: signal
+    appears → activates, signal vanishes → no release, which is what "sticky" means.
+
+    `tests/test_patch_definitions.py` now refuses any edit that turns a conditional branch
+    into an unconditional one unless `why` says so in as many words.

@@ -1,6 +1,6 @@
 {
   "name": "aux-sticky",
-  "description": "Auto-switch variant that also stops the unit releasing AUX when the signal disappears. Removes the GetMediaDevice bail-out (so activation can happen) AND turns the 'signal absent' path into a no-op, so once AUX has been activated it stays selected until the user changes source. Useful if CarPlay audio is intermittent and the unit flaps between AUX and radio. CANDIDATE - not validated on hardware; the release path is deliberately disabled, so AUX will not hand back to radio on its own.",
+  "description": "Auto-switch variant that also stops the unit releasing AUX when the signal disappears, so once AUX has been activated it stays selected until the user changes source. Useful if CarPlay audio is intermittent and the unit otherwise flaps between AUX and radio. TWO EDITS, AND ONLY THE SECOND DOES ANYTHING: the +0x10c edit removes the GetMediaDevice bail-out, which is inert - that branch is never taken, because the AUX media device is registered unconditionally (see docs/AUX_CHAIN.md). It is kept so this set stays a superset of aux-autoswitch. The +0x118 edit is the real one. NOT VALIDATED ON HARDWARE; the control flow is verified under emulation for NAV - activates when the signal appears, does not release when it goes away - and the AUDIO_BT displacements are identical, but only NAV has been executed.",
   "variants": {
     "AUDIO_BT": {
       "app_image": "AUDIO_BT/AppBin/f_BigQuick.bin",
@@ -9,8 +9,18 @@
       "ctrl": "AUDIO_BT_ctrl.bin",
       "base": "0x01000000",
       "patches": [
-        { "addr": "0x023032e8", "expect": "419e014c", "bytes": "60000000", "why": "HandleAudioAuxInputStatusChnged +0x10c: remove the GetMediaDevice bail-out so ActivateSource() is reachable" },
-        { "addr": "0x023032f4", "expect": "419e0058", "bytes": "48000140", "why": "handlear +0x118: when the AUX signal is absent, jump to the return path instead of the release branch (sticky AUX)" }
+        {
+          "addr": "0x023032e8",
+          "expect": "419e014c",
+          "bytes": "60000000",
+          "why": "HandleAudioAuxInputStatusChnged +0x10c: remove the GetMediaDevice bail-out so ActivateSource() is reachable"
+        },
+        {
+          "addr": "0x023032f4",
+          "expect": "419e0058",
+          "bytes": "419e0140",
+          "why": "handler +0x118: when the AUX signal is absent, branch to the shared return path instead of the release branch, so an activated AUX stays selected. The condition is KEPT and only the target changes: the original is `beq cr7,+0x58` (the release path) and this is `beq cr7,+0x140` (the return path at handler+0x258). Writing `b +0x140` here instead - which this patch did until it was executed under tools/ppcemu.py - makes the branch unconditional, so the activate path below it becomes unreachable and the handler can never select AUX at all."
+        }
       ]
     },
     "AUDIO_BT_256": {
@@ -20,8 +30,18 @@
       "ctrl": "AUDIO_BT_256_ctrl.bin",
       "base": "0x01000000",
       "patches": [
-        { "addr": "0x023032e8", "expect": "419e014c", "bytes": "60000000", "why": "remove the GetMediaDevice bail-out" },
-        { "addr": "0x023032f4", "expect": "419e0058", "bytes": "48000140", "why": "absent signal -> return instead of release (sticky AUX)" }
+        {
+          "addr": "0x023032e8",
+          "expect": "419e014c",
+          "bytes": "60000000",
+          "why": "remove the GetMediaDevice bail-out"
+        },
+        {
+          "addr": "0x023032f4",
+          "expect": "419e0058",
+          "bytes": "419e0140",
+          "why": "handler +0x118: when the AUX signal is absent, branch to the shared return path instead of the release branch, so an activated AUX stays selected. The condition is KEPT and only the target changes: the original is `beq cr7,+0x58` (the release path) and this is `beq cr7,+0x140` (the return path at handler+0x258). Writing `b +0x140` here instead - which this patch did until it was executed under tools/ppcemu.py - makes the branch unconditional, so the activate path below it becomes unreachable and the handler can never select AUX at all."
+        }
       ]
     },
     "NAV": {
@@ -31,8 +51,18 @@
       "ctrl": "NAV_ctrl.bin",
       "base": "0x01000000",
       "patches": [
-        { "addr": "0x02303428", "expect": "419e014c", "bytes": "60000000", "why": "remove the GetMediaDevice bail-out" },
-        { "addr": "0x02303434", "expect": "419e0058", "bytes": "48000140", "why": "absent signal -> return instead of release (sticky AUX)" }
+        {
+          "addr": "0x02303428",
+          "expect": "419e014c",
+          "bytes": "60000000",
+          "why": "remove the GetMediaDevice bail-out"
+        },
+        {
+          "addr": "0x02303434",
+          "expect": "419e0058",
+          "bytes": "419e0140",
+          "why": "handler +0x118: when the AUX signal is absent, branch to the shared return path instead of the release branch, so an activated AUX stays selected. The condition is KEPT and only the target changes: the original is `beq cr7,+0x58` (the release path) and this is `beq cr7,+0x140` (the return path at handler+0x258). Writing `b +0x140` here instead - which this patch did until it was executed under tools/ppcemu.py - makes the branch unconditional, so the activate path below it becomes unreachable and the handler can never select AUX at all."
+        }
       ]
     }
   }
