@@ -26,6 +26,7 @@ smeg-patch-media = "tools.patch_media:main"
 smeg-splash = "tools.splash:main"
 smeg-studio = "tools.patch_studio:main"
 smeg-emu = "tools.ppcemu:main"
+smeg-syms = "tools.elfsyms:main"
 
 [tool.ruff]
 line-length = 100

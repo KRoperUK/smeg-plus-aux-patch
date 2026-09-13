@@ -122,6 +122,7 @@ SMEG+ update on the car (engine running). See [`docs/FLASHING.md`](docs/FLASHING
 | `tools/ringtones.py` | convert custom audio to the unit's ring/wait tone formats |
 | `tools/patch_studio.py` | Qt front-end: ringtone conversion + patch builder (optional) |
 | `tools/ppcemu.py` | run a single firmware function on an emulated PowerPC core |
+| `tools/elfsyms.py` | read the symbol tables the package ships in `upgrade.out` and friends |
 | `tools/apply_files.sh` | overlay patched files onto a package copy |
 
 ```sh

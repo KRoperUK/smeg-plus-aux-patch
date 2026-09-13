@@ -16,7 +16,7 @@ default patch set (`aux-autoswitch`: both `IsAUXSRCAvailable()` and the
 |---|---|
 | contract check (string 2099, *"update file is protected and cannot be copied"*) | **not triggered** — the re-sealed package was accepted |
 | application image written | **yes** — updater reached `AppBin flashing` |
-| media phases ran | **yes** — Phase 0, Phase 3 and Phase 5 all observed |
+| media phases ran | **yes** — Phases 0, 3 and 5 observed in this run; Phase 6 observed in a later one |
 | unit rebooted and came back up | **yes** — multiple Peugeot splash screens, then normally working |
 | version strings changed | **no, and that is expected** — re-flashing the same release does not alter them |
 | `IsAUXSRCAvailable()` patch | **confirmed working** — AUX no longer greys out with no signal |
@@ -47,12 +47,35 @@ are the normal touchscreen UI.
 | 15:42 | *diagnostic* | `Phase 0` / defragmenting `/USER-DATA/BACKUP` |
 | 15:42 | *diagnostic* | `Phase 3` / `Uncompress /SYSTEM` |
 | 15:44 | *diagnostic* | `Phase 3` / `Check the result of uncompression of /SYSTEM/` / `Check progression : 6%` |
-| 15:44–15:49 | *diagnostic* | `Phase 5` / `Uncompress /SD.DIR` → `Uncompress /SD.DIR.TTS` |
+| 15:44–15:49 | *diagnostic* | `Phase 5` / `Uncompress /SD_DIR` → `Uncompress /SD_DIR_TTS` / `Free space on SD: 2190624 Kbytes` |
 | 15:52 | boot splash | `PEUGEOT` |
 | 15:52 | source menu | `FM Radio` `DAB Radio` `AM Radio` `USB` `iPod` `Bluetooth` `AUX` |
 | 15:53 | update dialog | `UPDATE LEVEL` / `Identification of media...` |
 | 15:54 | update confirm | the same `Software update.` confirmation again |
 | 15:55 | System Information | `SMEG5.43.A.R2` / `CD: 26482` / `Dated: 19-09-17` |
+
+### Phase 6, from a later session the same day
+
+A second capture at **17:26** — a separate flash, not part of the 15:34–15:55 run above —
+shows the phase that sequence never caught:
+
+```
+Phase 6
+Management of ZA files
+
+(please wait)
+
+The product must reboot in 2 s
+```
+
+This fills the gap between the last diagnostic screen at 15:49 and the boot splash at
+15:52: the run does not end after Phase 5, it goes on to Phase 6 and **reboots itself from
+there**. The reboot at the end of an update is Phase 6's doing, not an unexplained restart.
+
+`Management of ZA files` is `C_UPGRADE::ManageZAFiles()` at `0000fd04` in `upgrade.out` —
+see [Boot and update chain](FLASH_CHAIN.md#3-the-package-ships-its-own-symbol-tables). The ZA
+files themselves are the ones copied from `/SYSTEM_DATA` to `/USER_DATA`, described in
+[What is reachable](CAPABILITIES.md).
 
 The update-confirmation dialog appears **twice**, at 15:37 and again at 15:54 — after the
 unit had already completed the update and come back up. That is consistent with the stick
