@@ -68,6 +68,11 @@ The work is split in two:
 .venv/bin/zensical serve                   # live docs preview
 ```
 
+`pre-commit install` wires the `pre-commit`, `commit-msg` **and** `pre-push` hooks in one
+go. The fast checks (lint, hygiene, no-firmware) run per commit; the slow ones (tests,
+strict docs build, `bandit`) run on push, so a push that would go red in CI fails locally
+first.
+
 `.venv/` is gitignored, so a fresh clone has none — build it first (Python 3.13, because
 Homebrew's `python3` is 3.14, where `ensurepip` is broken and PySide6 has no wheels):
 `uv venv --seed --python 3.13 .venv && uv pip install --python .venv/bin/python PySide6 pytest zensical ruff`.

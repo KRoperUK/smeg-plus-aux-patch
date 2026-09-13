@@ -42,7 +42,9 @@ def main():
     print("zlib stream at  : %#x" % start)
     print("image           : %s (%d bytes / %#x)" % (args.output, len(img), len(img)))
     print("image crc32     : %#010x" % (zlib.crc32(img) & 0xffffffff))
-    print("image sha1      : %s" % hashlib.sha1(img).hexdigest())
+    # a fingerprint for telling images apart, not a security primitive
+    print("image sha1      : %s"
+          % hashlib.sha1(img, usedforsecurity=False).hexdigest())
     print("load address    : 0x01000000  (symbol offsets = address - 0x01000000)")
 
 

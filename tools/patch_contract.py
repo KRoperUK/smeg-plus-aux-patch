@@ -65,7 +65,8 @@ DEFAULT_E = 65537          # universal RSA public exponent; verified against thi
 def mgf1(seed, length, hlen=20):
     out, counter = b"", 0
     while len(out) < length:
-        out += hashlib.sha1(seed + counter.to_bytes(4, "big")).digest()
+        out += hashlib.sha1(seed + counter.to_bytes(4, "big"),
+                            usedforsecurity=False).digest()
         counter += 1
     return out[:length]
 
@@ -77,7 +78,7 @@ def oaep_decrypt(em, hlen=20):
     masked_seed, masked_db = em[1:1 + hlen], em[1 + hlen:]
     seed = bytes(a ^ b for a, b in zip(masked_seed, mgf1(masked_db, hlen)))
     db = bytes(a ^ b for a, b in zip(masked_db, mgf1(seed, len(masked_db))))
-    h = hashlib.sha1(b"").digest()
+    h = hashlib.sha1(b"", usedforsecurity=False).digest()
     if db[:hlen] != h:
         raise ValueError("OAEP label hash mismatch")
     i = hlen
@@ -92,7 +93,8 @@ def oaep_encrypt(msg, k=BLOCK, hlen=20, seed=None):
     """Apply RSA-OAEP (SHA-1) padding."""
     if len(msg) > k - 2 * hlen - 2:
         raise ValueError("message too long for OAEP")
-    db = hashlib.sha1(b"").digest() + b"\x00" * (k - len(msg) - 2 * hlen - 2) + b"\x01" + msg
+    db = (hashlib.sha1(b"", usedforsecurity=False).digest()
+          + b"\x00" * (k - len(msg) - 2 * hlen - 2) + b"\x01" + msg)
     seed = seed or os.urandom(hlen)
     masked_db = bytes(a ^ b for a, b in zip(db, mgf1(seed, k - hlen - 1)))
     masked_seed = bytes(a ^ b for a, b in zip(seed, mgf1(masked_db, hlen)))
@@ -275,8 +277,13 @@ def main():
     for rec, c in zip(new_recs, check):
         fp = resolve(args.package, c[:c.index(b"\0")].decode())
         if os.path.exists(fp):
-            payload, _ = check_of(c, open(fp, "rb").read())
-            assert rebuild_record(c, payload) == c, "verification failed"
+            with open(fp, "rb") as fh:
+                payload, _ = check_of(c, fh.read())
+            # not an assert: this is the check that the re-sealed contract matches the
+            # files, and `python -O` would remove it silently
+            if rebuild_record(c, payload) != c:
+                sys.exit("verification failed for %s — the contract does not match the "
+                         "file on disk; do not flash this package" % fp)
     print("verified: the new contract decrypts cleanly and matches the files")
 
 

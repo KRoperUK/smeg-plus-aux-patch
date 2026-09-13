@@ -286,11 +286,10 @@ def cmd_replace(args):
                 rate = 44100
                 try:
                     import wave
-                    w = wave.open(dest, "rb")
-                    channels, rate = w.getnchannels(), w.getframerate()
-                    w.close()
-                except Exception:
-                    pass
+                    with wave.open(dest, "rb") as w:
+                        channels, rate = w.getnchannels(), w.getframerate()
+                except (wave.Error, OSError, EOFError):
+                    pass          # not a readable WAV: keep the slot's defaults
                 ringtones.convert(source, dest, channels, rate)
             else:
                 shutil.copy2(source, dest)

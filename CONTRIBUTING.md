@@ -7,8 +7,8 @@ titles** and **no vendor firmware**.
 
 **This is enforced, not a preference.** Two checks will stop you:
 
-* a `commit-msg` hook, installed by `pre-commit install --hook-type commit-msg`, rejects a
-  local commit whose message does not parse;
+* a `commit-msg` hook, installed by `pre-commit install`, rejects a local commit whose
+  message does not parse;
 * the **PR title** check in CI, because the PR title is the message that actually lands.
 
 Both run the same validator, which you can also call yourself:
@@ -91,6 +91,25 @@ here rather than after a twenty-minute flash in a car.
 
 The pre-flight prints what it **does not know** as prominently as what it does. Read that
 part — it is where the expensive surprises live.
+
+### The two hook gates
+
+`pre-commit install` wires **all three** hook types — the config asks for them, so there is
+no `--hook-type` to remember. They are split by how long they take:
+
+| stage | what runs | why there |
+|---|---|---|
+| `pre-commit` | whitespace, EOF, YAML, merge markers, large files, line endings, `ruff --fix`, and the no-firmware guard | fast enough that you never want to skip it |
+| `commit-msg` | `tools/check_commit_msg.py` | the message has to parse before it exists |
+| `pre-push` | `pytest`, `zensical build --strict`, `bandit` | this is what CI would tell you twenty minutes later |
+
+A push that would go red in CI fails locally first. If you genuinely need to bypass one,
+`git push --no-verify` — but the same checks run on the PR, so it only moves the failure.
+
+`bandit` is the security scan. Its config lives in `[tool.bandit]` in `pyproject.toml`, and
+the three skips there are deliberate: these tools shell out to `ffmpeg` and to each other,
+which is the job rather than a finding. If you add a genuine exception, say why in the
+config rather than with a bare `# nosec`.
 
 ### Commits and merges
 

@@ -28,6 +28,16 @@ smeg-studio = "tools.patch_studio:main"
 smeg-emu = "tools.ppcemu:main"
 smeg-syms = "tools.elfsyms:main"
 
+[tool.bandit]
+# Run from the pre-push hook. The tools read and write files the user points them at and
+# shell out to ffmpeg and to each other, which is the job, not a finding.
+skips = [
+    "B404",   # importing subprocess — build_package.py orchestrates the other tools
+    "B603",   # subprocess without shell=True, which is the safe form
+    "B607",   # partial executable path: `ffmpeg`, resolved from PATH deliberately
+]
+exclude_dirs = ["tests", ".venv", "site"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
