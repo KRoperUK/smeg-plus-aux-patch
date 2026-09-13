@@ -118,11 +118,23 @@ them:
 "settings": { "supervisor.Last_Source": 4 }
 ```
 
-Ready-made manifests live in `builds/`:
+Ready-made **schemes** live in `builds/`. Each is a whole build, so a scheme is one command:
 
-| manifest | what it does |
-|---|---|
-| `builds/force-aux-default.json` | AUX patches, custom tone and name, and `Last_Source` set so the unit starts on AUX — see issue #72 |
+| scheme | what it does | needs |
+|---|---|---|
+| `builds/aux-only.json` | the AUX patches and nothing else — the closest thing to stock that still enables AUX, and the baseline to reach for when something behaves unexpectedly | nothing |
+| `builds/diagnostic.json` | turns the application's own logging back on, for establishing whether a message reaches the app at all | nothing |
+| `builds/force-aux-default.json` | AUX patches, custom tone and name, and `Last_Source` set so the unit starts on AUX | a tone file, and the `/USER_DATA` acknowledgement |
+
+```sh
+uv run tools/build_package.py --manifest builds/aux-only.json
+```
+
+### A note on the schemes as committed
+
+They carry **absolute paths for one checkout**, because a manifest is a build recipe rather
+than a portable artefact — edit the paths before reusing one. A scheme that reaches outside
+the repository (a tone file, an image) will say so in its `_comment`.
 
 Every section is optional. `gain_db` is worth setting: the stock tones sit at about
 -1 dBFS, so an unmodified music track sounds muted in the car next to them.
