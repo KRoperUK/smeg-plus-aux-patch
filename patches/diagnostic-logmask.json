@@ -1,0 +1,21 @@
+{
+  "name": "diagnostic-logmask",
+  "description": "DIAGNOSTIC BUILD - makes the application's already-compiled-in logging actually emit. `Log_msg` (0x02742558) begins by fetching a global trace mask and ANDing it with the caller's level: `if ((GetLogMask() & level) == 0) return;`. That mask lives at 0x036d42a8, which is past the end of the image - BSS, so zero at boot - and exactly one instruction in the whole image writes it, reachable only through ten thin vtable-exposed `SetTrace` wrappers. Unless something calls one of those at runtime, every one of the ~5900 real `Log_msg` call sites is silent. Replacing `GetLogMask` with `li r3,-1 ; blr` makes them all live. Expect a lot of output and do not drive on it. Of particular interest: `HandleAudioAuxInputStatusChnged()` logs its own name at level 1 on its shared return path, so this patch answers whether that handler is entered at all - the open question in docs/VERIFICATION.md - without changing any behaviour. NAV only; the other builds need their own addresses checked.",
+  "variants": {
+    "NAV": {
+      "app_image": "NAV/AppBin/f_BigQuick.bin",
+      "inf": "NAV/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "NAV/smeg.inf",
+      "ctrl": "NAV_ctrl.bin",
+      "base": "0x01000000",
+      "patches": [
+        {
+          "addr": "0x02742530",
+          "expect": "9421fff093e1000c",
+          "bytes": "3860ffff4e800020",
+          "why": "GetLogMask() -> `li r3,-1 ; blr`. Returns an all-ones mask, so the `(mask & level) == 0` test in Log_msg never short-circuits. Same idiom as the IsAUXSRCAvailable patch: overwrite the prologue with a constant return, no code cave, trivially reversible."
+        }
+      ]
+    }
+  }
+}
