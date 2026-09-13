@@ -131,7 +131,71 @@ Upgrade not possible / Upgrade not possible!! value is too high
 [Version strings](VERSION_STRINGS.md). Versions also drive the U-Boot
 (`%02d.%02d`) and harmony/BSP decisions, which is why inventing a version is risky.
 
-## 3. The manifest cascade
+## 3. The package ships its own symbol tables
+
+`upgrade.out`, `UpgPlugin.out` and `upgrade_lib.out` in the package root are **unstripped
+PowerPC ELF objects**. They are not the head-unit application — they are the updater
+itself, the code that runs from the stick — and they carry full symbol tables:
+
+| file | functions | what it is |
+|---|---|---|
+| `upgrade.out` | 2171 | the updater; `C_UPGRADE` alone has **117 methods** |
+| `UpgPlugin.out` | ~440 | the plugin the application talks to, including `C_UPG_LOGS` |
+| `upgrade_lib.out` | ~250 | shared helpers |
+
+So the flow on this page, which was originally recovered by matching log strings, can be
+read directly:
+
+```sh
+uv run tools/elfsyms.py SMEG_PLUS_UPG/upgrade.out --class C_UPGRADE
+uv run tools/elfsyms.py SMEG_PLUS_UPG/upgrade.out --grep ZA
+uv run tools/elfsyms.py SMEG_PLUS_UPG/upgrade.out --strings Phase
+```
+
+A few names worth knowing they exist, because they answer questions asked elsewhere in
+these docs:
+
+| symbol | why it matters |
+|---|---|
+| `C_UPGRADE::UpgradeTask` `0001f348` | the whole sequence; every `Phase N` is set from here |
+| `C_UPGRADE::ManageZAFiles` `0000fd04` | Phase 6 — see [Hardware verification](VERIFICATION.md) |
+| `C_UPGRADE::SaveDataOnUSB` / `RestoreDataFromUSB` | the `USER_DATA` round trip a `user_data` payload lands in |
+| `C_UPGRADE::ManageSQLiteFiles` `0000d5ec` | the settings databases |
+| `C_UPGRADE::ManageBigQuickUpdate` `00016f04` | where the application image is written |
+| `C_UPGRADE::UpgradeOneHarmony` / `CheckHarmonyIntegrity*` | the HARMONY skin handling |
+| `C_UPGRADE::LogsOnTelnet` `000075a4` / `MakeLogArchive` `000077b8` | where the updater's own logs can go |
+| `C_UPG_LOGS::Instance` (in `UpgPlugin.out`) | the logging singleton on the application side |
+
+### The phases
+
+Seven phase strings exist, `Phase 0` … `Phase 6`, all set through
+`C_UPGRADE::SetCurrentPhase()` from `UpgradeTask`. The action line beneath comes from
+`SetCurrentAction()`. Grouping the action strings by where they sit between the phase
+strings in the literal table gives:
+
+| phase | actions |
+|---|---|
+| 0 | `formatting /SYSTEM`, `defragmenting /SYSTEM_DATA`, `Uncompress /SYSTEM_DATA`, `Manage /SYSTEM_DATA/ in final customer mode`, `defragmenting /USER_DATA`, `defragmenting /USER_DATA_BACKUP` |
+| 1 | — |
+| 2 | — |
+| 3 | `Manage /SYSTEM/ in final customer mode`, `Uncompress /SYSTEM`, `Check the result of uncompression of /SYSTEM/` |
+| 4 | — |
+| 5 | `Uncompress /SD_DIR`, `Uncompress /SD_DIR_TTS`, `Check the result of uncompression of /SD_DIR/` |
+| 6 | `Management of UserGuide`, `Management of ZA files` |
+
+!!! warning "The grouping is inferred; the strings and the phase count are not"
+
+    That the seven phases exist, that they are set from `UpgradeTask`, and the exact
+    wording of every action line are all read straight out of `upgrade.out`. Which action
+    belongs to which phase is inferred from the **order of the literals in the string
+    table**, which usually follows source order but is not a guarantee. Phases 0, 3, 5 and
+    6 are corroborated by photographs of a real update; 1, 2 and 4 have not been seen on
+    screen and may be skipped for this hardware, this package, or both.
+
+Phase 6 ends with `The product must reboot in 2 s` — the reboot at the end of an update is
+that phase finishing, not a spontaneous restart.
+
+## 4. The manifest cascade
 
 ```
 data file  ->  .inf (CRC32)  ->  smeg.inf (BIGQUICK_CRC32)  ->  <module>_ctrl.bin  ->  ctrl.bin
@@ -157,7 +221,7 @@ the check type. `flasher.crc` is the CRC32 of `flasher.inf`.
 
 `SD_DIR_TTS.crc` uses a different, textual scheme (`NUMBERFILES:394`, `CRC16:2305`).
 
-## 4. `contract.dat` — the media contract
+## 5. `contract.dat` — the media contract
 
 A 29 696-byte blob at the package root: 116 RSA-OAEP blocks holding a table of per-file
 checks (size, crc32, and a content spot-check). It is **not** in the root manifest and
@@ -171,7 +235,7 @@ and cannot be copied."* unless the contract is regenerated — the format is dec
 
 ### `*_ctrl.bin` format
 
-## 5. Open questions
+## 6. Open questions
 
 - Exact field offsets inside `dbsystem.bin`.
 - `CheckType` semantics for values 0–3.

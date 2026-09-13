@@ -15,6 +15,7 @@ uv run tools/patch_media.py --help                  # media partition patcher
 uv run tools/ringtones.py list                      # ring/wait tone slots
 uv run tools/patch_smeg.py --help                   # application image patcher
 uv run tools/ppcemu.py --help                       # run a firmware function, emulated
+uv run tools/elfsyms.py SMEG_PLUS_UPG/upgrade.out    # the updater's own symbol table
 ```
 
 `uv run <script>` reads the script's own dependency list, so the GUI pulls PySide6 and the
@@ -37,6 +38,7 @@ uvx --from 'smeg-plus-patches[gui] @ git+https://github.com/KRoperUK/smeg-plus-p
 |---|---|
 | `smeg-studio` | `tools/patch_studio.py` |
 | `smeg-emu` | `tools/ppcemu.py` |
+| `smeg-syms` | `tools/elfsyms.py` |
 | `smeg-ringtones` | `tools/ringtones.py` |
 | `smeg-patch-media` | `tools/patch_media.py` |
 | `smeg-patch` | `tools/patch_smeg.py` |

@@ -93,7 +93,10 @@ Phase 0   defragmenting /USER-DATA/BACKUP
 Phase 3   Uncompress /SYSTEM
 Phase 3   Check the result of uncompression of /SYSTEM/
           Check progression : 6%
-Phase 5   Uncompress /SD.DIR  ->  /SD.DIR.TTS
+Phase 5   Uncompress /SD_DIR  ->  /SD_DIR_TTS
+Phase 6   Management of UserGuide
+Phase 6   Management of ZA files
+          "The product must reboot in 2 s"   <-- the updater reboots itself here
         |
         v
 PEUGEOT  ->  normal UI        (splash)       done
