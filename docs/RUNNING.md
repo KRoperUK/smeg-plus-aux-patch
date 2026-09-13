@@ -127,6 +127,29 @@ Ready-made manifests live in `builds/`:
 Every section is optional. `gain_db` is worth setting: the stock tones sit at about
 -1 dBFS, so an unmodified music track sounds muted in the car next to them.
 
+## Pre-flight: check a package before it goes on a stick
+
+`tools/build_package.py` runs this automatically at the end of every build and **fails the
+build** if it reports a problem. You can also run it directly:
+
+```sh
+uv run tools/preflight.py --package SMEG_PLUS_UPG_auxdefault
+uv run tools/preflight.py --package SMEG_PLUS_UPG_auxdefault --json
+```
+
+It checks the things that have actually gone wrong, rather than what looks impressive:
+
+- **the contract** — will the unit accept it, or answer with string 2099?
+- **the CRC cascade** — image, `.inf`, `smeg.inf`
+- **which patches are present**, by reading the bytes at each known address
+- **settings values against what the unit accepts** — `supervisor.Last_Source = 4` is not a
+  valid source, and the unit silently ignores it and falls back. That cost a car trip.
+- **what the update will write**, so the blast radius is visible
+- **a `USER_DATA` payload**, which can reset paired phones and presets
+
+And it prints what it **does not know** as prominently as what it does. The unknowns are
+where the car trips went.
+
 ## Cheat sheet
 
 ```sh
