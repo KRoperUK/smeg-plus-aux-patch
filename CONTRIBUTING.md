@@ -74,3 +74,70 @@ Patch definitions live in `patches/*.json` and are checked before they are writt
 entry carries the original bytes it expects. When you move a patch for a different build,
 verify the address against the symbol map for that build first, and say in the PR which
 images you checked.
+
+## 3. Gotchas worth knowing
+
+Things that have each cost time here at least once, in roughly the order you meet them.
+
+### The working loop
+
+```sh
+uv run tools/build_package.py --manifest builds/<scheme>.json
+```
+
+That is the whole loop. The build **runs its own pre-flight** (`tools/preflight.py`) and
+refuses to produce a package that fails it, so a bad value or an unsealed contract is caught
+here rather than after a twenty-minute flash in a car.
+
+The pre-flight prints what it **does not know** as prominently as what it does. Read that
+part — it is where the expensive surprises live.
+
+### Commits and merges
+
+- **Conventional commits are enforced** in two places: a `commit-msg` hook and a CI check on
+  the PR title. The description must start **lower case** — `fix: AUX is wrong` is rejected,
+  `fix: the AUX value is wrong` is not.
+- **The repo squash-merges**, so local branches never appear as ancestors of `main` even once
+  merged. `git branch --merged` will not tell you what is safe to delete; ask GitHub instead:
+  `gh pr list --state merged --json headRefName`.
+- **The `end-of-file-fixer` hook modifies files and then aborts the commit.** If you generate
+  JSON with `json.dump`, add the trailing newline yourself or you will commit twice.
+
+### Blocked PRs
+
+`BLOCKED` with every check green almost always means **unresolved review threads**, not a
+failed check. CodeQL posts its findings as review threads and **does not resolve them when
+the code changes**, so a fixed alert can still be holding the merge:
+
+```sh
+gh api graphql -f query='{ repository(owner:"KRoperUK", name:"smeg-plus-patches") {
+  pullRequest(number:N) { reviewThreads(first:30) { nodes { id isResolved path } } } } }'
+```
+
+Resolve them, or fix the code and resolve them — but check, because the failure mode is
+silent.
+
+### CodeQL
+
+Two shapes keep coming up:
+
+- **"File is not always closed"** — use `pathlib` (`Path(p).read_text()`), which closes what
+  it opens. This is the third time it has been raised.
+- **"Potentially uninitialized local variable"** — `argparse.error()` looks like it returns.
+  Use `sys.exit()` where the fall-through must be impossible.
+
+### The USB stick, on macOS
+
+Writing to FAT32 makes macOS silently create an AppleDouble `._*` file **per file**, including
+for files you add in a later copy. They are invisible to the updater but they are junk, and
+they have caused confusion twice. After any copy:
+
+```sh
+find /Volumes/SMEG -name '._*' -delete; find /Volumes/SMEG -name '.DS_Store' -delete
+```
+
+### Releases
+
+Release Please opens its PR with the default `GITHUB_TOKEN`, so **no workflows run on it** and
+it sits at `BLOCKED` with *no checks reported*. That is expected. Approving it is a human's
+job — see [docs/RELEASING.md](docs/RELEASING.md).
