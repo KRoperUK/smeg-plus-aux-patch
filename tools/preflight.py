@@ -35,6 +35,7 @@ import subprocess
 import sys
 import tempfile
 import zlib
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODULES = ("NAV", "AUDIO_BT", "AUDIO_BT_256")
@@ -109,7 +110,7 @@ def read_module(pkg, module):
     img = media = {}
     app = os.path.join(pkg, module, "AppBin", "f_BigQuick.bin")
     if os.path.exists(app):
-        raw = open(app, "rb").read()
+        raw = Path(app).read_bytes()
         try:
             img = zlib.decompress(raw[0x801:])
         except zlib.error:
@@ -121,7 +122,8 @@ def read_module(pkg, module):
         import tarfile
 
         try:
-            tf = tarfile.open(fileobj=io.BytesIO(gzip.open(sysbin, "rb").read()))
+            with gzip.open(sysbin, "rb") as gz:
+                tf = tarfile.open(fileobj=io.BytesIO(gz.read()))  # noqa: SIM115  # reads a BytesIO, not a file descriptor
             media = {
                 m.name: (tf.extractfile(m).read() if m.isfile() else b"") for m in tf.getmembers()
             }
@@ -131,7 +133,7 @@ def read_module(pkg, module):
 
 
 def up_keys(blob):
-    t = tempfile.NamedTemporaryFile(delete=False)
+    t = tempfile.NamedTemporaryFile(delete=False)  # noqa: SIM115  # closed on the next line; delete=False so sqlite can reopen it by name
     t.write(blob)
     t.close()
     try:
@@ -163,7 +165,7 @@ def check_structure(rep, pkg):
 
 def check_cascade(rep, pkg, module):
     def crc(p):
-        return zlib.crc32(open(p, "rb").read()) & 0xFFFFFFFF
+        return zlib.crc32(Path(p).read_bytes()) & 0xFFFFFFFF
 
     img = os.path.join(pkg, module, "AppBin", "f_BigQuick.bin")
     inf = img + ".inf"
@@ -176,7 +178,7 @@ def check_cascade(rep, pkg, module):
     got = []
     for path, pattern in ((inf, r"CRC32:\s*(-?\d+)"), (smeg, r"BIGQUICK_CRC32:\s*(-?\d+)")):
         if os.path.exists(path):
-            m = re.search(pattern, open(path).read())
+            m = re.search(pattern, Path(path).read_text())
             got.append((os.path.basename(path), int(m.group(1)) & 0xFFFFFFFF if m else None))
     for label, value in got:
         rep.add(
@@ -335,7 +337,7 @@ def main():
         check_settings(rep, keys)
     ud = os.path.join(pkg, module, "USER_DATA", "user_data", "sqlite", "up_common.sqlite")
     if os.path.exists(ud):
-        check_settings(rep, up_keys(open(ud, "rb").read()), area="settings (USER_DATA)")
+        check_settings(rep, up_keys(Path(ud).read_bytes()), area="settings (USER_DATA)")
 
     check_user_data(rep, pkg, module)
     check_writes(rep, pkg, module, patches, media, keys)

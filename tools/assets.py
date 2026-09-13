@@ -332,14 +332,12 @@ def format_of(path, kind):
     try:
         import wave
 
-        w = wave.open(path, "rb")
-        info = "%d Hz, %d-bit, %s" % (
-            w.getframerate(),
-            w.getsampwidth() * 8,
-            "mono" if w.getnchannels() == 1 else "stereo",
-        )
-        w.close()
-        return info
+        with wave.open(path, "rb") as w:
+            return "%d Hz, %d-bit, %s" % (
+                w.getframerate(),
+                w.getsampwidth() * 8,
+                "mono" if w.getnchannels() == 1 else "stereo",
+            )
     except Exception:
         return ""
 

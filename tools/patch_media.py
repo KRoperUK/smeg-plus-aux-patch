@@ -53,6 +53,7 @@ import struct
 import sys
 import tarfile
 import zlib
+from pathlib import Path
 
 SYSTEM_PREFIX = "/SYSTEM/"
 RECORD_SIZE = 264  # system_ctrl.bin record stride
@@ -84,10 +85,10 @@ class Partition:
         for p in (self.bin, os.path.join(self.dir, "system_ctrl.bin")):
             if not os.path.exists(p):
                 die("missing %s — is --package pointing at a package root?" % p)
-        raw = open(self.bin, "rb").read()
+        raw = Path(self.bin).read_bytes()
         try:
             self.tar_bytes = gzip.decompress(raw)
-            self.tf = tarfile.open(fileobj=io.BytesIO(self.tar_bytes), mode="r:")
+            self.tf = tarfile.open(fileobj=io.BytesIO(self.tar_bytes), mode="r:")  # noqa: SIM115  # reads a BytesIO, not a file descriptor
         except Exception as e:
             die("could not read %s: %s" % (self.bin, e))
         self.members = self.tf.getmembers()
@@ -132,7 +133,7 @@ def diff_tree(part, tree, only=None):
             missing.append(name)
             continue
         seen.add(name)
-        new = open(path, "rb").read()
+        new = Path(path).read_bytes()
         if new != part.data[name]:
             changes[name] = new
         else:
@@ -319,9 +320,9 @@ def cmd_apply(args):
     new_tar = part.build_tar(new_data)
     new_bin = gzip.compress(new_tar, args.level)
     new_ctrl = patch_system_ctrl(
-        open(os.path.join(part.dir, "system_ctrl.bin"), "rb").read(), changes, part.data
+        Path(os.path.join(part.dir, "system_ctrl.bin")).read_bytes(), changes, part.data
     )
-    old_inf_bytes = open(os.path.join(part.dir, "system.bin.inf"), "rb").read()
+    old_inf_bytes = Path(os.path.join(part.dir, "system.bin.inf")).read_bytes()
     old_fields = read_size_fields(old_inf_bytes)
     new_fields = adjusted_size_fields(part.data, new_data, old_fields)
     new_inf = patch_inf(old_inf_bytes, crc32(new_bin), new_fields)
@@ -330,12 +331,12 @@ def cmd_apply(args):
     base = args.ctrl_from or args.package
     mod_ctrl_path = os.path.join(base, "%s_ctrl.bin" % args.module)
     root_ctrl_path = os.path.join(base, "ctrl.bin")
-    old_mod = open(mod_ctrl_path, "rb").read()
-    old_root = open(root_ctrl_path, "rb").read()
+    old_mod = Path(mod_ctrl_path).read_bytes()
+    old_root = Path(root_ctrl_path).read_bytes()
 
-    old_bin_crc = crc32(open(part.bin, "rb").read())
-    old_inf_crc = crc32(open(os.path.join(part.dir, "system.bin.inf"), "rb").read())
-    old_ctrl_crc = crc32(open(os.path.join(part.dir, "system_ctrl.bin"), "rb").read())
+    old_bin_crc = crc32(Path(part.bin).read_bytes())
+    old_inf_crc = crc32(Path(os.path.join(part.dir, "system.bin.inf")).read_bytes())
+    old_ctrl_crc = crc32(Path(os.path.join(part.dir, "system_ctrl.bin")).read_bytes())
 
     mod_ctrl = swap_crc(old_mod, old_bin_crc, crc32(new_bin), "%s/system.bin" % args.module)
     mod_ctrl = swap_crc(mod_ctrl, old_inf_crc, crc32(new_inf), "%s/system.bin.inf" % args.module)
@@ -353,7 +354,7 @@ def cmd_apply(args):
     for rel, data in writes.items():
         dest = os.path.join(out, rel)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
-        open(dest, "wb").write(data)
+        Path(dest).write_bytes(data)
 
     print("\nwrote:")
     for rel, data in writes.items():

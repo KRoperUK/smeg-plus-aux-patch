@@ -13,6 +13,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, TOOLS)
 
 import helpers  # noqa: E402
+from pathlib import Path
 
 
 def run(*args):
@@ -46,7 +47,7 @@ def test_patches_image_and_rebuilds_crc_cascade(pkg, tmp_path):
     assert r.returncode == 0, r.stderr
 
     bq = os.path.join(str(out), info["variant"], "AppBin", "f_BigQuick.bin")
-    raw = open(bq, "rb").read()
+    raw = Path(bq).read_bytes()
 
     # the patch is present in the inflated image, and the original bytes are gone
     img = helpers.inflate_container(raw)
@@ -55,27 +56,25 @@ def test_patches_image_and_rebuilds_crc_cascade(pkg, tmp_path):
 
     # cascade: .inf, smeg.inf and the module manifest all agree with the new file CRC
     new_crc = zlib.crc32(raw) & 0xFFFFFFFF
-    inf_crc = int(
-        open(os.path.join(str(out), info["variant"], "AppBin", "f_BigQuick.bin.inf"))
-        .readline()
-        .strip()
-        .split()[-1]
-    )
-    smeg = open(os.path.join(str(out), info["variant"], "smeg.inf"), "rb").read()
+    inf_text = Path(
+        os.path.join(str(out), info["variant"], "AppBin", "f_BigQuick.bin.inf")
+    ).read_text()
+    inf_crc = int(inf_text.splitlines()[0].strip().split()[-1])
+    smeg = Path(os.path.join(str(out), info["variant"], "smeg.inf")).read_bytes()
     assert helpers.read_crc_field(smeg, "BIGQUICK_CRC32") == new_crc
     assert inf_crc & 0xFFFFFFFF == new_crc
 
     import struct
 
-    mod_ctrl = open(os.path.join(str(out), "%s_ctrl.bin" % info["variant"]), "rb").read()
+    mod_ctrl = Path(os.path.join(str(out), "%s_ctrl.bin" % info["variant"])).read_bytes()
     assert struct.pack(">I", new_crc) in mod_ctrl
-    root_ctrl = open(os.path.join(str(out), "ctrl.bin"), "rb").read()
+    root_ctrl = Path(os.path.join(str(out), "ctrl.bin")).read_bytes()
     assert struct.pack(">I", zlib.crc32(mod_ctrl) & 0xFFFFFFFF) in root_ctrl
 
 
 def test_original_untouched(pkg, tmp_path):
     src, spec, info = pkg
-    before = open(info["app_image"], "rb").read()
+    before = Path(info["app_image"]).read_bytes()
     run(
         os.path.join(TOOLS, "patch_smeg.py"),
         "--src",
@@ -85,7 +84,7 @@ def test_original_untouched(pkg, tmp_path):
         "--patches",
         str(spec),
     )
-    assert open(info["app_image"], "rb").read() == before
+    assert Path(info["app_image"]).read_bytes() == before
 
 
 def test_expect_mismatch_fails_loudly(pkg, tmp_path):
@@ -155,7 +154,7 @@ def test_zensical_nav_matches_docs():
     """Every page listed in the site nav must exist (guards against broken nav)."""
     import re
 
-    cfg = open(os.path.join(ROOT, "zensical.toml")).read()
+    cfg = Path(os.path.join(ROOT, "zensical.toml")).read_text()
     pages = re.findall(r'"([A-Za-z0-9_./-]+\.md)"', cfg)
     assert pages, "no pages found in zensical.toml nav"
     for page in pages:

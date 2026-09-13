@@ -43,8 +43,10 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-# errors + pyflakes: real problems, not a style war
-select = ["E9", "F"]
+# errors + pyflakes: real problems, not a style war.
+# SIM115 too: a file left open is the defect CodeQL keeps finding here. The seven
+# remaining hits carry a `# noqa` saying why they are not leaks.
+select = ["E9", "F", "SIM115"]
 
 [build-system]
 requires = ["hatchling"]

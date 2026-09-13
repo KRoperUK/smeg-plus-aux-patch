@@ -12,6 +12,7 @@ usage:
 import argparse
 import hashlib
 import zlib
+from pathlib import Path
 
 
 def inflate(raw):
@@ -36,9 +37,9 @@ def main():
     ap.add_argument("output", help="raw application image to write")
     args = ap.parse_args()
 
-    raw = open(args.input, "rb").read()
+    raw = Path(args.input).read_bytes()
     start, img = inflate(raw)
-    open(args.output, "wb").write(img)
+    Path(args.output).write_bytes(img)
 
     print("input           : %s (%d bytes)" % (args.input, len(raw)))
     print("zlib stream at  : %#x" % start)

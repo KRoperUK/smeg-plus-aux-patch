@@ -28,7 +28,7 @@ def crc(b):
 
 
 def members(bin_bytes):
-    tf = tarfile.open(fileobj=io.BytesIO(gzip.decompress(bin_bytes)))
+    tf = tarfile.open(fileobj=io.BytesIO(gzip.decompress(bin_bytes)))  # noqa: SIM115  # reads a BytesIO, not a file descriptor
     return {m.name: tf.extractfile(m).read() for m in tf.getmembers() if m.isfile()}
 
 

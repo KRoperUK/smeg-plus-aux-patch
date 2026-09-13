@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -23,7 +24,7 @@ sys.path.insert(0, HERE)
 
 def up_common(last_source=None, names=None):
     names = names or ["Alien", "Blue_lemon"]
-    t = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
+    t = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)  # noqa: SIM115  # closed on the next line; delete=False so sqlite can reopen it by name
     t.close()
     c = sqlite3.connect(t.name)
     c.execute(
@@ -35,7 +36,7 @@ def up_common(last_source=None, names=None):
         c.execute("insert into UP_Keys values ('supervisor','Last_Source',0,?,'')", (last_source,))
     c.commit()
     c.close()
-    data = open(t.name, "rb").read()
+    data = Path(t.name).read_bytes()
     os.unlink(t.name)
     return data
 

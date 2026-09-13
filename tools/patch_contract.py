@@ -52,6 +52,7 @@ import re
 import struct
 import sys
 import zlib
+from pathlib import Path
 
 BLOCK = 256
 RECORD_SIZE = 212
@@ -110,7 +111,7 @@ def oaep_encrypt(msg, k=BLOCK, hlen=20, seed=None):
 
 
 def inflate(path):
-    raw = open(path, "rb").read()
+    raw = Path(path).read_bytes()
     for start in (0x801, 0x800):
         try:
             d = zlib.decompressobj()
@@ -175,7 +176,7 @@ def encrypt_block(pt, key):
 
 def load_contract(path, keys):
     """Decrypt the contract, trying each candidate key. Returns (header, records, key)."""
-    raw = open(path, "rb").read()
+    raw = Path(path).read_bytes()
     if len(raw) % BLOCK:
         raise SystemExit("contract.dat is not a multiple of %d bytes" % BLOCK)
     errors = []
@@ -262,7 +263,7 @@ def main():
             missing += 1
             new_recs.append(rec)
             continue
-        payload, how = check_of(rec, open(fp, "rb").read())
+        payload, how = check_of(rec, Path(fp).read_bytes())
         updated = rebuild_record(rec, payload)
         if updated != rec:
             changed += 1
@@ -286,7 +287,7 @@ def main():
     blob = encrypt_block(header, key) + b"".join(encrypt_block(r, key) for r in new_recs)
     dest = os.path.join(out_dir, "contract.dat")
     os.makedirs(out_dir, exist_ok=True)
-    open(dest, "w+b").write(blob)
+    Path(dest).write_bytes(blob)
     print("wrote %s (%d bytes, %d records updated)" % (dest, len(blob), changed))
 
     # verify by decrypting what we just wrote

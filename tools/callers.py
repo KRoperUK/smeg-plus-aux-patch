@@ -11,17 +11,21 @@ usage:
 import argparse
 import bisect
 import struct
+from pathlib import Path
 
 
 def load_symbols(path):
     syms = {}
-    for line in open(path, "r", errors="replace"):
-        p = line.split()
-        if len(p) >= 3:
-            try:
-                syms[int(p[0], 16)] = p[2]
-            except ValueError:
-                pass
+    with open(path, "r", errors="replace") as fh:
+        for line in fh:
+            p = line.split()
+            if len(p) >= 3:
+                try:
+                    syms[int(p[0], 16)] = p[2]
+                except ValueError:
+                    # the symbol map has header and section lines whose first
+                    # field is not a hex address; those are not symbols
+                    pass
     return syms
 
 
@@ -36,7 +40,7 @@ def main():
     args = ap.parse_args()
 
     base = int(args.base, 16)
-    img = open(args.image, "rb").read()
+    img = Path(args.image).read_bytes()
     syms = load_symbols(args.symbols)
     addrs = sorted(syms)
 
