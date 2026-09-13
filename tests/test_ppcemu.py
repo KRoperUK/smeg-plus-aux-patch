@@ -192,3 +192,25 @@ def test_call_sequence_renders_names_when_given_them():
     e.stub(CALLEE, 0)
     e.call(BASE)
     assert e.call_sequence({CALLEE: "DoTheThing"}) == ["DoTheThing"]
+
+
+# --- BSS globals -------------------------------------------------------------
+
+def test_bss_globals_can_be_mapped_and_seeded():
+    """Globals past the end of the image are in no file — nothing is mapped there."""
+    bss = BASE + 0x80000                       # beyond the image built below
+    e = ppcemu.Emulator(image({BASE: [li(3, 0), blr()]}, size=0x1000))
+    e.seed_u32(bss, 0xDEADBEEF)
+    assert e.read_u32(bss) == 0xDEADBEEF
+
+
+def test_mapping_an_already_mapped_region_is_harmless():
+    e = emu({BASE: [blr()]})
+    assert e.map(BASE, 4) == BASE              # the image is mapped already
+    assert e.call(BASE) is not None
+
+
+def test_an_unseeded_bss_global_reads_as_zero():
+    """lwz r3, 0(r3) from BSS: the zero page stands in for uninitialised data."""
+    e = ppcemu.Emulator(image({BASE: [0x80630000, blr()]}, size=0x1000))
+    assert e.call(BASE, [BASE + 0x90000]) == 0

@@ -139,6 +139,22 @@ class Emulator:
     def stub(self, addr, behaviour=0):
         self.stubs[addr] = behaviour
 
+    def map(self, addr, size=PAGE):
+        """Map a region explicitly.
+
+        Needed for BSS: globals past the end of the image are not in the file at all, so
+        nothing is mapped there until the code touches one. Seeding such a global before
+        a call means mapping it first.
+        """
+        start = addr & ~(PAGE - 1)
+        end = (addr + size + PAGE - 1) & ~(PAGE - 1)
+        from unicorn import UC_PROT_ALL
+        try:
+            self.uc.mem_map(start, end - start, UC_PROT_ALL)
+        except self._UcError:
+            pass                      # already mapped, in whole or in part
+        return start
+
     def write(self, addr, raw):
         self.uc.mem_write(addr, raw)
 
@@ -150,6 +166,11 @@ class Emulator:
 
     def write_u32(self, addr, value):
         self.uc.mem_write(addr, struct.pack(">I", value & 0xFFFFFFFF))
+
+    def seed_u32(self, addr, value):
+        """Map if necessary, then write — for BSS globals."""
+        self.map(addr, 4)
+        self.write_u32(addr, value)
 
     # -- hooks -------------------------------------------------------------
 

@@ -131,3 +131,4 @@ Building those tests immediately caught two fixture bugs, so it is worth the eff
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the whole firmware fits together
 - [docs/FLASH_CHAIN.md](docs/FLASH_CHAIN.md) — the boot and update chain
 - [docs/PATCHES.md](docs/PATCHES.md) — exact addresses and bytes
+- [docs/AUX_CHAIN.md](docs/AUX_CHAIN.md) — the AUX auto-switch gate by gate, and which claims are executed rather than read

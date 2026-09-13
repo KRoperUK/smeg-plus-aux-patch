@@ -148,6 +148,7 @@ Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and de
 | [`docs/RELEASING.md`](docs/RELEASING.md) | conventional commits and the automatic release/changelog flow |
 | [`docs/RINGTONES.md`](docs/RINGTONES.md) | ring/wait tone formats, the converter, and the Qt studio |
 | [`docs/VERSION_STRINGS.md`](docs/VERSION_STRINGS.md) | what the version screens read, and how the updater gates on them |
+| [`docs/AUX_CHAIN.md`](docs/AUX_CHAIN.md) | the AUX auto-switch gate by gate: what has to happen, what is proven, what is still unknown |
 | [`docs/EMULATION.md`](docs/EMULATION.md) | executing firmware functions without a car — and what that proved about the AUX patches |
 
 ## Development environment

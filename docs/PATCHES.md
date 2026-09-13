@@ -86,7 +86,8 @@ being corrupted.
 | `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | the combined build — flashed successfully, first patch confirmed on hardware |
 | `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | behavioural, no switching |
 | `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate, untested |
-| `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | diagnostic build, **not for driving** |
+| `patches/diagnostic-logmask.json` | forces the global trace mask, so the logging already in the image emits | diagnostic build, **not for driving** |
+| `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | diagnostic build, needs the mask patch too, **not for driving** |
 
 !!! note "Hardware status"
 
@@ -95,11 +96,57 @@ being corrupted.
     and is back in the SRC cycle. The **auto-switch has not been observed working yet** —
     see [Hardware verification](VERIFICATION.md).
 
-### `diagnostic-logging` — a diagnostic, not a fix
+### `diagnostic-logmask` — the one that actually makes logging appear
 
-The application's logging is compiled in but stubbed out. Every log call site tests a global
-and, when logging is off, calls `dummyLogMsg` instead of `Log_msg`. `dummyLogMsg` at
-`0x010346d0` is literally:
+`Log_msg` at `0x02742558` does not write anything until it has cleared a gate:
+
+```c
+mask = GetLogMask();                 // 0x02742530 — reads one global
+if ((mask & level) == 0) return;     // 0x027425e4
+```
+
+That global lives at `0x036d42a8`, which is **past the end of the image** (`0x03604450`) —
+it is BSS, so it is zero when the unit boots. Exactly one instruction in the whole image
+writes it, and it is reachable only through ten thin `SetTrace` wrappers that are vtable
+entries, so nothing in the ordinary start-up path is known to turn logging on.
+
+Replacing `GetLogMask` with a constant makes every level pass:
+
+| build | address | original | patched |
+|---|---|---|---|
+| `NAV` | `0x02742530` | `94 21 ff f0 93 e1 00 0c` (prologue) | `38 60 ff ff 4e 80 00 20` (`li r3,-1 ; blr`) |
+
+Same idiom as the `IsAUXSRCAvailable()` patch — overwrite a prologue with a constant
+return, no code cave, trivially reversible.
+
+This turns on the **~5900 call sites that already call `Log_msg` directly**. One of them is
+the reason this patch exists:
+
+```
+0230331c  HandleAudioAuxInputStatusChnged()
+  …
+  02303574  li  r3, 1                 ; level
+  0230357c  addi r4, r9, -0x2948      ; "HandleAudioAuxInputStatusChnged() -\n"
+  02303590  bctrl Log_msg
+```
+
+The handler logs its own name at level 1 on its **shared return path**. Every one of its
+four exit paths reaches that call, and so does the success path — checked by executing all
+five. So the line appearing at all means the message arrived and the handler ran; its
+absence means the event never got there. That is the standing question in
+[Hardware verification](VERIFICATION.md) and [The AUX chain](AUX_CHAIN.md), answered while
+changing no behaviour whatsoever. Verified in emulation: stock, the line is suppressed at
+the mask test; patched, it is emitted. See [Emulating the firmware](EMULATION.md).
+
+!!! warning "Where does it come out?"
+
+    This makes the logging *happen*. It does not tell you where `Log_msg` sends it. Settle
+    that before building a stick, or you will flash a diagnostic you cannot read.
+
+### `diagnostic-logging` — the other half, and not the useful half alone
+
+The application has a **second** logging mechanism: ~6700 call sites that are compiled out,
+calling `dummyLogMsg` instead of `Log_msg`. `dummyLogMsg` at `0x010346d0` is literally:
 
 ```
 010346d0  li  r3, 0
@@ -112,10 +159,17 @@ So replacing that one instruction with a branch to the real logger:
 |---|---|---|---|
 | `NAV` | `0x010346d0` | `38 60 00 00` (`li r3,0`) | `49 70 de 88` (`b 0x02742558`) |
 
-makes **every** gated log call in the image live. `Log_msg` (`0x02742558`) wants `r3` = level
-and `r4` = format, and the caller has already set both before calling the stub, so the branch
-passes them straight through. The two functions are 24 174 216 bytes apart, inside the 24-bit
-branch range, so no code cave is needed.
+makes those stubbed call sites live. `Log_msg` (`0x02742558`) wants `r3` = level and `r4` =
+format, and the caller has already set both before calling the stub, so the branch passes
+them straight through. The two functions are 24 174 216 bytes apart, inside the 24-bit branch
+range, so no code cave is needed.
+
+!!! failure "On its own this emits nothing"
+
+    The redirected sites land in `Log_msg`, which then tests the trace mask described above
+    and returns. Flash `diagnostic-logmask` as well, or instead — the mask patch alone
+    already covers the AUX question. Both together is roughly 12 600 live log sites, which
+    is a flood rather than a diagnostic.
 
 **Use it to find out whether something is reaching the app** — for example whether DBUS
 message `0xcb` (203), the AUX status trigger, arrives at the media app at all. Turn it on, and

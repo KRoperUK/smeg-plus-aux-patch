@@ -1,11 +1,11 @@
 {
-  "_comment": "Diagnostic scheme: turns the application's own logging back on, by redirecting the no-op logging stub to the real logger (see docs/PATCHES.md). Intended for establishing whether a message is reaching the app at all. Expect a lot of output; do not drive on it. Before flashing, settle where Log_msg actually writes - if it is serial-only this needs routing somewhere readable first.",
+  "_comment": "Diagnostic scheme: makes the application's own logging emit, so you can see whether a message reaches the app. This ships `diagnostic-logmask` alone, deliberately - it forces the global trace mask that gates `Log_msg`, which turns on the ~5900 call sites already compiled in, including `HandleAudioAuxInputStatusChnged()` logging its own name on every exit. That is the open question in docs/VERIFICATION.md, answered without changing any behaviour. Add `diagnostic-logging` as well if you also want the ~6700 stubbed-out sites, but expect a flood. Do not drive on either. Before flashing, settle where Log_msg writes - if it is serial-only this needs routing somewhere readable first.",
   "package": "~/Downloads/SMEG_PLUS_UPG",
   "out": "~/Downloads/SMEG_PLUS_UPG_diag",
   "module": "NAV",
   "app": {
     "patches": [
-      "diagnostic-logging"
+      "diagnostic-logmask"
     ]
   },
   "seal": true

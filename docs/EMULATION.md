@@ -137,7 +137,30 @@ out-param if its proxy (`obj->0xc`) is null — and the handler reads the untouc
 lands in gate 2 as "no change". That is a silent failure mode, and it is the shape of
 failure that matches the symptom.
 
-### 4. One device type is unreachable firmware-wide
+### 4. The logging is gated by one global, and it is zero
+
+`Log_msg` begins `if ((GetLogMask() & level) == 0) return;`. `GetLogMask` reads a single
+global at `0x036d42a8` — past the end of the image, so BSS, so **zero at boot** — and
+exactly one instruction anywhere in the image writes it, through ten `SetTrace` wrappers
+that are vtable entries only.
+
+Emulating `Log_msg` directly: with the mask at 0, it bails after 47 instructions and never
+reaches the formatting code; with the mask forced, it runs 277. Running the AUX handler end
+to end with the real `Log_msg` in the loop shows the same thing at the level that matters —
+stock, the handler's own log line is suppressed; with `diagnostic-logmask` applied, it is
+emitted.
+
+That has a direct consequence for `diagnostic-logging`, which redirects the ~6700
+compiled-out call sites to the real logger: **on its own it emits nothing**, because every
+redirected site lands in `Log_msg` and hits the same gate. The image has two logging
+mechanisms and this one only unblocks the wrong half.
+
+The useful half is the other ~5900 sites that call `Log_msg` directly and are gated only by
+the mask — including `HandleAudioAuxInputStatusChnged()`, which logs its own name at level 1
+on its shared return path. Forcing the mask answers whether that handler is entered without
+changing any behaviour.
+
+### 5. One device type is unreachable firmware-wide
 
 Device **type 4** is registered only when the byte at `this+0x51450` is non-zero. That byte
 is written in exactly **two places in the entire 39 MB image** — both constructors, both
@@ -155,8 +178,17 @@ the standing of the second edit: it is not "a fix that has not been confirmed", 
 that provably cannot fire. Effort spent flashing it is spent.
 
 The open question is upstream of this function entirely: is `HandleAudioAuxInputStatusChnged`
-ever entered, and if it is, does the status query return a signal? Both are answerable with
-the diagnostic build ([Patch reference](PATCHES.md)) rather than with more surgery.
+ever entered, and if it is, does the status query return a signal? The first half is now
+directly answerable — the handler logs its own name on every exit, and
+`patches/diagnostic-logmask.json` makes that line appear. See
+[Patch reference](PATCHES.md).
+
+The whole chain, gate by gate, with the state of each link, is in
+[The AUX chain](AUX_CHAIN.md). The short version: every link is a null check, the four
+inside the handler have now been executed, and the one that has never been observed is the
+first — whether the audio client's listener was ever registered. A single null pointer
+there explains every symptom at once, which makes it the first thing to look for in the
+log.
 
 ## Reproducing this
 
