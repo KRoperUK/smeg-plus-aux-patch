@@ -129,9 +129,10 @@ figures change as partitions are rewritten:
     changed". Settle it with the diagnostic build before flashing anything else.
 
     The handler logs its own name on **every** exit — `HandleAudioAuxInputStatusChnged() -`,
-    at level 1, on the shared return path. `patches/diagnostic-logmask.json` forces the
-    global trace mask that otherwise suppresses it, so the question "is it entered at all?"
-    takes one behaviour-free flash to answer rather than a guess.
+    at level 1, on the shared return path. That would settle "is it entered at all?" in one
+    flash, if the log went anywhere: `Log_msg`'s sink is stubbed out in this build, so the
+    message is formatted and discarded. Giving the firmware an output path is the
+    prerequisite, and is still open — see [Patch reference](PATCHES.md).
 - **Version strings are not a marker.** System Information still reads `SMEG5.43.A.R2` /
   `CD 26482` after a successful patched flash. See
   [Version strings](VERSION_STRINGS.md) for why. Do not use them to decide whether a

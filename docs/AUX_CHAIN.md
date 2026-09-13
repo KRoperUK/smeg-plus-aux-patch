@@ -150,11 +150,13 @@ every one of the four exit paths, plus the success path, reaches that log call. 
 `HandleAudioAuxInputStatusChnged() -` appearing at all means the message arrived and the
 handler ran; its absence means link A is broken.
 
-That is one flash of `patches/diagnostic-logmask.json`, which changes no behaviour — it only
-forces the global trace mask that otherwise suppresses the line. See
+That would be one flash — except that this build has **no log output path**. `Log_msg`'s
+sink is stubbed, so forcing the trace mask formats the message and then discards it, and
+flashing both diagnostic patches makes the logger and the sink call each other. See
 [Patch reference](PATCHES.md).
 
-Settle where `Log_msg` output goes before building the stick.
+So the next step is not a flash. It is finding an output primitive on the unit to point the
+sink at — VxWorks `logMsg` is the shape that fits, and the BSP image contains one.
 
 ## Status of each claim
 
