@@ -3,6 +3,7 @@
 The ELF here is assembled byte by byte in the test — the real ones are vendor binaries and
 never enter the repository.
 """
+
 import os
 import struct
 import sys
@@ -33,36 +34,43 @@ def build_elf(text=b"\x4e\x80\x00\x20", symbols=(), big_endian=True, bitness=1):
         sym_name_off[name] = len(strtab)
         strtab += name.encode() + b"\x00"
 
-    symtab = b"\x00" * 16                       # index 0 is always the null symbol
+    symtab = b"\x00" * 16  # index 0 is always the null symbol
     for sym in symbols:
         name, value, stype = sym[0], sym[1], sym[2]
         size = sym[3] if len(sym) > 3 else 0
         symtab += struct.pack(">IIIBBH", sym_name_off[name], value, size, stype, 0, 1)
 
     cursor = 52
-    text_off = cursor;      cursor += len(text)
-    symtab_off = cursor;    cursor += len(symtab)
-    strtab_off = cursor;    cursor += len(strtab)
-    shstr_off = cursor;     cursor += len(shstrtab)
+    text_off = cursor
+    cursor += len(text)
+    symtab_off = cursor
+    cursor += len(symtab)
+    strtab_off = cursor
+    cursor += len(strtab)
+    shstr_off = cursor
+    cursor += len(shstrtab)
     shoff = cursor
 
     def sh(name, stype, addr, offset, size, link=0, entsize=0):
-        return struct.pack(">IIIIIIIIII", offsets[name], stype, 0, addr, offset, size,
-                           link, 0, 1, entsize)
+        return struct.pack(
+            ">IIIIIIIIII", offsets[name], stype, 0, addr, offset, size, link, 0, 1, entsize
+        )
 
-    headers = (sh("", 0, 0, 0, 0)
-               + sh(".text", SHT_PROGBITS, TEXT_ADDR, text_off, len(text))
-               + sh(".symtab", SHT_SYMTAB, 0, symtab_off, len(symtab), link=3, entsize=16)
-               + sh(".strtab", SHT_STRTAB, 0, strtab_off, len(strtab))
-               + sh(".shstrtab", SHT_STRTAB, 0, shstr_off, len(shstrtab)))
+    headers = (
+        sh("", 0, 0, 0, 0)
+        + sh(".text", SHT_PROGBITS, TEXT_ADDR, text_off, len(text))
+        + sh(".symtab", SHT_SYMTAB, 0, symtab_off, len(symtab), link=3, entsize=16)
+        + sh(".strtab", SHT_STRTAB, 0, strtab_off, len(strtab))
+        + sh(".shstrtab", SHT_STRTAB, 0, shstr_off, len(shstrtab))
+    )
 
     ident = b"\x7fELF" + bytes([bitness, 2 if big_endian else 1, 1]) + b"\x00" * 9
-    ehdr = ident + struct.pack(">HHIIIIIHHHHHH",
-                               1, 20, 1, 0, 0, shoff, 0, 52, 0, 0, 40, 5, 4)
+    ehdr = ident + struct.pack(">HHIIIIIHHHHHH", 1, 20, 1, 0, 0, shoff, 0, 52, 0, 0, 40, 5, 4)
     return ehdr + text + symtab + strtab + shstrtab + headers
 
 
 # --- rejecting things that are not what we want ------------------------------
+
 
 def test_a_non_elf_is_refused():
     with pytest.raises(elfsyms.ElfError, match="not an ELF"):
@@ -82,15 +90,16 @@ def test_64_bit_is_refused():
 
 # --- reading it --------------------------------------------------------------
 
-SYMS = (("_ZN9C_UPGRADE13ManageZAFilesEv", 0x1010, STT_FUNC),
-        ("_ZN9C_UPGRADE11UpgradeTaskEv", 0x1000, STT_FUNC),
-        ("some_global", 0x2000, STT_OBJECT))
+SYMS = (
+    ("_ZN9C_UPGRADE13ManageZAFilesEv", 0x1010, STT_FUNC),
+    ("_ZN9C_UPGRADE11UpgradeTaskEv", 0x1000, STT_FUNC),
+    ("some_global", 0x2000, STT_OBJECT),
+)
 
 
 def test_sections_are_named():
     elf = elfsyms.Elf32BE(build_elf())
-    assert [s["name"] for s in elf.sections] == \
-        ["", ".text", ".symtab", ".strtab", ".shstrtab"]
+    assert [s["name"] for s in elf.sections] == ["", ".text", ".symtab", ".strtab", ".shstrtab"]
     assert elf.section(".text")["addr"] == TEXT_ADDR
     assert elf.section(".nope") is None
 
@@ -101,8 +110,8 @@ def test_symbols_and_functions_are_read():
     assert "_ZN9C_UPGRADE13ManageZAFilesEv" in names
     assert "some_global" in names
     funcs = elf.functions()
-    assert [f["value"] for f in funcs] == [0x1000, 0x1010]      # address order
-    assert all(f["type"] == STT_FUNC for f in funcs)            # the object is excluded
+    assert [f["value"] for f in funcs] == [0x1000, 0x1010]  # address order
+    assert all(f["type"] == STT_FUNC for f in funcs)  # the object is excluded
 
 
 def test_owner_of_an_address_is_the_function_containing_it():
@@ -148,11 +157,15 @@ def test_literals_outside_every_function_are_kept():
 
 # --- demangling --------------------------------------------------------------
 
-@pytest.mark.parametrize("mangled,expected", [
-    ("_ZN9C_UPGRADE13ManageZAFilesEv", "C_UPGRADE::ManageZAFiles()"),
-    ("_ZN9C_UPGRADE15SetCurrentPhaseERK9CMMString", "C_UPGRADE::SetCurrentPhase(…)"),
-    ("_ZN10C_UPG_LOGS8InstanceEv", "C_UPG_LOGS::Instance()"),
-])
+
+@pytest.mark.parametrize(
+    "mangled,expected",
+    [
+        ("_ZN9C_UPGRADE13ManageZAFilesEv", "C_UPGRADE::ManageZAFiles()"),
+        ("_ZN9C_UPGRADE15SetCurrentPhaseERK9CMMString", "C_UPGRADE::SetCurrentPhase(…)"),
+        ("_ZN10C_UPG_LOGS8InstanceEv", "C_UPG_LOGS::Instance()"),
+    ],
+)
 def test_demangles_the_shape_these_binaries_use(mangled, expected):
     assert elfsyms.demangle(mangled) == expected
 

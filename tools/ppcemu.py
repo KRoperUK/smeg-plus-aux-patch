@@ -34,6 +34,7 @@ usage:
     python3 tools/ppcemu.py app_nav.bin --call 0x02247858 --arg 0x60000000 \\
         --patches patches/aux-autoswitch.json --module NAV --trace
 """
+
 import argparse
 import json
 import struct
@@ -45,7 +46,7 @@ STACK_TOP = 0x70000000
 STACK_SIZE = 0x100000
 SCRATCH = 0x60000000
 SCRATCH_SIZE = 0x100000
-RETURN_MAGIC = 0x0BADF00C      # 4-byte aligned; emulation stops when PC lands here
+RETURN_MAGIC = 0x0BADF00C  # 4-byte aligned; emulation stops when PC lands here
 
 
 class EmuError(RuntimeError):
@@ -55,7 +56,7 @@ class EmuError(RuntimeError):
 def _need(mod, what):
     try:
         return __import__(mod)
-    except ImportError:                                      # pragma: no cover
+    except ImportError:  # pragma: no cover
         raise EmuError("%s is needed for %s — `pip install %s`" % (mod, what, mod))
 
 
@@ -79,9 +80,9 @@ class Emulator:
         self.trace = trace
         self.max_calls = max_calls
 
-        self.calls = []          # (call_site, target) in order
-        self.unmapped = []       # (kind, address, size, pc) — state the code expected
-        self.log = []            # disassembly, when trace=True
+        self.calls = []  # (call_site, target) in order
+        self.unmapped = []  # (kind, address, size, pc) — state the code expected
+        self.log = []  # disassembly, when trace=True
         self.stubs = {}
         self.stub_all = False
         self.stub_default = 0
@@ -99,8 +100,9 @@ class Emulator:
         self._md = None
         if trace:
             capstone = _need("capstone", "tracing")
-            self._md = capstone.Cs(capstone.CS_ARCH_PPC,
-                                   capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN)
+            self._md = capstone.Cs(
+                capstone.CS_ARCH_PPC, capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
+            )
 
     # -- setup -------------------------------------------------------------
 
@@ -113,11 +115,11 @@ class Emulator:
         """
         if isinstance(raw, str):
             raw = bytes.fromhex(raw)
-        self.image[addr - self.base:addr - self.base + len(raw)] = raw
+        self.image[addr - self.base : addr - self.base + len(raw)] = raw
         self.uc.mem_write(addr, raw)
         try:
             self.uc.ctl_remove_cache(addr, addr + len(raw) + 4)
-        except (AttributeError, self._UcError):        # older unicorn: no cache control
+        except (AttributeError, self._UcError):  # older unicorn: no cache control
             pass
 
     def apply_patch_file(self, path, module):
@@ -132,8 +134,10 @@ class Emulator:
                 want = bytes.fromhex(expect)
                 got = bytes(self.uc.mem_read(addr, len(want)))
                 if got != want:
-                    raise EmuError("%08x: expected %s, found %s — wrong image or already "
-                                   "patched" % (addr, expect, got.hex()))
+                    raise EmuError(
+                        "%08x: expected %s, found %s — wrong image or already "
+                        "patched" % (addr, expect, got.hex())
+                    )
             self.patch(addr, p["bytes"])
         return variant
 
@@ -150,10 +154,11 @@ class Emulator:
         start = addr & ~(PAGE - 1)
         end = (addr + size + PAGE - 1) & ~(PAGE - 1)
         from unicorn import UC_PROT_ALL
+
         try:
             self.uc.mem_map(start, end - start, UC_PROT_ALL)
         except self._UcError:
-            pass                      # already mapped, in whole or in part
+            pass  # already mapped, in whole or in part
         return start
 
     def write(self, addr, raw):
@@ -178,15 +183,19 @@ class Emulator:
     def _on_unmapped(self, uc, access, address, size, value, _ctx):
         from unicorn import UC_MEM_FETCH_UNMAPPED, UC_MEM_READ_UNMAPPED
         from unicorn import UC_MEM_WRITE_UNMAPPED, UC_PROT_ALL
-        kind = {UC_MEM_READ_UNMAPPED: "read", UC_MEM_WRITE_UNMAPPED: "write",
-                UC_MEM_FETCH_UNMAPPED: "fetch"}.get(access, str(access))
+
+        kind = {
+            UC_MEM_READ_UNMAPPED: "read",
+            UC_MEM_WRITE_UNMAPPED: "write",
+            UC_MEM_FETCH_UNMAPPED: "fetch",
+        }.get(access, str(access))
         self.unmapped.append((kind, address, size, uc.reg_read(self._reg("PC"))))
         if kind == "fetch":
-            return False                    # a real jump into nothing: let it stop
-        try:                                # otherwise map a zero page and carry on,
-            uc.mem_map(address & ~(PAGE - 1), PAGE, UC_PROT_ALL)   # recording what it
-        except self._UcError:               # wanted — that list is the function's
-            pass                            # unstated dependency on machine state
+            return False  # a real jump into nothing: let it stop
+        try:  # otherwise map a zero page and carry on,
+            uc.mem_map(address & ~(PAGE - 1), PAGE, UC_PROT_ALL)  # recording what it
+        except self._UcError:  # wanted — that list is the function's
+            pass  # unstated dependency on machine state
         return True
 
     def _on_code(self, uc, address, size, _ctx):
@@ -209,24 +218,25 @@ class Emulator:
         behaviour = self.stubs.get(target, self.stub_default)
         result = behaviour(uc) if callable(behaviour) else behaviour
         uc.reg_write(self._reg("3"), (result or 0) & 0xFFFFFFFF)
-        uc.reg_write(self._reg("PC"), address + 4)       # skip the call entirely
+        uc.reg_write(self._reg("PC"), address + 4)  # skip the call entirely
         uc.reg_write(self._reg("LR"), address + 4)
 
     def _call_target(self, uc, address):
         """The target of a `bl` or `bctrl` at address, or None if it is not a call."""
         word = struct.unpack(">I", bytes(uc.mem_read(address, 4)))[0]
         op = word >> 26
-        if op == 18 and (word & 1):                               # bl / bla
+        if op == 18 and (word & 1):  # bl / bla
             offset = word & 0x03FFFFFC
             if offset & 0x02000000:
                 offset -= 0x04000000
             return (offset if (word & 2) else address + offset) & 0xFFFFFFFF
-        if op == 19 and ((word >> 1) & 0x3FF) == 528 and (word & 1):   # bctrl
+        if op == 19 and ((word >> 1) & 0x3FF) == 528 and (word & 1):  # bctrl
             return uc.reg_read(self._reg("CTR"))
         return None
 
     def _reg(self, name):
         from unicorn import ppc_const
+
         return getattr(ppc_const, "UC_PPC_REG_%s" % name)
 
     # -- running -----------------------------------------------------------
@@ -235,7 +245,7 @@ class Emulator:
         """Call a function. Returns r3. Stops when it returns, faults or runs too long."""
         uc = self.uc
         sp = STACK_TOP - 0x1000
-        uc.mem_write(sp - 0x800, b"\x00" * 0x1000)        # a clean frame each time
+        uc.mem_write(sp - 0x800, b"\x00" * 0x1000)  # a clean frame each time
         uc.reg_write(self._reg("1"), sp)
         uc.reg_write(self._reg("LR"), RETURN_MAGIC)
         for i, value in enumerate(args):
@@ -265,10 +275,15 @@ def main():
     ap.add_argument("--arg", action="append", default=[], help="register argument (repeatable)")
     ap.add_argument("--patches", help="a patches/*.json to apply first")
     ap.add_argument("--module", default="NAV", help="which variant of --patches to apply")
-    ap.add_argument("--stub-all", action="store_true",
-                    help="stub every call instead of executing it")
-    ap.add_argument("--stub", action="append", default=[],
-                    help="ADDR=VALUE — stub one callee's return value (repeatable)")
+    ap.add_argument(
+        "--stub-all", action="store_true", help="stub every call instead of executing it"
+    )
+    ap.add_argument(
+        "--stub",
+        action="append",
+        default=[],
+        help="ADDR=VALUE — stub one callee's return value (repeatable)",
+    )
     ap.add_argument("--trace", action="store_true", help="print the instructions executed")
     args = ap.parse_args()
 
@@ -287,12 +302,10 @@ def main():
     if args.trace:
         print("\n".join(emu.log))
     print("r3          : 0x%08x (%d)" % (r3, struct.unpack(">i", struct.pack(">I", r3))[0]))
-    print("instructions: %d" % len(emu.log) if args.trace
-          else "instructions: (use --trace)")
+    print("instructions: %d" % len(emu.log) if args.trace else "instructions: (use --trace)")
     print("calls       : %s" % (", ".join("%08x" % t for _, t in emu.calls) or "none"))
     if emu.unmapped:
-        print("unmapped    : %s" % ", ".join(
-            "%s@%08x" % (k, a) for k, a, _, _ in emu.unmapped[:8]))
+        print("unmapped    : %s" % ", ".join("%s@%08x" % (k, a) for k, a, _, _ in emu.unmapped[:8]))
     if emu.error:
         print("stopped     : %s" % emu.error)
     return 0

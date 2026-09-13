@@ -171,6 +171,16 @@ uv pip install --python .venv/bin/python PySide6 pytest zensical ruff
 
 Or use plain `pip install -r requirements-dev.txt` for the tests alone.
 
+Install the git hooks once — `pre-commit install` wires all three types:
+
+```sh
+pre-commit install       # pre-commit, commit-msg and pre-push
+```
+
+Lint, hygiene and the no-firmware guard run on every commit; the tests, a strict docs build
+and a `bandit` security scan run on push, so a push that would go red in CI fails locally
+first. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Working with AI agents
 
 Agents should start at [`AGENTS.md`](AGENTS.md): the hard rules (no vendor firmware,

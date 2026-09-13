@@ -29,6 +29,7 @@ usage:
     python3 tools/ringtones.py stage song.ogg --slot ring5 --tree media/
     python3 tools/ringtones.py probe some.wav
 """
+
 import argparse
 import os
 import re
@@ -39,8 +40,21 @@ import wave
 
 RING_DIR = "ring_tones"
 WAIT_DIR = "wait_tones"
-WAIT_LANGS = ["CRC", "CZC", "DUN", "ENG", "FRF", "GED", "HRH", "ITI",
-              "PLP", "PTP", "RUR", "SPE", "TRT"]
+WAIT_LANGS = [
+    "CRC",
+    "CZC",
+    "DUN",
+    "ENG",
+    "FRF",
+    "GED",
+    "HRH",
+    "ITI",
+    "PLP",
+    "PTP",
+    "RUR",
+    "SPE",
+    "TRT",
+]
 
 # slot -> (relative path template, channels, sample rate)
 SLOTS = {}
@@ -97,12 +111,26 @@ def convert(src, dst, channels, rate):
             "ffmpeg is required to convert %s.\n"
             "  target: %d Hz, 16-bit, %s\n"
             "  Install ffmpeg (e.g. `brew install ffmpeg`) or supply a WAV that is "
-            "already in the target format." % (describe(src), rate,
-                                               "mono" if channels == 1 else "stereo"))
+            "already in the target format."
+            % (describe(src), rate, "mono" if channels == 1 else "stereo")
+        )
 
-    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-           "-i", src, "-ac", str(channels), "-ar", str(rate),
-           "-c:a", "pcm_s16le", dst]
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        src,
+        "-ac",
+        str(channels),
+        "-ar",
+        str(rate),
+        "-c:a",
+        "pcm_s16le",
+        dst,
+    ]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0 or not os.path.exists(dst):
         sys.exit("ffmpeg failed:\n%s" % (r.stderr.strip() or r.stdout.strip()))
@@ -113,8 +141,7 @@ def cmd_list(_args):
     print("%-12s %-42s %s" % ("SLOT", "FILE", "FORMAT"))
     for name in sorted(SLOTS, key=lambda k: (k.startswith("wait"), k)):
         rel, ch, rate = SLOTS[name]
-        print("%-12s %-42s %d Hz, 16-bit, %s"
-              % (name, rel, rate, "mono" if ch == 1 else "stereo"))
+        print("%-12s %-42s %d Hz, 16-bit, %s" % (name, rel, rate, "mono" if ch == 1 else "stereo"))
 
 
 def cmd_probe(args):
@@ -124,9 +151,11 @@ def cmd_probe(args):
 def require_media_tree(tree):
     """A media tree must have at least one of the tone directories, or we are pointed wrong."""
     if not any(os.path.isdir(os.path.join(tree, d)) for d in (RING_DIR, WAIT_DIR)):
-        sys.exit("%s does not look like an extracted media partition (no %s/ or %s/)\n"
-                 "Pass the directory that contains them, not the package folder."
-                 % (tree, RING_DIR, WAIT_DIR))
+        sys.exit(
+            "%s does not look like an extracted media partition (no %s/ or %s/)\n"
+            "Pass the directory that contains them, not the package folder."
+            % (tree, RING_DIR, WAIT_DIR)
+        )
 
 
 def cmd_export(args):
@@ -159,8 +188,10 @@ def cmd_stage(args):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     how = convert(args.input, dst, ch, rate)
     print("staged %s -> %s (%s)\n  %s" % (args.input, dst, how, describe(dst)))
-    print("\nThe WAV lives inside the media partition (system.bin). Repacking that tar is\n"
-          "tracked separately - see docs/MEDIA_PARTITION.md.")
+    print(
+        "\nThe WAV lives inside the media partition (system.bin). Repacking that tar is\n"
+        "tracked separately - see docs/MEDIA_PARTITION.md."
+    )
 
 
 # The names the phone UI shows are not in the WAVs — they are rows in
@@ -173,6 +204,7 @@ NAME_KEY = "Ringing_List"
 
 def _name_db(tree):
     import sqlite3
+
     path = os.path.join(tree, UP_COMMON)
     if not os.path.exists(path):
         sys.exit("no %s in this tree — is it an extracted media partition?" % UP_COMMON)
@@ -185,11 +217,16 @@ def ring_names(tree):
     if not os.path.exists(path):
         return []
     import sqlite3
+
     con = sqlite3.connect(path)
     try:
-        return [r[0] for r in con.execute(
-            "select StringValue from UP_Keys where Section=? and Name=? order by Idx",
-            (NAME_SECTION, NAME_KEY))]
+        return [
+            r[0]
+            for r in con.execute(
+                "select StringValue from UP_Keys where Section=? and Name=? order by Idx",
+                (NAME_SECTION, NAME_KEY),
+            )
+        ]
     finally:
         con.close()
 
@@ -200,10 +237,12 @@ def set_ring_name(tree, index, name):
     try:
         cur = con.execute(
             "update UP_Keys set StringValue=? where Section=? and Name=? and Idx=?",
-            (name, NAME_SECTION, NAME_KEY, index))
+            (name, NAME_SECTION, NAME_KEY, index),
+        )
         if cur.rowcount != 1:
-            sys.exit("expected to update exactly one row at Idx=%d, updated %d"
-                     % (index, cur.rowcount))
+            sys.exit(
+                "expected to update exactly one row at Idx=%d, updated %d" % (index, cur.rowcount)
+            )
         con.commit()
     finally:
         con.close()
@@ -234,11 +273,14 @@ def cmd_rename(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("list", help="show the slots and the format each expects").set_defaults(fn=cmd_list)
+    sub.add_parser("list", help="show the slots and the format each expects").set_defaults(
+        fn=cmd_list
+    )
 
     p = sub.add_parser("probe", help="describe an audio file")
     p.add_argument("input")

@@ -21,6 +21,7 @@ usage:
     python3 tools/elfsyms.py SMEG_PLUS_UPG/upgrade.out --class C_UPGRADE
     python3 tools/elfsyms.py SMEG_PLUS_UPG/upgrade.out --strings Phase
 """
+
 import argparse
 import re
 import struct
@@ -43,16 +44,39 @@ class Elf32BE:
         if blob[4] != 1 or blob[5] != 2:
             raise ElfError("not 32-bit big-endian (this is a PowerPC target)")
         self.blob = blob
-        (self.e_type, self.e_machine, _, self.e_entry, _, self.e_shoff, _, _, _, _,
-         self.e_shentsize, self.e_shnum, self.e_shstrndx) = struct.unpack_from(
-            ">HHIIIIIHHHHHH", blob, 16)
+        (
+            self.e_type,
+            self.e_machine,
+            _,
+            self.e_entry,
+            _,
+            self.e_shoff,
+            _,
+            _,
+            _,
+            _,
+            self.e_shentsize,
+            self.e_shnum,
+            self.e_shstrndx,
+        ) = struct.unpack_from(">HHIIIIIHHHHHH", blob, 16)
         self.sections = []
         for i in range(self.e_shnum):
             off = self.e_shoff + i * self.e_shentsize
-            (name, stype, flags, addr, offset, size, link, info, align,
-             entsize) = struct.unpack_from(">IIIIIIIIII", blob, off)
-            self.sections.append(dict(name_off=name, type=stype, addr=addr, offset=offset,
-                                      size=size, link=link, entsize=entsize, index=i))
+            (name, stype, flags, addr, offset, size, link, info, align, entsize) = (
+                struct.unpack_from(">IIIIIIIIII", blob, off)
+            )
+            self.sections.append(
+                dict(
+                    name_off=name,
+                    type=stype,
+                    addr=addr,
+                    offset=offset,
+                    size=size,
+                    link=link,
+                    entsize=entsize,
+                    index=i,
+                )
+            )
         shstr = self.sections[self.e_shstrndx]
         for s in self.sections:
             s["name"] = self._cstr(shstr["offset"] + s["name_off"])
@@ -74,20 +98,30 @@ class Elf32BE:
     def symbols(self):
         out = []
         for sec in self.sections:
-            if sec["type"] != 2:                      # SHT_SYMTAB
+            if sec["type"] != 2:  # SHT_SYMTAB
                 continue
             strtab = self.sections[sec["link"]]
             for i in range(sec["size"] // SYM_ENTRY):
                 off = sec["offset"] + i * SYM_ENTRY
-                name, value, size, info, other, shndx = struct.unpack_from(">IIIBBH",
-                                                                          self.blob, off)
-                out.append(dict(name=self._cstr(strtab["offset"] + name), value=value,
-                                size=size, type=info & 0xF, bind=info >> 4, shndx=shndx))
+                name, value, size, info, other, shndx = struct.unpack_from(
+                    ">IIIBBH", self.blob, off
+                )
+                out.append(
+                    dict(
+                        name=self._cstr(strtab["offset"] + name),
+                        value=value,
+                        size=size,
+                        type=info & 0xF,
+                        bind=info >> 4,
+                        shndx=shndx,
+                    )
+                )
         return out
 
     def functions(self):
-        return sorted((s for s in self.symbols() if s["type"] == STT_FUNC),
-                      key=lambda s: s["value"])
+        return sorted(
+            (s for s in self.symbols() if s["type"] == STT_FUNC), key=lambda s: s["value"]
+        )
 
     def literals(self, section=".text", minlen=4, maxlen=160, skip_code=True):
         """String literals, which these objects keep at the tail of .text, not in .rodata.
@@ -105,12 +139,13 @@ class Elf32BE:
         """
         extents = []
         if skip_code:
-            extents = sorted((f["value"], f["value"] + f["size"])
-                             for f in self.functions() if f["size"])
+            extents = sorted(
+                (f["value"], f["value"] + f["size"]) for f in self.functions() if f["size"]
+            )
         sec = self.section(section)
         if sec is None:
             return []
-        blob = self.blob[sec["offset"]:sec["offset"] + sec["size"]]
+        blob = self.blob[sec["offset"] : sec["offset"] + sec["size"]]
         out = []
         for m in re.finditer(rb"[\x20-\x7e]{%d,%d}\x00" % (minlen, maxlen), blob):
             if m.start() and blob[m.start() - 1] != 0:
@@ -144,8 +179,8 @@ def demangle(name):
             break
         n = int(lm.group(1))
         start = lm.end()
-        parts.append(rest[start:start + n])
-        rest = rest[start + n:]
+        parts.append(rest[start : start + n])
+        rest = rest[start + n :]
     if not parts:
         return name
     tail = "()" if rest.startswith("Ev") else "(…)"
@@ -156,10 +191,16 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("elf", help="an .out from the package root")
     ap.add_argument("--grep", help="only symbols whose name contains this (case-insensitive)")
-    ap.add_argument("--cls", "--class", dest="cls",
-                    help="only methods of this C++ class, in address order")
-    ap.add_argument("--strings", nargs="?", const="", metavar="MATCH",
-                    help="list string literals instead, optionally filtered")
+    ap.add_argument(
+        "--cls", "--class", dest="cls", help="only methods of this C++ class, in address order"
+    )
+    ap.add_argument(
+        "--strings",
+        nargs="?",
+        const="",
+        metavar="MATCH",
+        help="list string literals instead, optionally filtered",
+    )
     ap.add_argument("--raw", action="store_true", help="do not demangle")
     args = ap.parse_args()
 
@@ -171,31 +212,38 @@ def main():
 
     syms = elf.symbols()
     funcs = [s for s in syms if s["type"] == STT_FUNC]
-    print("%s: %d sections, %d symbols, %d functions"
-          % (args.elf, len(elf.sections), len(syms), len(funcs)))
-    print("sections: %s" % ", ".join("%s(%d)" % (s["name"], s["size"])
-                                     for s in elf.sections if s["size"]))
+    print(
+        "%s: %d sections, %d symbols, %d functions"
+        % (args.elf, len(elf.sections), len(syms), len(funcs))
+    )
+    print(
+        "sections: %s"
+        % ", ".join("%s(%d)" % (s["name"], s["size"]) for s in elf.sections if s["size"])
+    )
 
     if args.strings is not None:
-        lits = [(a, s) for a, s in elf.literals()
-                if not args.strings or args.strings.lower() in s.lower()]
-        print("\n%d string literals%s:"
-              % (len(lits), " matching %r" % args.strings if args.strings else ""))
+        lits = [
+            (a, s)
+            for a, s in elf.literals()
+            if not args.strings or args.strings.lower() in s.lower()
+        ]
+        print(
+            "\n%d string literals%s:"
+            % (len(lits), " matching %r" % args.strings if args.strings else "")
+        )
         for addr, s in lits[:400]:
             print("  %08x  %r" % (addr, s))
         return 0
 
     if args.cls:
         prefix = "_ZN%d%s" % (len(args.cls), args.cls)
-        hits = sorted((s for s in funcs if s["name"].startswith(prefix)),
-                      key=lambda s: s["value"])
+        hits = sorted((s for s in funcs if s["name"].startswith(prefix)), key=lambda s: s["value"])
         print("\n%s: %d methods, in address order:" % (args.cls, len(hits)))
     else:
         hits = sorted(funcs, key=lambda s: s["value"])
         if args.grep:
             hits = [s for s in hits if args.grep.lower() in s["name"].lower()]
-        print("\n%d functions%s:"
-              % (len(hits), " matching %r" % args.grep if args.grep else ""))
+        print("\n%d functions%s:" % (len(hits), " matching %r" % args.grep if args.grep else ""))
     for s in hits[:600]:
         print("  %08x  %s" % (s["value"], s["name"] if args.raw else demangle(s["name"])))
     if len(hits) > 600:

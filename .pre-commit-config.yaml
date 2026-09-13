@@ -1,6 +1,14 @@
-# Hooks run on every commit. The point of the local ones is that a commit which breaks the
-# tests or the docs build cannot be made — a docs commit with a bad anchor link was pushed
-# once because the strict build was not run first.
+# Two gates, deliberately split by cost.
+#
+#   pre-commit  fast enough to run on every commit: hygiene, lint, and the one check that
+#               must never be skipped — no vendor firmware in the tree.
+#   pre-push    what CI would tell you twenty minutes later: the tests, a strict docs build,
+#               and a security scan. A push that would go red should fail here instead.
+#
+# Install both (and the commit-msg hook) with `pre-commit install --install-hooks`;
+# `default_install_hook_types` below means a bare `pre-commit install` wires all three.
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -14,30 +22,26 @@ repos:
       - id: mixed-line-ending
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.16.7
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
-      # ruff-format is deliberately NOT enabled: the existing tree is not format-clean
-      # (18 files would change), and a hook that reformats unrelated files on every
-      # commit is worse than no hook. Run it as its own commit if you want it.
+      - id: ruff-format
+
+  # --- pre-push: the slow ones -------------------------------------------------------
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.9.4
+    hooks:
+      - id: bandit
+        name: security scan (bandit)
+        stages: [pre-push]
+        args: ["-q", "-c", "pyproject.toml"]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: ^tests/          # asserts are the point of a test file
 
   - repo: local
     hooks:
-      - id: pytest
-        name: tests
-        entry: sh -c 'PY=.venv/bin/python; [ -x "$PY" ] || PY=python3; exec "$PY" -m pytest -q'
-        language: system
-        pass_filenames: false
-        always_run: true
-
-      - id: docs-strict
-        name: docs build (strict)
-        entry: sh -c 'PY=.venv/bin/python; [ -x "$PY" ] || PY=python3; exec "$PY" -m zensical build --strict'
-        language: system
-        pass_filenames: false
-        always_run: true
-
       - id: no-firmware
         name: no vendor firmware staged
         entry: tools/check_no_firmware.sh
@@ -50,3 +54,19 @@ repos:
         entry: tools/check_commit_msg.py
         language: script
         stages: [commit-msg]
+
+      - id: pytest
+        name: tests
+        stages: [pre-push]
+        entry: sh -c 'PY=.venv/bin/python; [ -x "$PY" ] || PY=python3; exec "$PY" -m pytest -q'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: docs-strict
+        name: docs build (strict)
+        stages: [pre-push]
+        entry: sh -c 'PY=.venv/bin/python; [ -x "$PY" ] || PY=python3; exec "$PY" -m zensical build --strict'
+        language: system
+        pass_filenames: false
+        always_run: true

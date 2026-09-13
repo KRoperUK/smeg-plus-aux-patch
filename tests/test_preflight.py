@@ -3,6 +3,7 @@
 The point of this tool is that it fails loudly on the things that have cost car trips, so
 the tests are about the failures it must catch rather than the happy path.
 """
+
 import gzip
 import io
 import json
@@ -20,19 +21,18 @@ sys.path.insert(0, TOOLS)
 sys.path.insert(0, HERE)
 
 
-
 def up_common(last_source=None, names=None):
     names = names or ["Alien", "Blue_lemon"]
     t = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
     t.close()
     c = sqlite3.connect(t.name)
-    c.execute("create table UP_Keys (Section text, Name text, Idx int,"
-              " IntValue int, StringValue text)")
+    c.execute(
+        "create table UP_Keys (Section text, Name text, Idx int, IntValue int, StringValue text)"
+    )
     for i, n in enumerate(names):
         c.execute("insert into UP_Keys values ('phone','Ringing_List',?,NULL,?)", (i, n))
     if last_source is not None:
-        c.execute("insert into UP_Keys values ('supervisor','Last_Source',0,?,'')",
-                  (last_source,))
+        c.execute("insert into UP_Keys values ('supervisor','Last_Source',0,?,'')", (last_source,))
     c.commit()
     c.close()
     data = open(t.name, "rb").read()
@@ -63,9 +63,11 @@ def make_pkg(tmp_path, last_source=None, user_data=False):
 
 
 def run(pkg, *extra):
-    return subprocess.run([sys.executable, os.path.join(TOOLS, "preflight.py"),
-                           "--package", str(pkg), *extra],
-                          capture_output=True, text=True)
+    return subprocess.run(
+        [sys.executable, os.path.join(TOOLS, "preflight.py"), "--package", str(pkg), *extra],
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_flags_a_source_that_is_not_a_real_source(tmp_path):

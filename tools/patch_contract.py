@@ -44,6 +44,7 @@ package), one path is enough. The regenerated `contract.dat` is written to `--ou
 
 prints what it would change without writing.
 """
+
 import argparse
 import hashlib
 import os
@@ -57,15 +58,16 @@ RECORD_SIZE = 212
 HEADER_MSG = b"19/09/2017"
 MAGIC = bytes.fromhex("deadbeefbadef00d")
 UNUSED = 0xFFFEFFFE
-DEFAULT_E = 65537          # universal RSA public exponent; verified against this firmware
+DEFAULT_E = 65537  # universal RSA public exponent; verified against this firmware
 
 
 # --------------------------------------------------------------------- OAEP
 
+
 def mgf1(seed, length, hlen=20):
     out, counter = b"", 0
     while len(out) < length:
-        out += hashlib.sha1(seed + counter.to_bytes(4, "big")).digest()
+        out += hashlib.sha1(seed + counter.to_bytes(4, "big"), usedforsecurity=False).digest()
         counter += 1
     return out[:length]
 
@@ -74,10 +76,10 @@ def oaep_decrypt(em, hlen=20):
     """Strip RSA-OAEP (SHA-1) padding. Raises ValueError if malformed."""
     if len(em) < 2 * hlen + 2 or em[0] != 0:
         raise ValueError("not an OAEP block")
-    masked_seed, masked_db = em[1:1 + hlen], em[1 + hlen:]
+    masked_seed, masked_db = em[1 : 1 + hlen], em[1 + hlen :]
     seed = bytes(a ^ b for a, b in zip(masked_seed, mgf1(masked_db, hlen)))
     db = bytes(a ^ b for a, b in zip(masked_db, mgf1(seed, len(masked_db))))
-    h = hashlib.sha1(b"").digest()
+    h = hashlib.sha1(b"", usedforsecurity=False).digest()
     if db[:hlen] != h:
         raise ValueError("OAEP label hash mismatch")
     i = hlen
@@ -85,14 +87,19 @@ def oaep_decrypt(em, hlen=20):
         i += 1
     if i >= len(db) or db[i] != 1:
         raise ValueError("OAEP separator not found")
-    return db[i + 1:]
+    return db[i + 1 :]
 
 
 def oaep_encrypt(msg, k=BLOCK, hlen=20, seed=None):
     """Apply RSA-OAEP (SHA-1) padding."""
     if len(msg) > k - 2 * hlen - 2:
         raise ValueError("message too long for OAEP")
-    db = hashlib.sha1(b"").digest() + b"\x00" * (k - len(msg) - 2 * hlen - 2) + b"\x01" + msg
+    db = (
+        hashlib.sha1(b"", usedforsecurity=False).digest()
+        + b"\x00" * (k - len(msg) - 2 * hlen - 2)
+        + b"\x01"
+        + msg
+    )
     seed = seed or os.urandom(hlen)
     masked_db = bytes(a ^ b for a, b in zip(db, mgf1(seed, k - hlen - 1)))
     masked_seed = bytes(a ^ b for a, b in zip(seed, mgf1(masked_db, hlen)))
@@ -100,6 +107,7 @@ def oaep_encrypt(msg, k=BLOCK, hlen=20, seed=None):
 
 
 # ------------------------------------------------------------------ key hunt
+
 
 def inflate(path):
     raw = open(path, "rb").read()
@@ -125,6 +133,7 @@ def find_keys(app_image):
     real key from a coincidental product.
     """
     import math
+
     lits = {}
     for m in re.finditer(rb"(?<!\d)\d{100,}(?!\d)", app_image):
         v = int(m.group())
@@ -163,6 +172,7 @@ def encrypt_block(pt, key):
 
 # ------------------------------------------------------------------ contract
 
+
 def load_contract(path, keys):
     """Decrypt the contract, trying each candidate key. Returns (header, records, key)."""
     raw = open(path, "rb").read()
@@ -171,7 +181,7 @@ def load_contract(path, keys):
     errors = []
     for key in keys:
         try:
-            blocks = [decrypt_block(raw[i:i + BLOCK], key) for i in range(0, len(raw), BLOCK)]
+            blocks = [decrypt_block(raw[i : i + BLOCK], key) for i in range(0, len(raw), BLOCK)]
         except ValueError as e:
             errors.append(str(e))
             continue
@@ -190,7 +200,7 @@ def check_of(rec, data):
         return struct.pack(">I", zlib.crc32(data) & 0xFFFFFFFF), "crc32"
     if ctype == 3:
         length, offset = struct.unpack_from(">II", rec, 64)
-        return data[offset:offset + length], "spot %d@%d" % (length, offset)
+        return data[offset : offset + length], "spot %d@%d" % (length, offset)
     raise SystemExit("unknown CheckType %d" % ctype)
 
 
@@ -208,17 +218,24 @@ def resolve(package, rec_path):
     """Map a contract path ('/SMEG_PLUS_UPG/NAV/...') onto the package directory."""
     rel = rec_path.lstrip("/")
     if rel.startswith("SMEG_PLUS_UPG/"):
-        rel = rel[len("SMEG_PLUS_UPG/"):]
+        rel = rel[len("SMEG_PLUS_UPG/") :]
     return os.path.join(package, rel)
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--package", required=True,
-                    help="package directory holding contract.dat and the module images")
-    ap.add_argument("--module", default="NAV",
-                    help="module whose app image carries the key material (default NAV)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--package",
+        required=True,
+        help="package directory holding contract.dat and the module images",
+    )
+    ap.add_argument(
+        "--module",
+        default="NAV",
+        help="module whose app image carries the key material (default NAV)",
+    )
     ap.add_argument("--out", help="where to write the new contract.dat (default: --package)")
     ap.add_argument("--show", action="store_true", help="report changes without writing")
     args = ap.parse_args()
@@ -239,7 +256,7 @@ def main():
     changed, missing, kept = 0, 0, 0
     new_recs = []
     for rec in recs:
-        path = rec[:rec.index(b"\0")].decode()
+        path = rec[: rec.index(b"\0")].decode()
         fp = resolve(args.package, path)
         if not os.path.exists(fp):
             missing += 1
@@ -251,8 +268,10 @@ def main():
             changed += 1
             old = rec[72:76].hex() if rec[63] != 3 else "(bytes)"
             new = updated[72:76].hex() if rec[63] != 3 else "(bytes)"
-            print("  %-46s type %d  %-12s %s -> %s"
-                  % (path.replace("/SMEG_PLUS_UPG/", ""), rec[63], how, old, new))
+            print(
+                "  %-46s type %d  %-12s %s -> %s"
+                % (path.replace("/SMEG_PLUS_UPG/", ""), rec[63], how, old, new)
+            )
         else:
             kept += 1
         new_recs.append(updated)
@@ -273,10 +292,17 @@ def main():
     # verify by decrypting what we just wrote
     _, check, _ = load_contract(dest, [key])
     for rec, c in zip(new_recs, check):
-        fp = resolve(args.package, c[:c.index(b"\0")].decode())
+        fp = resolve(args.package, c[: c.index(b"\0")].decode())
         if os.path.exists(fp):
-            payload, _ = check_of(c, open(fp, "rb").read())
-            assert rebuild_record(c, payload) == c, "verification failed"
+            with open(fp, "rb") as fh:
+                payload, _ = check_of(c, fh.read())
+            # not an assert: this is the check that the re-sealed contract matches the
+            # files, and `python -O` would remove it silently
+            if rebuild_record(c, payload) != c:
+                sys.exit(
+                    "verification failed for %s — the contract does not match the "
+                    "file on disk; do not flash this package" % fp
+                )
     print("verified: the new contract decrypts cleanly and matches the files")
 
 

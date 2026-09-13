@@ -22,6 +22,7 @@ usage:
     python3 tools/assets.py --tree media replace --asset radio-logos --with my-logos/
     python3 tools/assets.py --tree media replace --asset ring1 --with piano.mp3
 """
+
 import argparse
 import glob as globmod
 import os
@@ -37,70 +38,193 @@ sys.path.insert(0, HERE)
 #   image  copied, and optionally checked for the right size
 #   file   copied verbatim
 GROUPS = [
-    ("sounds", "Ring tones — the five the phone UI offers",
-     "ring_tones/ring[1-5]RT.wav", "audio", ['ringtones', 'ring tones', 'rings']),
-    ("sounds", "Call and status tones",
-     "ring_tones/{busy,error,ok,ko}RT.wav", "audio", ['status tones', 'call tones']),
-    ("sounds", "Call-hold tones, one per language",
-     "wait_tones/MM_HoldOn_*_8kHz.wav", "audio", ['wait tones', 'hold music', 'call hold']),
-    ("sounds", "Touch feedback — buttons, menus, keyboard",
-     "Data_base/boardfs/GUI_STYLE/GUIS_RESSOURCES/gui_sounds/*.wav", "audio", ['interface sounds', 'gui sounds', 'ui sounds', 'touch sounds']),
-    ("logos", "Radio station logos — 199 stations in three sizes",
-     "Data_base/radio/logo/*/*.png", "image", ['radio logos', 'station logos', 'logos']),
-    ("logos", "Marque logo packages — Peugeot, Citroen, DS",
-     "Data_base/graphics/logo/*.pkg", "pkg", ['marque logos', 'brand logos']),
-    ("logos", "iPod logos, one per marque",
-     "Data_base/graphics/logo/iPodLogo/*.bmp", "image", ['ipod logos']),
-    ("graphics", "Browser portal artwork",
-     "internet_default/portal/*.png", "image", ['portal', 'browser']),
-    ("graphics", "Browser status pictograms",
-     "internet_default/PMS_picto/*.png", "image", ['pictograms', 'pictos']),
-    ("graphics", "Browser portal error image",
-     "internet_default/config/*.png", "image", ['portal error']),
-    ("graphics", "Front-panel animation frames",
-     "AVR_img/*.png", "image", ['front panel', 'avr', 'animation']),
-    ("fonts", "Interface typefaces",
-     "Data_base/TMP/lib/fonts/*.ttf", "file", ['fonts', 'typefaces', 'ttf']),
-    ("strings", "Interface text, one file per language",
-     "Data_base/boardfs/GUI_STYLE/GUIS_RESSOURCES/gui_texts/*.xml.bin", "file", ['strings', 'texts', 'language']),
-    ("config", "Layout and skin configuration",
-     "Data_base/boardfs/GUI_STYLE/*.xml", "file", ['config', 'layout']),
+    (
+        "sounds",
+        "Ring tones — the five the phone UI offers",
+        "ring_tones/ring[1-5]RT.wav",
+        "audio",
+        ["ringtones", "ring tones", "rings"],
+    ),
+    (
+        "sounds",
+        "Call and status tones",
+        "ring_tones/{busy,error,ok,ko}RT.wav",
+        "audio",
+        ["status tones", "call tones"],
+    ),
+    (
+        "sounds",
+        "Call-hold tones, one per language",
+        "wait_tones/MM_HoldOn_*_8kHz.wav",
+        "audio",
+        ["wait tones", "hold music", "call hold"],
+    ),
+    (
+        "sounds",
+        "Touch feedback — buttons, menus, keyboard",
+        "Data_base/boardfs/GUI_STYLE/GUIS_RESSOURCES/gui_sounds/*.wav",
+        "audio",
+        ["interface sounds", "gui sounds", "ui sounds", "touch sounds"],
+    ),
+    (
+        "logos",
+        "Radio station logos — 199 stations in three sizes",
+        "Data_base/radio/logo/*/*.png",
+        "image",
+        ["radio logos", "station logos", "logos"],
+    ),
+    (
+        "logos",
+        "Marque logo packages — Peugeot, Citroen, DS",
+        "Data_base/graphics/logo/*.pkg",
+        "pkg",
+        ["marque logos", "brand logos"],
+    ),
+    (
+        "logos",
+        "iPod logos, one per marque",
+        "Data_base/graphics/logo/iPodLogo/*.bmp",
+        "image",
+        ["ipod logos"],
+    ),
+    (
+        "graphics",
+        "Browser portal artwork",
+        "internet_default/portal/*.png",
+        "image",
+        ["portal", "browser"],
+    ),
+    (
+        "graphics",
+        "Browser status pictograms",
+        "internet_default/PMS_picto/*.png",
+        "image",
+        ["pictograms", "pictos"],
+    ),
+    (
+        "graphics",
+        "Browser portal error image",
+        "internet_default/config/*.png",
+        "image",
+        ["portal error"],
+    ),
+    (
+        "graphics",
+        "Front-panel animation frames",
+        "AVR_img/*.png",
+        "image",
+        ["front panel", "avr", "animation"],
+    ),
+    (
+        "fonts",
+        "Interface typefaces",
+        "Data_base/TMP/lib/fonts/*.ttf",
+        "file",
+        ["fonts", "typefaces", "ttf"],
+    ),
+    (
+        "strings",
+        "Interface text, one file per language",
+        "Data_base/boardfs/GUI_STYLE/GUIS_RESSOURCES/gui_texts/*.xml.bin",
+        "file",
+        ["strings", "texts", "language"],
+    ),
+    (
+        "config",
+        "Layout and skin configuration",
+        "Data_base/boardfs/GUI_STYLE/*.xml",
+        "file",
+        ["config", "layout"],
+    ),
 ]
 
 # Things whose names mean nothing on their own.
 REPLACE = {
-    "ring1RT": "Ring tone 1", "ring2RT": "Ring tone 2", "ring3RT": "Ring tone 3",
-    "ring4RT": "Ring tone 4", "ring5RT": "Ring tone 5",
-    "busyRT": "Engaged", "errorRT": "Error", "okRT": "Confirm", "koRT": "Failure",
-    "BalayageZ0": "Page sweep", "Validation": "Confirm a panel", "Abandon": "Cancel / back",
-    "Clavier": "Keyboard keys", "Welcome": "Welcome screen", "Brosser": "Brush",
-    "DejaVuSans": "DejaVu Sans (fallback)", "GillSansPSA": "Gill Sans PSA (the main UI face)",
-    "GillSansSLIDER": "Gill Sans, slider skin", "Ecube SLIDER": "Ecube, slider skin",
-    "T9typoSLIDER": "T9 typography, slider skin", "TYPEC4SLIDER": "Type C4, slider skin",
+    "ring1RT": "Ring tone 1",
+    "ring2RT": "Ring tone 2",
+    "ring3RT": "Ring tone 3",
+    "ring4RT": "Ring tone 4",
+    "ring5RT": "Ring tone 5",
+    "busyRT": "Engaged",
+    "errorRT": "Error",
+    "okRT": "Confirm",
+    "koRT": "Failure",
+    "BalayageZ0": "Page sweep",
+    "Validation": "Confirm a panel",
+    "Abandon": "Cancel / back",
+    "Clavier": "Keyboard keys",
+    "Welcome": "Welcome screen",
+    "Brosser": "Brush",
+    "DejaVuSans": "DejaVu Sans (fallback)",
+    "GillSansPSA": "Gill Sans PSA (the main UI face)",
+    "GillSansSLIDER": "Gill Sans, slider skin",
+    "Ecube SLIDER": "Ecube, slider skin",
+    "T9typoSLIDER": "T9 typography, slider skin",
+    "TYPEC4SLIDER": "Type C4, slider skin",
     "PLAQUESgilsans": "Plaque style",
-    "peugeot": "Peugeot", "citroen": "Citroen", "ds": "DS",
-    "iPodLogoPeugeot": "iPod logo, Peugeot", "iPodLogoCitroen": "iPod logo, Citroen",
-    "gui_config": "Layout, size, harmony id", "gui_harmonies": "Look-and-feel ids",
-    "gui_languages": "Language ids", "gui_sounds": "Sound id to file map",
-    "AVR_IMG1": "Animation frame 1", "AVR_IMG2": "Animation frame 2",
-    "AVR_IMG3": "Animation frame 3", "AVR_IMG4": "Animation frame 4",
-    "AVR_IMG5": "Animation frame 5", "AVR_IMG6": "Animation frame 6",
-    "AVR_IMG7": "Animation frame 7", "AVR_IMG8": "Animation frame 8",
-    "ErreurPortail_V2": "Portal error", "sprite_offline": "Portal, offline",
+    "peugeot": "Peugeot",
+    "citroen": "Citroen",
+    "ds": "DS",
+    "iPodLogoPeugeot": "iPod logo, Peugeot",
+    "iPodLogoCitroen": "iPod logo, Citroen",
+    "gui_config": "Layout, size, harmony id",
+    "gui_harmonies": "Look-and-feel ids",
+    "gui_languages": "Language ids",
+    "gui_sounds": "Sound id to file map",
+    "AVR_IMG1": "Animation frame 1",
+    "AVR_IMG2": "Animation frame 2",
+    "AVR_IMG3": "Animation frame 3",
+    "AVR_IMG4": "Animation frame 4",
+    "AVR_IMG5": "Animation frame 5",
+    "AVR_IMG6": "Animation frame 6",
+    "AVR_IMG7": "Animation frame 7",
+    "AVR_IMG8": "Animation frame 8",
+    "ErreurPortail_V2": "Portal error",
+    "sprite_offline": "Portal, offline",
 }
 
-LANGS = {"CRC": "Czech", "CZC": "Czech", "DUN": "Dutch", "ENG": "English",
-         "FRF": "French", "GED": "German", "HRH": "Croatian", "ITI": "Italian",
-         "PLP": "Polish", "PTP": "Portuguese", "RUR": "Russian", "SPE": "Spanish",
-         "TRT": "Turkish"}
+LANGS = {
+    "CRC": "Czech",
+    "CZC": "Czech",
+    "DUN": "Dutch",
+    "ENG": "English",
+    "FRF": "French",
+    "GED": "German",
+    "HRH": "Croatian",
+    "ITI": "Italian",
+    "PLP": "Polish",
+    "PTP": "Portuguese",
+    "RUR": "Russian",
+    "SPE": "Spanish",
+    "TRT": "Turkish",
+}
 
 COUNTRIES = {
-    "AT": "Austria", "BE": "Belgium", "BG": "Bulgaria", "CH": "Switzerland",
-    "CZ": "Czechia", "DE": "Germany", "DK": "Denmark", "ES": "Spain", "FI": "Finland",
-    "FR": "France", "GB": "United Kingdom", "GR": "Greece", "HR": "Croatia",
-    "HU": "Hungary", "IE": "Ireland", "IT": "Italy", "LU": "Luxembourg",
-    "NL": "Netherlands", "NO": "Norway", "PL": "Poland", "PT": "Portugal",
-    "RO": "Romania", "SE": "Sweden", "SI": "Slovenia", "SK": "Slovakia",
+    "AT": "Austria",
+    "BE": "Belgium",
+    "BG": "Bulgaria",
+    "CH": "Switzerland",
+    "CZ": "Czechia",
+    "DE": "Germany",
+    "DK": "Denmark",
+    "ES": "Spain",
+    "FI": "Finland",
+    "FR": "France",
+    "GB": "United Kingdom",
+    "GR": "Greece",
+    "HR": "Croatia",
+    "HU": "Hungary",
+    "IE": "Ireland",
+    "IT": "Italy",
+    "LU": "Luxembourg",
+    "NL": "Netherlands",
+    "NO": "Norway",
+    "PL": "Poland",
+    "PT": "Portugal",
+    "RO": "Romania",
+    "SE": "Sweden",
+    "SI": "Slovenia",
+    "SK": "Slovakia",
 }
 
 
@@ -132,10 +256,12 @@ def label(path):
         size = os.path.basename(os.path.dirname(path))
         return "%s — %s (%s)" % (COUNTRIES[parts[0]], parts[1], size.lower())
 
-    for prefix, nice in (("pgen_peugeot_", "Portal, Peugeot — "),
-                         ("pgen_citroen_", "Portal, Citroen — ")):
+    for prefix, nice in (
+        ("pgen_peugeot_", "Portal, Peugeot — "),
+        ("pgen_citroen_", "Portal, Citroen — "),
+    ):
         if stem.startswith(prefix):
-            return nice + _tidy(stem[len(prefix):].replace(".v2.pgen", ""))
+            return nice + _tidy(stem[len(prefix) :].replace(".v2.pgen", ""))
 
     if stem.startswith("gui_text_strings_"):
         return "Interface text — %s" % stem.replace("gui_text_strings_", "")
@@ -189,9 +315,12 @@ def group_for(tree, name):
         if exact:
             hits.append((group, desc, pattern, kind, exact))
             continue
-        sub = [f for f in files
-               if key in label(f).lower()
-               or key in os.path.relpath(f, tree).lower().replace("-", " ").replace("_", " ")]
+        sub = [
+            f
+            for f in files
+            if key in label(f).lower()
+            or key in os.path.relpath(f, tree).lower().replace("-", " ").replace("_", " ")
+        ]
         if sub:
             hits.append((group, desc, pattern, kind, sub))
     return hits
@@ -202,9 +331,13 @@ def format_of(path, kind):
         return ""
     try:
         import wave
+
         w = wave.open(path, "rb")
-        info = "%d Hz, %d-bit, %s" % (w.getframerate(), w.getsampwidth() * 8,
-                                      "mono" if w.getnchannels() == 1 else "stereo")
+        info = "%d Hz, %d-bit, %s" % (
+            w.getframerate(),
+            w.getsampwidth() * 8,
+            "mono" if w.getnchannels() == 1 else "stereo",
+        )
         w.close()
         return info
     except Exception:
@@ -219,13 +352,17 @@ def cmd_list(args):
         if not entries:
             sys.exit("no assets in group %r" % args.group)
     for group, desc, pattern, kind, files in (e[:5] for e in entries):
-        print("\n%s — %s  (%d file%s)" % (group.upper(), desc, len(files),
-                                          "" if len(files) == 1 else "s"))
-        show = files if args.all else files[:args.limit]
+        print(
+            "\n%s — %s  (%d file%s)"
+            % (group.upper(), desc, len(files), "" if len(files) == 1 else "s")
+        )
+        show = files if args.all else files[: args.limit]
         for f in show:
             extra = format_of(f, kind)
-            print("    %-44s %s%s" % (label(f), os.path.relpath(f, tree),
-                                      ("   " + extra) if extra else ""))
+            print(
+                "    %-44s %s%s"
+                % (label(f), os.path.relpath(f, tree), ("   " + extra) if extra else "")
+            )
         if len(show) < len(files):
             print("    ... %d more (--all to see them)" % (len(files) - len(show)))
 
@@ -268,13 +405,16 @@ def cmd_replace(args):
         else:
             # match by name, so a directory of replacements maps onto the right files
             by_name = {os.path.basename(p): p for p in pool}
-            pairs = [(f, by_name[os.path.basename(f)]) for f in files
-                     if os.path.basename(f) in by_name]
+            pairs = [
+                (f, by_name[os.path.basename(f)]) for f in files if os.path.basename(f) in by_name
+            ]
             if not pairs:
                 if len(files) > 1 and os.path.isfile(src):
-                    sys.exit("%r covers %d files, so give me a directory of replacements "
-                             "named like the originals, or name a single asset"
-                             % (args.asset, len(files)))
+                    sys.exit(
+                        "%r covers %d files, so give me a directory of replacements "
+                        "named like the originals, or name a single asset"
+                        % (args.asset, len(files))
+                    )
                 sys.exit("no filenames in %s match anything in %r" % (src, args.asset))
         for dest, source in pairs:
             print("  %-40s <- %s" % (label(dest), os.path.basename(source)))
@@ -282,15 +422,16 @@ def cmd_replace(args):
                 continue
             if kind == "audio":
                 import ringtones
+
                 channels = 1
                 rate = 44100
                 try:
                     import wave
-                    w = wave.open(dest, "rb")
-                    channels, rate = w.getnchannels(), w.getframerate()
-                    w.close()
-                except Exception:
-                    pass
+
+                    with wave.open(dest, "rb") as w:
+                        channels, rate = w.getnchannels(), w.getframerate()
+                except (wave.Error, OSError, EOFError):
+                    pass  # not a readable WAV: keep the slot's defaults
                 ringtones.convert(source, dest, channels, rate)
             else:
                 shutil.copy2(source, dest)
@@ -305,14 +446,18 @@ def cmd_replace(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--tree", default="media",
-                    help="an extracted media partition (contains ring_tones/)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--tree", default="media", help="an extracted media partition (contains ring_tones/)"
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("list", help="everything replaceable, with readable names")
-    p.add_argument("--group", help="only this group: sounds, logos, graphics, fonts, strings, config")
+    p.add_argument(
+        "--group", help="only this group: sounds, logos, graphics, fonts, strings, config"
+    )
     p.add_argument("--limit", type=int, default=12, help="files to show per group (default 12)")
     p.add_argument("--all", action="store_true", help="show every file")
     p.set_defaults(fn=cmd_list)
@@ -325,8 +470,12 @@ def main():
 
     p = sub.add_parser("replace", help="swap assets in for the current ones")
     p.add_argument("--asset", required=True, help="a group name, a path fragment, or a label")
-    p.add_argument("--with", dest="with_", required=True,
-                   help="a file (for a single asset) or a directory named to match")
+    p.add_argument(
+        "--with",
+        dest="with_",
+        required=True,
+        help="a file (for a single asset) or a directory named to match",
+    )
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(fn=cmd_replace)
 

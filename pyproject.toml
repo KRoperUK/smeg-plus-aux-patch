@@ -14,7 +14,7 @@ Repository = "https://github.com/KRoperUK/smeg-plus-patches"
 [project.optional-dependencies]
 # the GUI needs Qt; the CLI tools need nothing beyond the standard library
 gui = ["PySide6>=6.6"]
-dev = ["pytest>=8", "ruff>=0.6", "unicorn>=2.0", "capstone>=5.0"]
+dev = ["pytest>=8", "ruff>=0.16", "unicorn>=2.0", "capstone>=5.0"]
 
 [project.scripts]
 smeg-ringtones = "tools.ringtones:main"
@@ -27,6 +27,16 @@ smeg-splash = "tools.splash:main"
 smeg-studio = "tools.patch_studio:main"
 smeg-emu = "tools.ppcemu:main"
 smeg-syms = "tools.elfsyms:main"
+
+[tool.bandit]
+# Run from the pre-push hook. The tools read and write files the user points them at and
+# shell out to ffmpeg and to each other, which is the job, not a finding.
+skips = [
+    "B404",   # importing subprocess — build_package.py orchestrates the other tools
+    "B603",   # subprocess without shell=True, which is the safe form
+    "B607",   # partial executable path: `ffmpeg`, resolved from PATH deliberately
+]
+exclude_dirs = ["tests", ".venv", "site"]
 
 [tool.ruff]
 line-length = 100

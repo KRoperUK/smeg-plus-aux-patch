@@ -32,6 +32,7 @@ usage:
     python3 tools/patch_smeg.py --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
     python3 tools/patch_smeg.py --src SMEG_PLUS_UPG --out out --only NAV
 """
+
 import argparse
 import json
 import os
@@ -46,7 +47,7 @@ HEADER_SIZE = 0x801
 
 
 def crc32(b):
-    return zlib.crc32(b) & 0xffffffff
+    return zlib.crc32(b) & 0xFFFFFFFF
 
 
 def s32(v):
@@ -74,8 +75,9 @@ def rewrite_inf(blob, new_crc):
 
 
 def rewrite_smeg_inf(blob, new_crc):
-    out, n = re.subn(rb"BIGQUICK_CRC32: -?\d+",
-                     ("BIGQUICK_CRC32: %d" % s32(new_crc)).encode(), blob, count=1)
+    out, n = re.subn(
+        rb"BIGQUICK_CRC32: -?\d+", ("BIGQUICK_CRC32: %d" % s32(new_crc)).encode(), blob, count=1
+    )
     if n != 1:
         raise SystemExit("no 'BIGQUICK_CRC32:' field found in smeg.inf")
     return out
@@ -86,8 +88,10 @@ def swap_crc(buf, old, new, what):
     pat = struct.pack(">I", old)
     n = buf.count(pat)
     if n != 1:
-        raise SystemExit("expected exactly one occurrence of %s CRC %#010x in the control file, found %d"
-                         % (what, old, n))
+        raise SystemExit(
+            "expected exactly one occurrence of %s CRC %#010x in the control file, found %d"
+            % (what, old, n)
+        )
     return buf.replace(pat, struct.pack(">I", new))
 
 
@@ -107,28 +111,38 @@ def apply_patches(img, base, patches, label):
         if off < 0 or off + 4 > len(img):
             raise SystemExit("%s: patch address %#x outside image" % (label, addr))
         expect = bytes.fromhex(p["expect"])
-        if img[off:off + len(expect)] != expect:
-            raise SystemExit("%s: at %#x expected %s, found %s (wrong firmware build?)"
-                             % (label, addr, expect.hex(), img[off:off + len(expect)].hex()))
+        if img[off : off + len(expect)] != expect:
+            raise SystemExit(
+                "%s: at %#x expected %s, found %s (wrong firmware build?)"
+                % (label, addr, expect.hex(), img[off : off + len(expect)].hex())
+            )
         new = bytes.fromhex(p["bytes"])
-        img[off:off + len(new)] = new
-        print("    %-14s %#010x  %s -> %s   %s"
-              % (label, addr, expect.hex(), new.hex(), p.get("why", "")))
+        img[off : off + len(new)] = new
+        print(
+            "    %-14s %#010x  %s -> %s   %s"
+            % (label, addr, expect.hex(), new.hex(), p.get("why", ""))
+        )
     return img
 
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
-    default_patches = os.path.normpath(os.path.join(here, os.pardir, "patches", "aux-autoswitch.json"))
+    default_patches = os.path.normpath(
+        os.path.join(here, os.pardir, "patches", "aux-autoswitch.json")
+    )
 
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--src", required=True, help="original package directory")
     ap.add_argument("--out", required=True, help="output directory for changed files")
     ap.add_argument("--patches", default=default_patches, help="patch definition JSON")
     ap.add_argument("--only", nargs="*", default=None, help="variant name(s) to patch")
-    ap.add_argument("--copy-package", action="store_true",
-                    help="copy the whole package into --out before overlaying changes")
+    ap.add_argument(
+        "--copy-package",
+        action="store_true",
+        help="copy the whole package into --out before overlaying changes",
+    )
     ap.add_argument("--level", type=int, default=6, help="zlib level for re-packing (default 6)")
     args = ap.parse_args()
 
@@ -162,8 +176,12 @@ def main():
         old_smeg = load(paths["smeg_inf"])
         old_ctrl = load(paths["ctrl"])
 
-        old_crc = {"bq": crc32(old_bq), "inf": crc32(old_inf),
-                   "smeg": crc32(old_smeg), "ctrl": crc32(old_ctrl)}
+        old_crc = {
+            "bq": crc32(old_bq),
+            "inf": crc32(old_inf),
+            "smeg": crc32(old_smeg),
+            "ctrl": crc32(old_ctrl),
+        }
 
         print("  [%s] %d bytes" % (name, len(old_bq)))
         start, img = inflate(old_bq)
@@ -187,15 +205,22 @@ def main():
         new_ctrl = bytes(ctrl)
         new_crc_ctrl = crc32(new_ctrl)
 
-        root_ctrl = bytearray(swap_crc(root_ctrl, old_crc["ctrl"], new_crc_ctrl,
-                                       "%s_ctrl.bin" % name))
+        root_ctrl = bytearray(
+            swap_crc(root_ctrl, old_crc["ctrl"], new_crc_ctrl, "%s_ctrl.bin" % name)
+        )
 
-        for key, data in (("app_image", new_bq), ("inf", new_inf),
-                          ("smeg_inf", new_smeg), ("ctrl", new_ctrl)):
+        for key, data in (
+            ("app_image", new_bq),
+            ("inf", new_inf),
+            ("smeg_inf", new_smeg),
+            ("ctrl", new_ctrl),
+        ):
             write(os.path.join(args.out, v[key]), data)
 
-        print("    %-14s %9d -> %-9d  crc %#010x -> %#010x"
-              % ("f_BigQuick", len(old_bq), len(new_bq), old_crc["bq"], new_crc_bq))
+        print(
+            "    %-14s %9d -> %-9d  crc %#010x -> %#010x"
+            % ("f_BigQuick", len(old_bq), len(new_bq), old_crc["bq"], new_crc_bq)
+        )
         done += 1
 
     if done:

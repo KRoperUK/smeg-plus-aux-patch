@@ -8,6 +8,7 @@ map lines up with it, so addresses from the symbol map map 1:1 onto this file.
 usage:
     python3 tools/unpack.py SMEG_PLUS_UPG/NAV/AppBin/f_BigQuick.bin app_nav.bin
 """
+
 import argparse
 import hashlib
 import zlib
@@ -28,8 +29,9 @@ def inflate(raw):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("input", help="f_BigQuick.bin")
     ap.add_argument("output", help="raw application image to write")
     args = ap.parse_args()
@@ -41,8 +43,9 @@ def main():
     print("input           : %s (%d bytes)" % (args.input, len(raw)))
     print("zlib stream at  : %#x" % start)
     print("image           : %s (%d bytes / %#x)" % (args.output, len(img), len(img)))
-    print("image crc32     : %#010x" % (zlib.crc32(img) & 0xffffffff))
-    print("image sha1      : %s" % hashlib.sha1(img).hexdigest())
+    print("image crc32     : %#010x" % (zlib.crc32(img) & 0xFFFFFFFF))
+    # a fingerprint for telling images apart, not a security primitive
+    print("image sha1      : %s" % hashlib.sha1(img, usedforsecurity=False).hexdigest())
     print("load address    : 0x01000000  (symbol offsets = address - 0x01000000)")
 
 

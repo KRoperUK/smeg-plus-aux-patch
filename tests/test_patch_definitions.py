@@ -3,6 +3,7 @@
 `tools/patch_smeg.py` reads these at flash-building time and a malformed one fails late,
 against a real package, on a machine that has firmware. These checks need neither.
 """
+
 import glob
 import json
 import os
@@ -28,10 +29,12 @@ def test_there_are_patch_definitions_to_check():
 def test_definition_has_a_name_and_description(path):
     spec = load(path)
     assert spec.get("name"), "every patch set needs a name"
-    assert spec["name"] == os.path.basename(path)[:-len(".json")], \
+    assert spec["name"] == os.path.basename(path)[: -len(".json")], (
         "the name should match the filename, so a build manifest reads unambiguously"
-    assert len(spec.get("description", "")) > 40, \
+    )
+    assert len(spec.get("description", "")) > 40, (
         "the description is what tells a reader whether to flash this"
+    )
 
 
 @pytest.mark.parametrize("path", PATCH_FILES, ids=lambda p: os.path.basename(p))
@@ -41,8 +44,9 @@ def test_every_variant_declares_the_files_its_cascade_touches(path):
     for module, variant in variants.items():
         for key in REQUIRED_VARIANT_KEYS:
             assert key in variant, "%s/%s is missing %r" % (path, module, key)
-        assert variant["app_image"].startswith(module + "/"), \
+        assert variant["app_image"].startswith(module + "/"), (
             "%s: app_image should live under its own module directory" % module
+        )
         assert int(variant["base"], 16) == 0x01000000
 
 
@@ -57,10 +61,13 @@ def test_every_edit_is_hex_inside_the_image(path):
             assert addr % 4 == 0, "%s: PowerPC instructions are 4-byte aligned" % where
             for field in ("expect", "bytes"):
                 raw = edit[field]
-                assert len(raw) % 2 == 0 and bytes.fromhex(raw), \
-                    "%s: %s is not valid hex" % (where, field)
-            assert len(edit["bytes"]) % 8 == 0, \
+                assert len(raw) % 2 == 0 and bytes.fromhex(raw), "%s: %s is not valid hex" % (
+                    where,
+                    field,
+                )
+            assert len(edit["bytes"]) % 8 == 0, (
                 "%s: replacement is not a whole number of instructions" % where
+            )
 
 
 @pytest.mark.parametrize("path", PATCH_FILES, ids=lambda p: os.path.basename(p))
@@ -71,9 +78,13 @@ def test_edits_do_not_overlap_each_other(path):
             addr = int(edit["addr"], 16)
             for offset in range(len(bytes.fromhex(edit["bytes"]))):
                 byte = addr + offset
-                assert byte not in written, \
-                    "%s/%s: %08x is written by both %s and %s" % (
-                        os.path.basename(path), module, byte, written[byte], edit["addr"])
+                assert byte not in written, "%s/%s: %08x is written by both %s and %s" % (
+                    os.path.basename(path),
+                    module,
+                    byte,
+                    written[byte],
+                    edit["addr"],
+                )
                 written[byte] = edit["addr"]
 
 
@@ -83,17 +94,19 @@ def test_diagnostic_sets_say_so_loudly(path):
     spec = load(path)
     if "diagnostic" not in spec["name"]:
         return
-    assert "DIAGNOSTIC" in spec["description"], \
+    assert "DIAGNOSTIC" in spec["description"], (
         "a diagnostic patch set must announce itself in its description"
+    )
 
 
 # --- the mistake that shipped once -------------------------------------------
+
 
 def _opcode(hexbytes):
     return int(hexbytes[:8], 16) >> 26
 
 
-CONDITIONAL_BRANCH, UNCONDITIONAL_BRANCH = 16, 18       # bc / b
+CONDITIONAL_BRANCH, UNCONDITIONAL_BRANCH = 16, 18  # bc / b
 
 
 @pytest.mark.parametrize("path", PATCH_FILES, ids=lambda p: os.path.basename(p))
@@ -116,17 +129,20 @@ def test_dropping_a_branch_condition_has_to_be_deliberate(path):
             assert "unconditional" in edit.get("why", "").lower(), (
                 "%s/%s %s replaces a conditional branch with an unconditional one. That is "
                 "occasionally what you want and usually a bug — say which in `why`."
-                % (os.path.basename(path), module, edit["addr"]))
+                % (os.path.basename(path), module, edit["addr"])
+            )
 
 
 # --- combinations that must not ship -----------------------------------------
 
 BUILD_FILES = sorted(glob.glob(os.path.join(ROOT, "builds", "*.json")))
 MUTUALLY_EXCLUSIVE = [
-    ({"diagnostic-logging", "diagnostic-logmask"},
-     "0x010346d0 is the sink Log_msg calls, not a stub called instead of it. "
-     "diagnostic-logging repoints that sink at Log_msg, so with the mask also forced the "
-     "two call each other on every log call in the firmware."),
+    (
+        {"diagnostic-logging", "diagnostic-logmask"},
+        "0x010346d0 is the sink Log_msg calls, not a stub called instead of it. "
+        "diagnostic-logging repoints that sink at Log_msg, so with the mask also forced the "
+        "two call each other on every log call in the firmware.",
+    ),
 ]
 
 
@@ -136,5 +152,8 @@ def test_build_schemes_do_not_combine_patches_that_fight(path):
         scheme = json.load(fh)
     applied = set(scheme.get("app", {}).get("patches", []))
     for pair, why in MUTUALLY_EXCLUSIVE:
-        assert not pair.issubset(applied), \
-            "%s applies %s together: %s" % (os.path.basename(path), sorted(pair), why)
+        assert not pair.issubset(applied), "%s applies %s together: %s" % (
+            os.path.basename(path),
+            sorted(pair),
+            why,
+        )
