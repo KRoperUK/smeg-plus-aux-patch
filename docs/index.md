@@ -41,6 +41,7 @@ what you can safely change:
 
 **For the detail**, as needed: [Overview](ANALYSIS.md) (the image, symbol maps, and the AUX
 event chain), [Cheatcodes & spy](CHEATCODES.md), [Ring tones](RINGTONES.md),
+[Customising](CUSTOMISING.md) (every replaceable asset — sounds, fonts, logos, strings),
 [Version strings](VERSION_STRINGS.md), and [Releasing](RELEASING.md).
 
 ## Target
