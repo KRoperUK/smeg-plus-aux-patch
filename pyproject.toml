@@ -18,6 +18,7 @@ dev = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
 smeg-ringtones = "tools.ringtones:main"
+smeg-assets = "tools.assets:main"
 smeg-patch = "tools.patch_smeg:main"
 smeg-build = "tools.build_package:main"
 smeg-preflight = "tools.preflight:main"
