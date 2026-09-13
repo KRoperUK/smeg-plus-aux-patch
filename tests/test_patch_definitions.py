@@ -138,6 +138,12 @@ def test_dropping_a_branch_condition_has_to_be_deliberate(path):
 BUILD_FILES = sorted(glob.glob(os.path.join(ROOT, "builds", "*.json")))
 MUTUALLY_EXCLUSIVE = [
     (
+        {"diagnostic-logging", "diagnostic-logsink"},
+        "both repoint the same sink at 0x010346d0 — logging sends it to Log_msg, logsink "
+        "sends it to VxWorks logMsg. Applying both means one edit silently overwrites the "
+        "other.",
+    ),
+    (
         {"diagnostic-logging", "diagnostic-logmask"},
         "0x010346d0 is the sink Log_msg calls, not a stub called instead of it. "
         "diagnostic-logging repoints that sink at Log_msg, so with the mask also forced the "
