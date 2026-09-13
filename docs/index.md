@@ -26,6 +26,7 @@ AUX by itself when that audio appears rather than needing a manual source change
 | [Cheatcodes & spy](CHEATCODES.md) | the diagnostic cheatcode list, the hidden entry screen, and the spy system |
 | [Version strings](VERSION_STRINGS.md) | what the version screens read and how the updater gates on them |
 | [Patch reference](PATCHES.md) | exact addresses and bytes, per build |
+| [What is reachable](CAPABILITIES.md) | what can and cannot be changed, and why — read before starting work |
 | [Running the tools](RUNNING.md) | `uv` / `uvx` one-liners, and a tool cheat sheet |
 | [Flashing](FLASHING.md) | preparing the USB stick, the update process, and how to verify |
 | [Hardware verification](VERIFICATION.md) | what has actually been confirmed on a car, and what has not |
