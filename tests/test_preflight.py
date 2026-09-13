@@ -20,6 +20,8 @@ TOOLS = os.path.join(ROOT, "tools")
 sys.path.insert(0, TOOLS)
 sys.path.insert(0, HERE)
 
+import preflight  # noqa: E402
+
 
 def up_common(last_source=None, names=None):
     names = names or ["Alien", "Blue_lemon"]
@@ -111,3 +113,39 @@ def test_a_missing_package_is_a_clean_error(tmp_path):
     r = run(tmp_path / "nope")
     assert r.returncode != 0
     assert "no such package" in (r.stdout + r.stderr)
+
+
+def test_a_user_data_payload_in_a_renamed_folder_is_reported_as_ignored(tmp_path):
+    """The updater's path is hard-coded; a renamed package folder silently loses it."""
+    pkg = tmp_path / "SMEG_PLUS_UPG_auxdefault"
+    sqlite_dir = pkg / "NAV" / "USER_DATA" / "user_data" / "sqlite"
+    sqlite_dir.mkdir(parents=True)
+    (sqlite_dir / "up_common.sqlite").write_bytes(b"x")
+
+    rep = preflight.Report()
+    preflight.check_user_data(rep, str(pkg), "NAV")
+    bad = [m for lvl, _, m in rep.rows if lvl == preflight.BAD]
+    assert any("IGNORED" in m and "SMEG_PLUS_UPG" in m for m in bad), bad
+
+
+def test_a_correctly_named_folder_raises_no_path_complaint(tmp_path):
+    pkg = tmp_path / "SMEG_PLUS_UPG"
+    sqlite_dir = pkg / "NAV" / "USER_DATA" / "user_data" / "sqlite"
+    sqlite_dir.mkdir(parents=True)
+    (sqlite_dir / "up_common.sqlite").write_bytes(b"x")
+
+    rep = preflight.Report()
+    preflight.check_user_data(rep, str(pkg), "NAV")
+    assert not [m for lvl, _, m in rep.rows if lvl == preflight.BAD]
+
+
+def test_a_non_nav_payload_is_reported_as_unread(tmp_path):
+    pkg = tmp_path / "SMEG_PLUS_UPG"
+    sqlite_dir = pkg / "AUDIO_BT" / "USER_DATA" / "user_data" / "sqlite"
+    sqlite_dir.mkdir(parents=True)
+    (sqlite_dir / "up_common.sqlite").write_bytes(b"x")
+
+    rep = preflight.Report()
+    preflight.check_user_data(rep, str(pkg), "AUDIO_BT")
+    bad = [m for lvl, _, m in rep.rows if lvl == preflight.BAD]
+    assert any("NAV" in m for m in bad), bad
