@@ -1,0 +1,8 @@
+{
+  "_comment": "Diagnostic scheme: turns the application's own logging back on, by redirecting the no-op logging stub to the real logger (see docs/PATCHES.md). Intended for establishing whether a message is reaching the app at all. Expect a lot of output; do not drive on it. Before flashing, settle where Log_msg actually writes - if it is serial-only this needs routing somewhere readable first.",
+  "package": "SMEG_PLUS_UPG",
+  "out": "SMEG_PLUS_UPG_diag",
+  "module": "NAV",
+  "app": { "patches": ["diagnostic-logging"] },
+  "seal": true
+}
