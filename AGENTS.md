@@ -36,9 +36,19 @@ The work is split in two:
    and a CI check on the PR title. If you are an agent, write the message in the right form
    the first time; `--title` will tell you before you push:
    `python3 tools/check_commit_msg.py --title "feat: ..."`.
-4. **`main` is protected.** No direct pushes — work on a branch and open a PR. Deletion,
+4. **Warn the user before anything that can destroy their settings.** Some changes are not
+   recoverable by reflashing because they overwrite state the *car* owns rather than state
+   we ship. Shipping a `USER_DATA` payload is the current example: it replaces databases on
+   the unit's user partition, which hold paired phones, navigation destinations and presets.
+   Say so plainly, in those terms, and wait to be told it is acceptable. Never treat a
+   person's "I don't care about my settings" as covering a *different* person's car.
+
+   `build_package.py` enforces this: a manifest with `user_data` is refused unless it also
+   sets `accept_data_loss: true`, and the warning is printed either way.
+
+5. **`main` is protected.** No direct pushes — work on a branch and open a PR. Deletion,
    force-push and non-linear history are blocked.
-5. **A release PR needs a human approval click. That is expected — do not automate it.**
+6. **A release PR needs a human approval click. That is expected — do not automate it.**
    Release Please opens its PR with the default `GITHUB_TOKEN`, and GitHub will not run
    workflows on a PR created that way until someone approves them, so the release PR sits
    at `BLOCKED` with **no checks reported** and every run showing `action_required`. That

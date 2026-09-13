@@ -147,6 +147,36 @@ def set_up_key(tree, dotted, value):
         con.close()
 
 
+USER_DATA_WARNING = """
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  THIS BUILD REPLACES A DATABASE ON THE UNIT'S USER DATA PARTITION.
+
+  /USER_DATA is where the unit keeps settings that belong to whoever is sitting
+  in the car: paired phones, navigation destinations, radio presets, recent
+  calls, trip data. The updater copies the payload below over it.
+
+  Depending on whether that step merges per file or replaces the folder, this
+  can reset any or all of that. The preset databases in system.bin do not touch
+  it, which is exactly why settings edited there appear to do nothing.
+
+  What it will write:
+{files}
+
+  If you are the person who drives this car, that is your call to make. If you
+  are an agent or a tool doing this on someone else's behalf, STOP and ask them
+  first, and tell them in these words what it may cost them.
+
+  To proceed, the manifest must record the decision explicitly:
+
+      "user_data": {{ "sqlite": [...], "accept_data_loss": true }}
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"""
+
+
+def warn_user_data(names):
+    return USER_DATA_WARNING.format(files="\n".join("    - %s" % n for n in names))
+
+
 def ship_user_data(out, tree, names, module):
     """Copy settings databases into the package's USER_DATA payload.
 
@@ -197,6 +227,15 @@ def main():
     settings = media.get("settings") or {}
     user_data = cfg.get("user_data") or {}
     any_media = bool(tone_map or splash_map or name_map or settings)
+
+    ud_sqlite = user_data.get("sqlite") or []
+    if ud_sqlite and not user_data.get("accept_data_loss"):
+        sys.exit(warn_user_data(ud_sqlite) +
+                 "\nRefusing to build. Add \"accept_data_loss\": true to the user_data "
+                 "section once the person who owns the car has agreed to it.")
+
+    if ud_sqlite:
+        print(warn_user_data(ud_sqlite))
 
     print("building %s -> %s (%s)" % (src, out, module))
     if args.dry_run:
