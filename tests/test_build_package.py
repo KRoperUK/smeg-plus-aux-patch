@@ -167,3 +167,51 @@ def test_warns_but_proceeds_with_acknowledgement(tmp_path, fake_pkg):
     r = run_cli(m, "--dry-run")
     assert "accept_data_loss" not in (r.stderr or ""), "a recorded decision must not be refused"
     assert "USER DATA" in r.stdout or "USER_DATA" in r.stdout
+
+
+def test_resolves_paths_against_the_manifest_not_the_cwd(tmp_path, monkeypatch):
+    """A scheme in builds/ must work from anywhere, and ~ must expand."""
+    pkg = tmp_path / "pkg"
+    (pkg / "NAV").mkdir(parents=True)
+    m = tmp_path / "builds" / "s.json"
+    m.parent.mkdir()
+    m.write_text(json.dumps({"package": "../pkg", "out": "../out"}))
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    r = run_cli(m, "--dry-run")
+
+    assert r.returncode == 0, r.stderr
+    assert "no such package" not in (r.stdout + r.stderr)
+
+
+def test_a_missing_package_names_the_path_it_tried(tmp_path):
+    m = tmp_path / "s.json"
+    m.write_text(json.dumps({"package": "nope", "out": "o"}))
+    r = run_cli(m)
+    assert r.returncode != 0
+    assert "no such package" in (r.stdout + r.stderr)
+    assert str(tmp_path) in (r.stdout + r.stderr), "should say where it looked"
+
+
+def test_every_committed_scheme_parses_and_dry_runs():
+    """The schemes in builds/ are documentation; a broken one is worse than none."""
+    import glob
+    import subprocess
+    root = os.path.dirname(TOOLS)
+    schemes = glob.glob(os.path.join(root, "builds", "*.json"))
+    assert schemes, "no schemes found"
+    for s in schemes:
+        json.loads(open(s).read())          # parses
+        r = subprocess.run([sys.executable, os.path.join(TOOLS, "build_package.py"),
+                            "--manifest", s, "--dry-run"],
+                           capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        # a previous run may have left the output directory behind; refusing to clobber it
+        # is correct behaviour, not a broken scheme
+        if "already exists" in out:
+            continue
+        assert r.returncode == 0, "%s failed to dry-run:\n%s" % (s, out)
+        assert "no such package" not in out, s

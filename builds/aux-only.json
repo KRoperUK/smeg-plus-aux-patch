@@ -1,8 +1,12 @@
 {
   "_comment": "The minimal scheme: the AUX patches and nothing else. Media partition, BSP, Renesas and the other modules are untouched, so this is the closest thing to stock while still enabling AUX. Use it as the baseline when something behaves unexpectedly - if it goes wrong with this, the cause is one of two branches in the application image, not the media work.",
-  "package": "SMEG_PLUS_UPG",
-  "out": "SMEG_PLUS_UPG_auxonly",
+  "package": "~/Downloads/SMEG_PLUS_UPG",
+  "out": "~/Downloads/SMEG_PLUS_UPG_auxonly",
   "module": "NAV",
-  "app": { "patches": ["aux-autoswitch"] },
+  "app": {
+    "patches": [
+      "aux-autoswitch"
+    ]
+  },
   "seal": true
 }
