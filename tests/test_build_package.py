@@ -6,6 +6,7 @@ guards that stop it doing something destructive — those are the parts that wou
 *silently* if they were wrong.
 """
 import json
+import pathlib
 import os
 import sys
 
@@ -210,7 +211,7 @@ def test_every_committed_scheme_is_structurally_valid():
 
     for s in schemes:
         name = os.path.basename(s)
-        cfg = json.loads(open(s).read())
+        cfg = json.loads(pathlib.Path(s).read_text())
         assert isinstance(cfg.get("package"), str) and cfg["package"], name
         assert isinstance(cfg.get("out"), str) and cfg["out"], name
         assert cfg.get("module", "NAV") in ("NAV", "AUDIO_BT", "AUDIO_BT_256"), name
@@ -235,7 +236,7 @@ def test_committed_schemes_dry_run_where_the_package_exists():
     root = os.path.dirname(TOOLS)
     ran = 0
     for s in sorted(glob.glob(os.path.join(root, "builds", "*.json"))):
-        cfg = json.loads(open(s).read())
+        cfg = json.loads(pathlib.Path(s).read_text())
         if not os.path.isdir(os.path.expanduser(cfg["package"])):
             continue
         r = subprocess.run([sys.executable, os.path.join(TOOLS, "build_package.py"),
