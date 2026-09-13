@@ -163,20 +163,34 @@ exactly one instruction anywhere in the image writes it, through ten `SetTrace` 
 that are vtable entries only.
 
 Emulating `Log_msg` directly: with the mask at 0, it bails after 47 instructions and never
-reaches the formatting code; with the mask forced, it runs 277. Running the AUX handler end
-to end with the real `Log_msg` in the loop shows the same thing at the level that matters —
-stock, the handler's own log line is suppressed; with `diagnostic-logmask` applied, it is
-emitted.
+reaches the formatting code; with the mask forced, it runs 271 and calls its sink.
+
+**But the sink is stubbed.** `Log_msg` makes exactly two calls — `GetLogMask`, and then
+`0x010346d0`, which is `li r3,0 ; blr`. That is the same address `diagnostic-logging`
+redirects, so `0x010346d0` is not "the stub called instead of `Log_msg`" but **the sink
+`Log_msg` itself calls**. Both halves of the firmware's logging end at the same no-op, and
+forcing the mask only buys you the formatting before the message is discarded.
+
+An earlier version of this page said the patched handler emits its log line. It does not;
+what was measured was execution reaching past the mask gate, which is not the same thing.
+Correcting that is what the emulator is for, and it is also a reminder that *reachability
+is proof and behaviour is not* — the caveat at the top of this page applies to conclusions
+drawn here too.
 
 That has a direct consequence for `diagnostic-logging`, which redirects the ~6700
 compiled-out call sites to the real logger: **on its own it emits nothing**, because every
 redirected site lands in `Log_msg` and hits the same gate. The image has two logging
 mechanisms and this one only unblocks the wrong half.
 
-The useful half is the other ~5900 sites that call `Log_msg` directly and are gated only by
-the mask — including `HandleAudioAuxInputStatusChnged()`, which logs its own name at level 1
-on its shared return path. Forcing the mask answers whether that handler is entered without
-changing any behaviour.
+Flashing both patches is worse than either: `diagnostic-logging` repoints the sink at
+`Log_msg`, so with the mask also forced the two call each other. One call re-enters
+`Log_msg` three times before unwinding in emulation; on the unit that runs on every log
+call in the firmware.
+
+A working diagnostic needs `0x010346d0` pointed at something that really writes. The
+signature suits VxWorks `logMsg(fmt, a1…a6)` — format in `r3`, six arguments in `r4`–`r9` —
+and the BSP image does contain `logMsg` and a telnet server. Its address is the open part.
+See [Patch reference](PATCHES.md).
 
 ### 6. One device type is unreachable firmware-wide
 
@@ -196,10 +210,9 @@ the standing of the second edit: it is not "a fix that has not been confirmed", 
 that provably cannot fire. Effort spent flashing it is spent.
 
 The open question is upstream of this function entirely: is `HandleAudioAuxInputStatusChnged`
-ever entered, and if it is, does the status query return a signal? The first half is now
-directly answerable — the handler logs its own name on every exit, and
-`patches/diagnostic-logmask.json` makes that line appear. See
-[Patch reference](PATCHES.md).
+ever entered, and if it is, does the status query return a signal? The handler logs its own
+name on every exit, so a working log would answer the first half at once — but as finding 4
+below records, this build has no log output path, and giving it one is still open.
 
 The whole chain, gate by gate, with the state of each link, is in
 [The AUX chain](AUX_CHAIN.md). The short version: every link is a null check, the four

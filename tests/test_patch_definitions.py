@@ -117,3 +117,24 @@ def test_dropping_a_branch_condition_has_to_be_deliberate(path):
                 "%s/%s %s replaces a conditional branch with an unconditional one. That is "
                 "occasionally what you want and usually a bug — say which in `why`."
                 % (os.path.basename(path), module, edit["addr"]))
+
+
+# --- combinations that must not ship -----------------------------------------
+
+BUILD_FILES = sorted(glob.glob(os.path.join(ROOT, "builds", "*.json")))
+MUTUALLY_EXCLUSIVE = [
+    ({"diagnostic-logging", "diagnostic-logmask"},
+     "0x010346d0 is the sink Log_msg calls, not a stub called instead of it. "
+     "diagnostic-logging repoints that sink at Log_msg, so with the mask also forced the "
+     "two call each other on every log call in the firmware."),
+]
+
+
+@pytest.mark.parametrize("path", BUILD_FILES, ids=lambda p: os.path.basename(p))
+def test_build_schemes_do_not_combine_patches_that_fight(path):
+    with open(path) as fh:
+        scheme = json.load(fh)
+    applied = set(scheme.get("app", {}).get("patches", []))
+    for pair, why in MUTUALLY_EXCLUSIVE:
+        assert not pair.issubset(applied), \
+            "%s applies %s together: %s" % (os.path.basename(path), sorted(pair), why)

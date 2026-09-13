@@ -86,7 +86,7 @@ being corrupted.
 | `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | the combined build — flashed successfully, first patch confirmed on hardware |
 | `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | behavioural, no switching |
 | `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate — control flow verified under emulation, **never flashed** |
-| `patches/diagnostic-logmask.json` | forces the global trace mask, so the logging already in the image emits | diagnostic build, **not for driving** |
+| `patches/diagnostic-logmask.json` | forces the global trace mask — **necessary but not sufficient**, see below | diagnostic build, **not for driving** |
 | `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | diagnostic build, needs the mask patch too, **not for driving** |
 
 !!! note "Hardware status"
@@ -96,7 +96,7 @@ being corrupted.
     and is back in the SRC cycle. The **auto-switch has not been observed working yet** —
     see [Hardware verification](VERIFICATION.md).
 
-### `diagnostic-logmask` — the one that actually makes logging appear
+### `diagnostic-logmask` — half of what a diagnostic build needs
 
 `Log_msg` at `0x02742558` does not write anything until it has cleared a gate:
 
@@ -119,8 +119,8 @@ Replacing `GetLogMask` with a constant makes every level pass:
 Same idiom as the `IsAUXSRCAvailable()` patch — overwrite a prologue with a constant
 return, no code cave, trivially reversible.
 
-This turns on the **~5900 call sites that already call `Log_msg` directly**. One of them is
-the reason this patch exists:
+This lets the **~5900 call sites that call `Log_msg` directly** run to completion instead
+of returning at the gate. One of them is the reason this patch exists:
 
 ```
 0230331c  HandleAudioAuxInputStatusChnged()
@@ -138,10 +138,45 @@ absence means the event never got there. That is the standing question in
 changing no behaviour whatsoever. Verified in emulation: stock, the line is suppressed at
 the mask test; patched, it is emitted. See [Emulating the firmware](EMULATION.md).
 
-!!! warning "Where does it come out?"
+!!! failure "Correction: on its own this still produces no output"
 
-    This makes the logging *happen*. It does not tell you where `Log_msg` sends it. Settle
-    that before building a stick, or you will flash a diagnostic you cannot read.
+    An earlier version of this page said the mask patch makes that line appear. It does
+    not, and the reason matters for anyone building a diagnostic.
+
+    `Log_msg` makes exactly **two** calls. The first is `GetLogMask`. The second, after it
+    has cleared the gate and marshalled up to six varargs, is to `0x010346d0` — and
+    `0x010346d0` is `li r3,0 ; blr`.
+
+    That address is the one `diagnostic-logging` patches. It is **not** "the stub called
+    *instead of* `Log_msg`", as this page previously had it: it is **the sink `Log_msg`
+    itself calls**, and the vendor shipped it stubbed out. Both halves of the firmware's
+    logging — the ~6700 sites that call the sink directly and the ~5900 that go through
+    `Log_msg` — end at the same no-op.
+
+    So in this build the application's logging has **no output path at all**. Forcing the
+    mask makes `Log_msg` format the message and hand it to a function that throws it away.
+
+!!! danger "And do not flash both diagnostic patches together"
+
+    `diagnostic-logging` repoints `0x010346d0` at `Log_msg`. With the mask also forced,
+    `Log_msg` calls the sink, the sink re-enters `Log_msg`, which calls the sink again —
+    self-referential, on every log call in the firmware. Emulated, one call re-enters
+    `Log_msg` three times before unwinding; on the unit it burns stack and time on a path
+    that runs constantly. This page previously described the combination as "a flood
+    rather than a diagnostic", which undersold it.
+
+### Making a diagnostic build that actually works
+
+The missing piece is a **sink**, and that is not a one-instruction patch — it needs
+`0x010346d0` pointed at something that really writes. The signature is in its favour: the
+caller passes a format string in `r3` and up to six arguments in `r4`–`r9`, which is
+exactly VxWorks `logMsg(fmt, a1…a6)`.
+
+The BSP image (`BSP/SMEG_PLUS_512/vxWorks.bin`) contains `logMsg`, `_func_logMsg`, `printf`
+and a telnet server — so a real output primitive exists on the unit. What is missing is its
+address: unlike the updater objects in the package root, that image carries no symbol table
+a reader can just pick up. Until someone pins it down, treat the diagnostic build as
+unfinished rather than as something to flash.
 
 ### `diagnostic-logging` — the other half, and not the useful half alone
 
@@ -164,12 +199,15 @@ format, and the caller has already set both before calling the stub, so the bran
 them straight through. The two functions are 24 174 216 bytes apart, inside the 24-bit branch
 range, so no code cave is needed.
 
-!!! failure "On its own this emits nothing"
+!!! failure "On its own this emits nothing — and with the mask patch it is worse"
 
-    The redirected sites land in `Log_msg`, which then tests the trace mask described above
-    and returns. Flash `diagnostic-logmask` as well, or instead — the mask patch alone
-    already covers the AUX question. Both together is roughly 12 600 live log sites, which
-    is a flood rather than a diagnostic.
+    The redirected sites land in `Log_msg`, which tests the trace mask described above and
+    returns. Nothing comes out.
+
+    Flashing it *with* `diagnostic-logmask` does not fix that, it creates a loop:
+    `0x010346d0` is the sink `Log_msg` calls, so repointing it at `Log_msg` makes the two
+    call each other. Neither patch, alone or together, gives the firmware an output path —
+    see the correction above.
 
 **Use it to find out whether something is reaching the app** — for example whether DBUS
 message `0xcb` (203), the AUX status trigger, arrives at the media app at all. Turn it on, and
