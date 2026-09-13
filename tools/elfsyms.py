@@ -164,7 +164,8 @@ def main():
     args = ap.parse_args()
 
     try:
-        elf = Elf32BE(open(args.elf, "rb").read())
+        with open(args.elf, "rb") as fh:
+            elf = Elf32BE(fh.read())
     except (ElfError, OSError) as exc:
         sys.exit("%s: %s" % (args.elf, exc))
 

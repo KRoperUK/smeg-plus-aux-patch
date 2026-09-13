@@ -122,7 +122,8 @@ class Emulator:
 
     def apply_patch_file(self, path, module):
         """Apply one variant of a patches/*.json definition, checking `expect` first."""
-        spec = json.load(open(path))
+        with open(path) as fh:
+            spec = json.load(fh)
         variant = spec["variants"][module]
         for p in variant["patches"]:
             addr = int(p["addr"], 16)
@@ -272,7 +273,8 @@ def main():
     args = ap.parse_args()
 
     base = int(args.base, 0)
-    emu = Emulator(open(args.image, "rb").read(), base=base, trace=args.trace)
+    with open(args.image, "rb") as fh:
+        emu = Emulator(fh.read(), base=base, trace=args.trace)
     if args.patches:
         emu.apply_patch_file(args.patches, args.module)
         print("applied %s (%s)" % (args.patches, args.module))
