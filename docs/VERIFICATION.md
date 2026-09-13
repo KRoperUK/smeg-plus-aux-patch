@@ -21,7 +21,7 @@ default patch set (`aux-autoswitch`: both `IsAUXSRCAvailable()` and the
 | version strings changed | **no, and that is expected** — re-flashing the same release does not alter them |
 | `IsAUXSRCAvailable()` patch | **confirmed working** — AUX no longer greys out with no signal |
 | AUX in the SRC cycle | **confirmed** — FM → DAB → AM → USB → AUX |
-| automatic switch to AUX | **not yet confirmed** — see open questions |
+| automatic switch to AUX | **not delivered, and this patch set never could** — see below |
 
 !!! success "The important one"
 
@@ -108,17 +108,25 @@ figures change as partitions are rewritten:
   long-press is already bound by the firmware to the product-code/system-information
   view (`C_MENU_STATE::ProcessEscKeyLongPress`), and the steering-wheel SRC does not
   deliver a keep-pressed event to the audio application at all.
-- **Automatic switching is unconfirmed.** See below.
+- **Automatic switching did not happen, and the patch could not have caused it.** See
+  below — this is now explained rather than open.
 
 ## What this does *not* prove
 
-- **The auto-switch still has not been observed working.** The patch that removes the
-  early exit in `HandleAudioAuxInputStatusChnged()` is in the flashed image, but the
-  unit has not yet been seen selecting AUX by itself when audio appears. The test is:
-  sit on FM radio with a source playing into AUX and watch whether it switches. If it
-  does not, the AUX signal event is not reaching that handler at all, and the fix is to
-  drive the source change from a path that provably runs rather than to patch further
-  inside the handler.
+- **The auto-switch was never going to work from this patch.** The edit that removes the
+  early exit in `HandleAudioAuxInputStatusChnged()` is in the flashed image and is inert:
+  emulating the function shows the branch is never taken (the AUX media device is
+  registered unconditionally, so `GetMediaDevice(AUX)` succeeds), and that forcing the
+  failure case still stops one guard later, because `GetMediaDevice` leaves the
+  source-manager field null when it fails. See
+  [Emulating the firmware](EMULATION.md) for the runs.
+
+    This does not mean the car test was wasted — it confirmed the re-seal, the flash and
+    `IsAUXSRCAvailable()`. It means the remaining question is upstream of the handler:
+    **is the handler entered at all, and does the AUX status query return a signal?** Note
+    that the handler discards that query's return value, so a failed query is
+    indistinguishable from "no signal" and lands in the change-detector as "nothing
+    changed". Settle it with the diagnostic build before flashing anything else.
 - **Version strings are not a marker.** System Information still reads `SMEG5.43.A.R2` /
   `CD 26482` after a successful patched flash. See
   [Version strings](VERSION_STRINGS.md) for why. Do not use them to decide whether a

@@ -26,6 +26,16 @@ At `handler + 0x10c` the function bails out when `GetMediaDevice(AUX)` fails, be
 reaches `ActivateSource()`. Replace the conditional branch with `nop` so execution
 continues into the `SetMediaDeviceState` / `ActivateSource` path.
 
+!!! failure "This edit is inert — keep it for reference, do not expect it to do anything"
+
+    Emulating the function showed the branch is **never taken**: the AUX media device is
+    registered unconditionally at start-up, so `GetMediaDevice(AUX)` returns success and
+    the `beq` falls through with or without the patch. Forcing the failure case does not
+    help either — `GetMediaDevice` writes nothing to its out-param when it fails, so the
+    source-manager guard at `0x02303468` returns instead, one call later. The full
+    reasoning, and the runs behind it, are in
+    [Emulating the firmware](EMULATION.md).
+
 | build | handler | branch address | original | patched |
 |---|---|---|---|---|
 | `AUDIO_BT`, `AUDIO_BT_256` | `0x023031dc` | `0x023032e8` | `41 9e 01 4c` (`beq cr7,+0x14c`) | `60 00 00 00` (`nop`) |
@@ -128,7 +138,7 @@ Two edits in `HandleAudioAuxInputStatusChnged()`:
 
 | offset | original | patched | effect |
 |---|---|---|---|
-| `+0x10c` (AUDIO_BT `0x023032e8`, NAV `0x02303428`) | `beq` | `nop` | drop the `GetMediaDevice` early exit so `ActivateSource()` is reachable |
+| `+0x10c` (AUDIO_BT `0x023032e8`, NAV `0x02303428`) | `beq` | `nop` | drop the `GetMediaDevice` early exit — **inert**, see [Emulating the firmware](EMULATION.md) |
 | `+0x118` (AUDIO_BT `0x023032f4`, NAV `0x02303434`) | `beq cr7,+0x58` | `b +0x140` | when the AUX signal is absent, jump to the return path instead of the release branch |
 
 The second edit means that once AUX has been activated it **stays** selected until the

@@ -219,8 +219,17 @@ C_HMI_MEDIA_APP_BASE::HandleAudioAuxInputStatusChnged()      @ 0x0230331c
   02303484  bl  C_HMI_SrcMgntBase::ActivateSource(bool)
 ```
 
-So the patch removing `0x02303428` does reach `ActivateSource`, and the handler has exactly
-one direct caller — the DBUS dispatch — plus a vtable entry.
+The handler has exactly one direct caller — the DBUS dispatch — plus a vtable entry.
+
+!!! warning "Corrected by emulation"
+
+    This page previously concluded that removing `0x02303428` *does* reach
+    `ActivateSource`. Executing the function proved otherwise, twice over: the branch is
+    never taken in the first place (the AUX media device is registered unconditionally, so
+    `GetMediaDevice` succeeds), and when it *is* forced to fail, the nop only reaches
+    `SetMediaDeviceState` — `GetMediaDevice` leaves the source-manager field null on its
+    failure path, so the guard at `0x02303468` returns instead. See
+    [Emulating the firmware](EMULATION.md).
 
 **The consequence:** the patch is not the problem. If the unit does not switch by itself,
 DBUS message **203** is not reaching the media app. That points at the always-active hook
