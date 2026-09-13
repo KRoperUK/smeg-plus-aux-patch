@@ -154,8 +154,9 @@ def stylesheet():
     try:
         from PySide6.QtGui import QGuiApplication
         dark = QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"warning: failed to detect system colour scheme, using light theme: {exc}",
+              file=sys.stderr)
     return STYLE.format(accent=ACCENT, **(DARK if dark else LIGHT))
 
 
