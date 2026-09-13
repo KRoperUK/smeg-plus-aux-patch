@@ -24,6 +24,7 @@ what you can safely change:
 
 | page | what it covers |
 |---|---|
+| [What is reachable](CAPABILITIES.md) | what can and cannot be changed, and why — **read this before starting work** |
 | [Architecture](ARCHITECTURE.md) | how the whole firmware fits together — modules, HMI framework, messaging, subsystems, databases |
 | [Boot & update chain](FLASH_CHAIN.md) | the RTOS/BSP, the front-panel MCU, what the updater does and in what order |
 | [Media partition](MEDIA_PARTITION.md) | `system.bin`, ring tones, brand logos, and how it is checksummed |
