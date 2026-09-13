@@ -71,55 +71,93 @@ MODULES = ("NAV", "AUDIO_BT", "AUDIO_BT_256")
 DEFAULT_BACKUP = os.path.expanduser("~/smeg-test/backups")
 ACCENT = "#0A84FF"
 
-STYLE = f"""
-QWidget {{ background: #F5F6F8; color: #1D1D1F; font-size: 13px; }}
-QLabel {{ background: transparent; }}
-QLabel#Title    {{ font-size: 22px; font-weight: 600; }}
-QLabel#Subtitle {{ color: #6E6E73; font-size: 12px; }}
-QLabel#Muted    {{ color: #B0B3B8; }}
-QLabel#Modified {{ color: {ACCENT}; font-weight: 600; }}
-QLabel#Original {{ color: #34C759; font-weight: 600; }}
+# Two palettes, so the app can follow the desktop instead of guessing. Qt reports the system
+# scheme through styleHints().colorScheme(), which means there is no preference of our own to
+# store and the app matches whatever else on the machine is doing.
+LIGHT = {
+    "bg": "#F5F6F8", "bg2": "#E9ECF1", "fg": "#1D1D1F", "dim": "#6E6E73", "faint": "#B0B3B8",
+    "card": "#FFFFFF", "line": "#E4E6EA", "line2": "#D9DCE1", "hover": "#F0F1F4",
+    "press": "#E6E8EC", "sel": "#E8F1FF", "ok": "#34C759",
+}
+DARK = {
+    "bg": "#191A1F", "bg2": "#101116", "fg": "#F2F3F5", "dim": "#9A9CA3", "faint": "#6A6D74",
+    "card": "#212328", "line": "#2E3036", "line2": "#3A3D44", "hover": "#2A2C32",
+    "press": "#34373E", "sel": "#1E3A5F", "ok": "#30D158",
+}
 
-QFrame#Card {{ background: #FFFFFF; border: 1px solid #E4E6EA; border-radius: 12px; }}
+STYLE = """
+QWidget {{
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {bg}, stop:1 {bg2});
+    color: {fg};
+    font-size: 13px;
+}}
+QLabel {{ background: transparent; }}
+QLabel#Title    {{ font-size: 24px; font-weight: 700; }}
+QLabel#Subtitle {{ color: {dim}; font-size: 12px; }}
+QLabel#Muted    {{ color: {faint}; }}
+QLabel#Modified {{ color: {accent}; font-weight: 600; }}
+QLabel#Original {{ color: {ok}; font-weight: 600; }}
+
+QFrame#Card {{ background: {card}; border: 1px solid {line}; border-radius: 14px; }}
 
 QTabWidget::pane {{ border: 0; }}
-QTabBar::tab {{ background: transparent; color: #6E6E73; padding: 8px 16px; margin-right: 4px;
+QTabBar::tab {{ background: transparent; color: {dim}; padding: 9px 18px; margin-right: 4px;
                border: 0; border-bottom: 2px solid transparent; font-weight: 500; }}
-QTabBar::tab:selected {{ color: #1D1D1F; border-bottom: 2px solid {ACCENT}; }}
-QTabBar::tab:hover:!selected {{ color: #1D1D1F; }}
+QTabBar::tab:selected {{ color: {fg}; border-bottom: 2px solid {accent}; }}
+QTabBar::tab:hover:!selected {{ color: {fg}; }}
 
-QPushButton {{ background: #FFFFFF; border: 1px solid #D9DCE1; border-radius: 8px;
-               padding: 5px 12px; min-height: 20px; }}
-QPushButton:hover   {{ background: #F0F1F4; }}
-QPushButton:pressed {{ background: #E6E8EC; }}
-QPushButton:disabled {{ color: #B0B3B8; }}
-QPushButton#Primary {{ background: {ACCENT}; border: 1px solid {ACCENT}; color: #FFFFFF;
+QPushButton {{ background: {card}; border: 1px solid {line2}; border-radius: 9px;
+               padding: 6px 12px; min-height: 22px; }}
+QPushButton:hover   {{ background: {hover}; }}
+QPushButton:pressed {{ background: {press}; }}
+QPushButton:disabled {{ color: {faint}; background: transparent; }}
+QPushButton#Primary {{ background: {accent}; border: 1px solid {accent}; color: #FFFFFF;
                        font-weight: 600; }}
 QPushButton#Primary:hover   {{ background: #0A78E8; border-color: #0A78E8; }}
 QPushButton#Primary:pressed {{ background: #0968CC; border-color: #0968CC; }}
+QPushButton#Primary:disabled {{ background: {line2}; border-color: {line2}; color: {faint}; }}
 
-QLineEdit, QComboBox {{ background: #FFFFFF; border: 1px solid #D9DCE1; border-radius: 8px;
-                        padding: 6px 10px; }}
-QLineEdit:focus, QComboBox:focus {{ border: 1px solid {ACCENT}; }}
+QLineEdit, QComboBox {{ background: {card}; border: 1px solid {line2}; border-radius: 9px;
+                        padding: 7px 11px; color: {fg}; }}
+QLineEdit:focus, QComboBox:focus {{ border: 1px solid {accent}; }}
+QComboBox QAbstractItemView {{ background: {card}; border: 1px solid {line};
+                               selection-background-color: {sel}; selection-color: {fg}; }}
 
-QTableWidget {{ background: #FFFFFF; border: 1px solid #E4E6EA; border-radius: 12px;
-                gridline-color: transparent; selection-background-color: #E8F1FF;
-                selection-color: #1D1D1F; outline: 0; }}
-QTableWidget::item {{ padding: 4px 8px; border-bottom: 1px solid #F0F1F4; }}
-QHeaderView::section {{ background: #FFFFFF; color: #6E6E73; border: 0;
-                        border-bottom: 1px solid #E4E6EA; padding: 8px; font-weight: 600;
+QTableWidget {{ background: {card}; border: 1px solid {line}; border-radius: 14px;
+                gridline-color: transparent; selection-background-color: {sel};
+                selection-color: {fg}; outline: 0; }}
+QTableWidget::item {{ padding: 4px 8px; border-bottom: 1px solid {line}; }}
+QHeaderView::section {{ background: {card}; color: {dim}; border: 0;
+                        border-bottom: 1px solid {line}; padding: 9px; font-weight: 600;
                         font-size: 12px; }}
 
-QPlainTextEdit {{ background: #FFFFFF; border: 1px solid #E4E6EA; border-radius: 12px;
-                  padding: 8px; font-family: Menlo, monospace; font-size: 11px; }}
+QPlainTextEdit {{ background: {card}; border: 1px solid {line}; border-radius: 14px;
+                  padding: 9px; font-family: Menlo, monospace; font-size: 11px; color: {fg}; }}
 QCheckBox {{ spacing: 8px; padding: 3px 0; background: transparent; }}
-QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid #C7CBD1; border-radius: 5px;
-                        background: #FFFFFF; }}
-QCheckBox::indicator:checked {{ background: {ACCENT}; border-color: {ACCENT}; }}
+QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid {line2}; border-radius: 5px;
+                        background: {card}; }}
+QCheckBox::indicator:checked {{ background: {accent}; border-color: {accent}; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 4px; }}
-QScrollBar::handle:vertical {{ background: #D2D5DA; border-radius: 5px; min-height: 30px; }}
+QScrollBar::handle:vertical {{ background: {line2}; border-radius: 5px; min-height: 30px; }}
+QScrollBar::handle:vertical:hover {{ background: {faint}; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
+QToolTip {{ background: {card}; color: {fg}; border: 1px solid {line}; padding: 5px 8px; }}
 """
+
+
+def stylesheet():
+    """The stylesheet for the desktop's current colour scheme.
+
+    Falls back to light if the API is unavailable, so this cannot stop the app starting.
+    """
+    dark = False
+    try:
+        from PySide6.QtGui import QGuiApplication
+        dark = QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
+    except Exception:
+        pass
+    return STYLE.format(accent=ACCENT, **(DARK if dark else LIGHT))
+
 
 
 def card(inner, spacing=10, margins=(16, 14, 16, 16)):
@@ -844,7 +882,7 @@ class Studio(QWidget):
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    app.setStyleSheet(STYLE)
+    app.setStyleSheet(stylesheet())
     app.setFont(QFont(".AppleSystemUIFont", 13))
     w = Studio()
     w.show()
