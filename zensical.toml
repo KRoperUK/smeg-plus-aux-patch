@@ -17,6 +17,7 @@ nav = [
   { "Media protection" = "MEDIA_PROTECTION.md" },
   { "Media partition" = "MEDIA_PARTITION.md" },
   { "Cheatcodes & spy" = "CHEATCODES.md" },
+  { "Customising" = "CUSTOMISING.md" },
   { "Ring tones" = "RINGTONES.md" },
   { "Version strings" = "VERSION_STRINGS.md" },
   { "What is reachable" = "CAPABILITIES.md" },
