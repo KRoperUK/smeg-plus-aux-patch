@@ -98,6 +98,17 @@ uv run tools/build_package.py --manifest build.json
 uv run tools/build_package.py --manifest build.json --dry-run   # show the steps only
 ```
 
+!!! warning "`user_data` ships to the unit's USER_DATA partition — it can wipe settings"
+
+    `system.bin` extracts to the read-only `/SYSTEM/`, so settings edited there can appear to
+    do nothing: the application reads them from `/USER_DATA`, a separate partition holding the
+    car's own state — paired phones, navigation destinations, presets. The updater has a step
+    that copies a `USER_DATA` payload over it.
+
+    A manifest with a `user_data` section is **refused** unless it also sets
+    `accept_data_loss: true`, and the warning prints either way. That flag means a person was
+    told what it may cost and agreed to it.
+
 `media.settings` writes integers into the settings database
 (`Data_base/sqlite/up_common.sqlite`), as `Section.Name`. These need no code patch, so they
 are the safest changes the project can make — the worst case is that the firmware ignores

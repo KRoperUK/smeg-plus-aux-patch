@@ -147,3 +147,23 @@ def test_dry_run_shows_the_order(tmp_path, fake_pkg):
     app_i = next(i for i, s in enumerate(seq) if "applying patch set" in s)
     media_i = next(i for i, s in enumerate(seq) if "extracting the media partition" in s)
     assert app_i < media_i
+
+
+def test_refuses_user_data_without_acknowledgement(tmp_path, fake_pkg):
+    """Shipping to /USER_DATA can wipe the car's own settings, so it cannot happen quietly."""
+    m = manifest(tmp_path, package=str(fake_pkg), out=str(tmp_path / "o"),
+                 user_data={"sqlite": ["up_common.sqlite"]})
+    r = run_cli(m)
+    assert r.returncode != 0
+    out = r.stdout + r.stderr
+    assert "accept_data_loss" in out
+    assert "USER DATA" in out or "USER_DATA" in out
+    assert not (tmp_path / "o").exists()
+
+
+def test_warns_but_proceeds_with_acknowledgement(tmp_path, fake_pkg):
+    m = manifest(tmp_path, package=str(fake_pkg), out=str(tmp_path / "o"),
+                 user_data={"sqlite": ["up_common.sqlite"], "accept_data_loss": True})
+    r = run_cli(m, "--dry-run")
+    assert "accept_data_loss" not in (r.stderr or ""), "a recorded decision must not be refused"
+    assert "USER DATA" in r.stdout or "USER_DATA" in r.stdout

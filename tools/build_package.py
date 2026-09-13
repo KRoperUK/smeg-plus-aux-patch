@@ -147,6 +147,58 @@ def set_up_key(tree, dotted, value):
         con.close()
 
 
+USER_DATA_WARNING = """
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  THIS BUILD REPLACES A DATABASE ON THE UNIT'S USER DATA PARTITION.
+
+  /USER_DATA is where the unit keeps settings that belong to whoever is sitting
+  in the car: paired phones, navigation destinations, radio presets, recent
+  calls, trip data. The updater copies the payload below over it.
+
+  Depending on whether that step merges per file or replaces the folder, this
+  can reset any or all of that. The preset databases in system.bin do not touch
+  it, which is exactly why settings edited there appear to do nothing.
+
+  What it will write:
+{files}
+
+  If you are the person who drives this car, that is your call to make. If you
+  are an agent or a tool doing this on someone else's behalf, STOP and ask them
+  first, and tell them in these words what it may cost them.
+
+  To proceed, the manifest must record the decision explicitly:
+
+      "user_data": {{ "sqlite": [...], "accept_data_loss": true }}
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"""
+
+
+def warn_user_data(names):
+    return USER_DATA_WARNING.format(files="\n".join("    - %s" % n for n in names))
+
+
+def ship_user_data(out, tree, names, module):
+    """Copy settings databases into the package's USER_DATA payload.
+
+    `system.bin` extracts to /SYSTEM/, which is read-only: the application reads its live
+    settings from a separate NAND partition, /USER_DATA. The updater has a step for this
+    (`C_UPGRADE::ManageSQLiteFiles`) which copies them from
+    `<stick>/<module>/USER_DATA/user_data/sqlite/`, but only if the package ships that
+    directory - ours never did, which is why editing system.bin changed nothing on the unit.
+
+    Shipping the whole tree would take the unit's personal state with it, so this copies only
+    the named databases.
+    """
+    dest_dir = os.path.join(out, module, "USER_DATA", "user_data", "sqlite")
+    os.makedirs(dest_dir, exist_ok=True)
+    for name in names:
+        src = os.path.join(tree, "Data_base", "sqlite", name)
+        if not os.path.exists(src):
+            sys.exit("no %s in the extracted media tree" % name)
+        shutil.copy2(src, os.path.join(dest_dir, name))
+        print("==> USER_DATA/%s (%d bytes)" % (name, os.path.getsize(src)))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -173,7 +225,17 @@ def main():
     splash_map = media.get("splash") or {}
     name_map = media.get("names") or {}
     settings = media.get("settings") or {}
+    user_data = cfg.get("user_data") or {}
     any_media = bool(tone_map or splash_map or name_map or settings)
+
+    ud_sqlite = user_data.get("sqlite") or []
+    if ud_sqlite and not user_data.get("accept_data_loss"):
+        sys.exit(warn_user_data(ud_sqlite) +
+                 "\nRefusing to build. Add \"accept_data_loss\": true to the user_data "
+                 "section once the person who owns the car has agreed to it.")
+
+    if ud_sqlite:
+        print(warn_user_data(ud_sqlite))
 
     print("building %s -> %s (%s)" % (src, out, module))
     if args.dry_run:
@@ -251,6 +313,8 @@ def main():
              "--tree", tree, "--out", o2], "rebuilding the media partition", args.dry_run)
         if not args.dry_run:
             overlay(o2, out)
+            if user_data.get("sqlite"):
+                ship_user_data(out, tree, user_data["sqlite"], module)
 
     # 5. seal LAST — anything changed after this is unsealed and the unit rejects it
     if cfg.get("seal", True):
