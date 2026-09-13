@@ -210,12 +210,21 @@ def main():
     args = ap.parse_args()
 
     cfg = json.loads(Path(args.manifest).read_text())
-    src = cfg["package"]
-    out = cfg["out"]
+    # Paths in a manifest are read the way a person would expect: `~` expands, and a
+    # relative path is relative to the manifest itself rather than to wherever the command
+    # happened to be run from.
+    here = os.path.dirname(os.path.abspath(args.manifest))
+
+    def resolve(p):
+        p = os.path.expanduser(p)
+        return p if os.path.isabs(p) else os.path.normpath(os.path.join(here, p))
+
+    src = resolve(cfg["package"])
+    out = resolve(cfg["out"])
     module = cfg.get("module", "NAV")
 
     if not os.path.isdir(src):
-        sys.exit("no such package: %s" % src)
+        sys.exit("no such package: %s\n  (from %r in %s)" % (src, cfg["package"], args.manifest))
     if os.path.abspath(src) == os.path.abspath(out):
         sys.exit("--out must differ from --package; never build in place")
     if os.path.exists(out):

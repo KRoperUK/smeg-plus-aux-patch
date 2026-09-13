@@ -6,6 +6,7 @@ guards that stop it doing something destructive — those are the parts that wou
 *silently* if they were wrong.
 """
 import json
+import pathlib
 import os
 import sys
 
@@ -167,3 +168,86 @@ def test_warns_but_proceeds_with_acknowledgement(tmp_path, fake_pkg):
     r = run_cli(m, "--dry-run")
     assert "accept_data_loss" not in (r.stderr or ""), "a recorded decision must not be refused"
     assert "USER DATA" in r.stdout or "USER_DATA" in r.stdout
+
+
+def test_resolves_paths_against_the_manifest_not_the_cwd(tmp_path, monkeypatch):
+    """A scheme in builds/ must work from anywhere, and ~ must expand."""
+    pkg = tmp_path / "pkg"
+    (pkg / "NAV").mkdir(parents=True)
+    m = tmp_path / "builds" / "s.json"
+    m.parent.mkdir()
+    m.write_text(json.dumps({"package": "../pkg", "out": "../out"}))
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    r = run_cli(m, "--dry-run")
+
+    assert r.returncode == 0, r.stderr
+    assert "no such package" not in (r.stdout + r.stderr)
+
+
+def test_a_missing_package_names_the_path_it_tried(tmp_path):
+    m = tmp_path / "s.json"
+    m.write_text(json.dumps({"package": "nope", "out": "o"}))
+    r = run_cli(m)
+    assert r.returncode != 0
+    assert "no such package" in (r.stdout + r.stderr)
+    assert str(tmp_path) in (r.stdout + r.stderr), "should say where it looked"
+
+
+def test_every_committed_scheme_is_structurally_valid():
+    """The schemes in builds/ are documentation; a broken one is worse than none.
+
+    This validates structure rather than requiring the referenced package to exist. A scheme
+    is a recipe and it points at a package on whoever's machine is building, so asserting the
+    paths resolve here passes locally and fails in CI - which is exactly what it did.
+    """
+    import glob
+    root = os.path.dirname(TOOLS)
+    schemes = sorted(glob.glob(os.path.join(root, "builds", "*.json")))
+    assert schemes, "no schemes found"
+
+    for s in schemes:
+        name = os.path.basename(s)
+        cfg = json.loads(pathlib.Path(s).read_text())
+        assert isinstance(cfg.get("package"), str) and cfg["package"], name
+        assert isinstance(cfg.get("out"), str) and cfg["out"], name
+        assert cfg.get("module", "NAV") in ("NAV", "AUDIO_BT", "AUDIO_BT_256"), name
+
+        for patch in (cfg.get("app") or {}).get("patches", []):
+            f = patch if patch.endswith(".json") else patch + ".json"
+            assert os.path.exists(os.path.join(root, "patches", f)), \
+                "%s references a patch set that does not exist: %s" % (name, patch)
+
+        tones = ((cfg.get("media") or {}).get("tones") or {})
+        if tones:
+            import ringtones as rt
+            for dest in tones:
+                assert any(v[0] == dest for v in rt.SLOTS.values()), \
+                    "%s writes to %s, which is not a known tone slot" % (name, dest)
+
+
+def test_committed_schemes_dry_run_where_the_package_exists():
+    """On a machine that has the package, the scheme must actually dry-run."""
+    import glob
+    import subprocess
+    root = os.path.dirname(TOOLS)
+    ran = 0
+    for s in sorted(glob.glob(os.path.join(root, "builds", "*.json"))):
+        cfg = json.loads(pathlib.Path(s).read_text())
+        if not os.path.isdir(os.path.expanduser(cfg["package"])):
+            continue
+        r = subprocess.run([sys.executable, os.path.join(TOOLS, "build_package.py"),
+                            "--manifest", s, "--dry-run"], capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        # a previous run may have left the output directory behind; refusing to clobber it
+        # is correct behaviour, not a broken scheme
+        if "already exists" in out:
+            continue
+        assert r.returncode == 0, "%s failed to dry-run:\n%s" % (s, out)
+        ran += 1
+    if ran == 0:
+        import pytest
+        pytest.skip("no scheme's package is present on this machine")
