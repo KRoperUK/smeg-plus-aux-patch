@@ -120,7 +120,7 @@ SMEG+ update on the car (engine running). See [`docs/FLASHING.md`](docs/FLASHING
 | `tools/callers.py` | find direct (`bl`) callers of a function |
 | `tools/patch_media.py` | rebuild a media partition (ring tones, resources) |
 | `tools/ringtones.py` | convert custom audio to the unit's ring/wait tone formats |
-| `tools/ringtone_studio.py` | Qt front-end: ringtone conversion + patch builder (optional) |
+| `tools/patch_studio.py` | Qt front-end: ringtone conversion + patch builder (optional) |
 | `tools/apply_files.sh` | overlay patched files onto a package copy |
 
 ```sh
@@ -150,16 +150,22 @@ Also published as a docs site: <https://smeg.kroper.uk/> (Zensical, built and de
 
 ## Development environment
 
-A virtualenv with the GUI and test dependencies already exists (Python 3.13 — your
-Homebrew `python3` is 3.14, where `ensurepip` is broken and PySide6 has no wheels):
+The CLI tools need nothing but `uv` — each script declares its own dependencies, so
+`uv run tools/<script>` just works. The GUI, tests and docs build want a virtualenv.
+`.venv/` is not in the repo; create it once (Python 3.13, because Homebrew's `python3` is
+3.14, where `ensurepip` is broken and PySide6 has no wheels):
 
 ```sh
-.venv/bin/python tools/ringtone_studio.py     # the GUI
+uv venv --seed --python 3.13 .venv
+uv pip install --python .venv/bin/python PySide6 pytest zensical ruff
+```
+
+```sh
+.venv/bin/python tools/patch_studio.py        # the GUI
 .venv/bin/python -m pytest tests -q           # the test suite
 ```
 
-Recreate it with `uv venv --seed --python 3.13 .venv && uv pip install --python
-.venv/bin/python PySide6 pytest`, or use plain `pip install -r requirements-dev.txt`.
+Or use plain `pip install -r requirements-dev.txt` for the tests alone.
 
 ## Working with AI agents
 

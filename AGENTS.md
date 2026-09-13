@@ -62,14 +62,14 @@ The work is split in two:
 ## How to run things
 
 ```sh
-.venv/bin/python -m pytest tests -q        # 27 tests, no firmware required
+.venv/bin/python -m pytest tests -q        # the suite, no firmware required
 .venv/bin/python -m ruff check tools tests # lint (E9 + F)
-.venv/bin/python tools/ringtone_studio.py  # the GUI
+.venv/bin/python tools/patch_studio.py     # the GUI
 .venv/bin/zensical serve                   # live docs preview
 ```
 
-A virtualenv with everything already exists (Python 3.13 — Homebrew's `python3` is 3.14,
-where `ensurepip` is broken and PySide6 has no wheels). Recreate it with
+`.venv/` is gitignored, so a fresh clone has none — build it first (Python 3.13, because
+Homebrew's `python3` is 3.14, where `ensurepip` is broken and PySide6 has no wheels):
 `uv venv --seed --python 3.13 .venv && uv pip install --python .venv/bin/python PySide6 pytest zensical ruff`.
 
 ## Testing without firmware
@@ -87,7 +87,7 @@ Building those tests immediately caught two fixture bugs, so it is worth the eff
 |---|---|
 | `tools/patch_smeg.py` | Checks `expect` bytes before writing, then rebuilds the whole CRC cascade. Prefer adding a `patches/*.json` entry over new code. |
 | `tools/ringtones.py` | Needs ffmpeg for non-WAV input, but degrades gracefully. Slot formats matter: ring/status tones are 16-bit **mono 44.1 kHz**, wait tones 16-bit **stereo 8 kHz**. |
-| `tools/ringtone_studio.py` | Qt GUI. Set `QT_QPA_PLATFORM=offscreen` to test it headlessly. |
+| `tools/patch_studio.py` | Qt GUI. Set `QT_QPA_PLATFORM=offscreen` to test it headlessly. |
 | `tools/ppcdis.py`, `xref.py`, `callers.py`, `mkelf.py` | The analysis tools every patch address was derived with. Need `capstone`. Untested — see #38. |
 | `docs/` | Published with Zensical to <https://smeg.kroper.uk/>. A broken anchor fails the build; run `zensical build` before pushing docs. |
 

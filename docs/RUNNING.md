@@ -10,7 +10,7 @@ metadata, so `uv` installs what each one needs, once, and caches it.
 git clone https://github.com/KRoperUK/smeg-plus-patches
 cd smeg-plus-patches
 
-uv run tools/ringtone_studio.py                     # the Qt app (fetches PySide6)
+uv run tools/patch_studio.py                        # the Qt app (fetches PySide6)
 uv run tools/patch_media.py --help                  # media partition patcher
 uv run tools/ringtones.py list                      # ring/wait tone slots
 uv run tools/patch_smeg.py --help                   # application image patcher
@@ -34,26 +34,24 @@ uvx --from 'smeg-plus-patches[gui] @ git+https://github.com/KRoperUK/smeg-plus-p
 
 | console script | equivalent |
 |---|---|
-| `smeg-studio` | `tools/ringtone_studio.py` |
+| `smeg-studio` | `tools/patch_studio.py` |
 | `smeg-ringtones` | `tools/ringtones.py` |
 | `smeg-patch-media` | `tools/patch_media.py` |
 | `smeg-patch` | `tools/patch_smeg.py` |
 
 ## Development
 
-A virtualenv with everything (Qt, pytest, zensical) already exists in the repo — Python
+`.venv/` is gitignored, so a fresh clone does not have one. Build it once — Python
 3.13, because Homebrew's `python3` is 3.14 and PySide6 has no wheels for it:
+
+```sh
+uv venv --seed --python 3.13 .venv
+uv pip install --python .venv/bin/python PySide6 pytest zensical ruff
+```
 
 ```sh
 .venv/bin/python -m pytest tests -q
 .venv/bin/zensical serve            # live docs preview on :8000
-```
-
-Rebuild it with:
-
-```sh
-uv venv --seed --python 3.13 .venv
-uv pip install --python .venv/bin/python PySide6 pytest zensical
 ```
 
 The test suite needs **no firmware at all** — it generates a synthetic package, so the

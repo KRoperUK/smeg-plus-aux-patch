@@ -62,7 +62,7 @@ cd smeg-plus-patches
 
 uv run python -m pytest tests -q      # 19 tests, no firmware required
 uv run ruff check tools tests
-uv run tools/ringtone_studio.py      # the GUI
+uv run tools/patch_studio.py         # the GUI
 ```
 
 `uv` reads the PEP 723 metadata in each script, so there is nothing to install by hand.
