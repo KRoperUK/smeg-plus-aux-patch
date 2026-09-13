@@ -212,6 +212,18 @@ def ship_user_data(out, tree, names, module):
     Shipping the whole tree would take the unit's personal state with it, so this copies only
     the named databases.
     """
+    folder = os.path.basename(os.path.normpath(out))
+    if folder != "SMEG_PLUS_UPG" or module != "NAV":
+        print(
+            "!!! the updater looks for this payload at the hard-coded path\n"
+            "        /bd0/SMEG_PLUS_UPG/NAV/USER_DATA\n"
+            "    (C_UPGRADE::UpgradeTask -> IsDirExist, then 'Copy of /USERDATA from /bd0 to"
+            " NAND').\n"
+            "    This build writes %s/%s/USER_DATA. Unless the folder on the stick is named\n"
+            "    SMEG_PLUS_UPG and the module is NAV, the copy is SKIPPED SILENTLY and the\n"
+            "    rest of the update still succeeds — which looks exactly like the settings\n"
+            "    having had no effect." % (folder, module)
+        )
     dest_dir = os.path.join(out, module, "USER_DATA", "user_data", "sqlite")
     os.makedirs(dest_dir, exist_ok=True)
     for name in names:
