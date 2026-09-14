@@ -82,8 +82,16 @@ typed. The libraries themselves are in the media partition under `/CCOD/`, named
     are reachable today without the #22 menu work.
 
     Practical consequence: `SPYSTORE` can be run without patching anything, and it copies the
-    spy directory — including the updater's `/SYSTEM_TMP_DATA/spy/UPG/UPG_log.txt` — out to
-    removable storage.
+    spy directory out to removable storage. What lands there is more than logs:
+
+    - the updater's `/SYSTEM_TMP_DATA/spy/UPG/UPG_log.txt` (rotated) — see
+      [Hardware verification](VERIFICATION.md)
+    - **`abs_symbols_base.txt.gz`** (98 365 lines) and **`symbols_bsp.txt.gz`** (22 497) — the
+      application and BSP symbol tables that `tools/ppcdis.py`, `xref.py` and `callers.py`
+      resolve names from. They are what `AGENTS.md` means by "patch by symbol, not by pattern",
+      and `SPYSTORE` is a way to obtain them.
+    - a task/exception capture from the last boot, which is how the unit's own settings
+      (`CMMUPKeys::ShowStatus`, 271 keys) can be read without the UI.
 
 Net: the entry screen is reachable by holding **RADIO / MEDIA**; the menu path is still
 absent, so see issue **#22** if that should be fixed properly, and **#23** for confirming that
