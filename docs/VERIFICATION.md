@@ -29,6 +29,98 @@ default patch set (`aux-autoswitch`: both `IsAUXSRCAvailable()` and the
     contract. It did not appear, and the update proceeded to write the application image.
     **The re-seal works on hardware.** This was the blocker for the whole project.
 
+## Second flash — the `USER_DATA` retry (2026-09-14)
+
+A second patched package (`builds/aux-default-retry.json`) was flashed to the same unit on the
+same day, to try `supervisor.Last_Source = 7` for the first time. It carried a **beacon** —
+`clock.Time_Zone` moved from `16` to `0` — so that "the payload did not apply" could be told
+apart from "the value is wrong".
+
+| check | outcome | how it is known |
+|---|---|---|
+| update ran | **yes** — offered and installed fully | on the unit |
+| application image | **patched** — AUX still does not grey out with no signal | on the unit; same as the first flash |
+| `USER_DATA` payload applied | **no** — the time zone did not change | on the unit; that is exactly what the beacon tests |
+| the unit's own state | **undisturbed** — paired phones and presets intact | on the unit |
+| boot source | **FM radio**, not AUX | on the unit |
+| `src` behaviour | unchanged; AUX is not offered first | on the unit — and expected: `src` order is issue #66, never part of this patch set |
+
+!!! warning "The folder-name explanation is falsified"
+
+    The stick was inspected afterwards and the payload was present at exactly the path the
+    updater tests — `SMEG_PLUS_UPG/NAV/USER_DATA/user_data/sqlite/up_common.sqlite` — with its
+    **build** timestamp intact (12:38), not the flash time. A write by the updater would have
+    moved that timestamp. So `IsDirExist("/bd0/SMEG_PLUS_UPG/NAV/USER_DATA")` had every reason
+    to succeed, and "the payload was skipped because the folder was named
+    `SMEG_PLUS_UPG_auxdefault`" no longer explains the failure.
+
+**`Last_Source = 7` has therefore still not been tested on a car** — indeed no value has, because
+the payload has never been observed to apply. The boot-to-FM result carries no information about
+whether `7` is the right number.
+
+What the updater would do with the payload, **read from `upgrade.out`, not executed**:
+
+- `UpgradeTask` copies it with `xcopy_blk("/bd0/SMEG_PLUS_UPG/NAV/USER_DATA", "/USER_DATA")`,
+  under a bare `IsDirExist` test with no fallback, in the block that continues **Phase 1**. That
+  block is reached only when the persisted step (`readStep`, `this+0xc0`) is `0` or `1`; the
+  switch `goto`s past it for any higher step.
+- `C_UPGRADE::RestoreDataFromUSB()` runs unconditionally just before it and copies from a base
+  path held at `this+0x24` into `/USER_DATA` and `/USER_DATA_BACKUP`.
+- The updater logs all of this to `/SYSTEM_TMP_DATA/spy/UPG/UPG_log.txt` on the unit
+  (`C_UPGRADE::MakeLogArchive` rotates it). Since that lives in the spy directory, `SPYSTORE`
+  copies it to a stick — see issue **#24**.
+
+### Root cause, from the updater's own log (2026-09-14)
+
+The log came off the unit with `SPYSTORE` (see [Cheatcodes](CHEATCODES.md)), and it shows the copy
+**did** run — the step gate was not the problem:
+
+```
+copying dir  /bd0/SMEG_PLUS_UPG/NAV/USER_DATA/user_data  -> /USER_DATA/user_data
+copying dir  .../USER_DATA/user_data/SQLITE             -> /USER_DATA/user_data/SQLITE
+copying file .../SQLITE/up_common.sqlite                -> .../SQLITE/up_common.sqlite
+(tUpgrade): Copy of /USERDATA from /bd0 to NAND
+```
+
+**`SQLITE`, uppercase.** The unit's own dump names the path the application actually uses — in its
+open file table and in a database error — as lowercase `sqlite`:
+
+```
+/USER_DATA/user_data/sqlite/navigation.sqlite
+ERROR: <up_common> [CMMSQLDataBaseImp::BackUp error : disk I/O error
+       from </USER_DATA/user_data/sqlite/up_common.sqlite>]
+```
+
+FAT hands out uppercase 8.3 short names, and the updater named the destination directory from what
+it read off the stick. The payload landed in a sibling directory that differs only by case, which
+the application never opens.
+
+**Confirmed from the unit's own settings dump** (`CMMUPKeys::ShowStatus`, 271 keys):
+
+```
+supervisor.Last_Source.0            <int> : 1
+supervisor.Last_Source_Priority.0   <int> : 10
+supervisor.Src_Radio_SchedPos.0     <int> : 7
+```
+
+`Last_Source` is still the factory `1`, so `7` never reached the live database.
+
+Two further differences in the same log, either of which would also have to be fixed:
+
+- The payload shipped **no `.inf` sidecar**, while every database in the live directory has one
+  (`up_common.sqlite.inf`).
+- `RestoreDataFromUSB` looks for a **per-unit** directory — `/bd0/00FE…0035` style, named after
+  the unit itself — not the package path; and `SaveDataOnUSB`, which would have created it, never
+  ran at all (zero mentions in the log).
+
+!!! note "The spy dump is a general diagnostic, not just this log"
+
+    `SPYSTORE` also yielded `abs_symbols_base.txt.gz` (98 365 lines) and `symbols_bsp.txt.gz`
+    (22 497 lines) — the application and BSP symbol tables `AGENTS.md` describes but which the
+    repository does not ship. The analysis tools resolve names with them instead of `?`. The
+    dump additionally carries a task/exception capture, which is where the settings listing
+    above came from.
+
 ## Observed update sequence
 
 Captured from photographs taken during the update, ordered by capture time. Screens marked

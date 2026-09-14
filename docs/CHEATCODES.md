@@ -73,8 +73,21 @@ typed. The libraries themselves are in the media partition under `/CCOD/`, named
   `is_displayable()` -> `LaunchCheatCode()` -> `activate()`, over DBUS
   `com/MM/BCM_CHEAT_CODE` (`BCM_cheatcode_SERVER`).
 
-Net: on a stock unit there is no user-facing way in. See issue **#22** (expose the menu
-entry, data-only) and **#23** (decode the FMUX key map to find what `0x54` is).
+!!! success "There is a way in — observed on a car, 2026-09-14"
+
+    **Holding the RADIO / MEDIA button opens the entry screen.** This section previously
+    concluded there was no user-facing route, and that was wrong. The hard-coded trigger is
+    virtual key `0x54` while the Config app has focus, so the RADIO/MEDIA long-press is very
+    likely what that key is — which is direct evidence for issue **#23**, and means the codes
+    are reachable today without the #22 menu work.
+
+    Practical consequence: `SPYSTORE` can be run without patching anything, and it copies the
+    spy directory — including the updater's `/SYSTEM_TMP_DATA/spy/UPG/UPG_log.txt` — out to
+    removable storage.
+
+Net: the entry screen is reachable by holding **RADIO / MEDIA**; the menu path is still
+absent, so see issue **#22** if that should be fixed properly, and **#23** for confirming that
+virtual key `0x54` is this button.
 
 ## The spy system
 
@@ -109,6 +122,29 @@ libcheatcode_SPYSTORE.out : Activate()
 **Do not confuse this with** `C_BCM_SPY_System_Shot::SpyFiles()` — despite the name it is
 a diagnostic snapshot that writes `diag_zi.sqlite`, not the debug spy logs. Ruled out as
 a hook.
+
+### A module dump reaches the spy, not the dead log sink
+
+A module's SPY dump is a live caller of this system, and it is worth knowing that it does **not**
+go through `Log_msg`'s stubbed sink (see [Patch reference](PATCHES.md) and issue **#94**).
+`C_MGR_SRC`'s dump at `0x0169a2e4` builds its lines with the string-buffer helpers and then
+emits them through a service, not the logger:
+
+```
+0x0169a2e4   MGR_SRC SPY dump  (one block per scheduled slot)
+  -> 0x01695c30
+       -> FUN_0103155c(0x52d0, 0)   look up service 0x52d0
+       -> 0x012753c0                C_BCM_SPY::WriteData(id = 0x62d4, ptr, len)
+```
+
+`0x012753c0` is `C_BCM_SPY::WriteData`: it logs under the `BCM_SPY` / `WriteData` strings, and
+the only stubbed sink it touches, `0x010346d0`, is reached on its **error** path
+(`m_pListSpy isn't init`). Spy data therefore has its own route to `/SYSTEM_TMP_DATA/SPY/`, and
+observing a module dump does not depend on the log sink being given a destination.
+
+That is why issue **#24** is worth attempting first: a boot-time dump of this kind would show, at
+runtime, which sources `C_MGR_SRC` has registered requests for and under which `POS_*` id — the
+empirical form of the enum the [AUX chain](AUX_CHAIN.md) derives statically.
 
 Relevant to this project: running `SPYSTORE` with a USB inserted would show whether HMI
 event `0x613dc` actually reaches `HandleAudioAuxInputStatusChnged()`, which is the open

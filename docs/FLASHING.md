@@ -18,6 +18,34 @@ These are generic notes for applying a patched SMEG+ package. They are not a sub
 for the update instructions that came with your vehicle/software. Do this at your own
 risk.
 
+## Shipping settings: the `USER_DATA` payload, and why it does not land
+
+A package can carry a `USER_DATA` payload — `NAV/USER_DATA/user_data/sqlite/…` — which the updater
+copies over the unit's live settings partition. **It does not currently work**, and the reason is
+worth knowing before building one:
+
+- The copy is `xcopy_blk("/bd0/SMEG_PLUS_UPG/NAV/USER_DATA", "/USER_DATA")`, hard-coded, in the
+  block that continues **Phase 1** of `UpgradeTask`.
+- The destination directory is named from what the updater reads off the stick, and **FAT gives
+  out uppercase 8.3 short names**. The application reads its live settings from lowercase
+  `/USER_DATA/user_data/sqlite/`, so the payload lands in an uppercase `SQLITE/` sibling and is
+  never opened.
+
+Observed on a car, with the log to prove it — see
+[the second flash](VERIFICATION.md#second-flash-the-user_data-retry-2026-09-14). A flash with a
+correctly-laid-out payload ran the copy, and the unit's own settings dump afterwards still read
+the factory `supervisor.Last_Source`.
+
+Two other things the same log settled:
+
+- The live directory holds a `.inf` sidecar beside every database (`up_common.sqlite.inf`); a
+  payload that ships only the `.sqlite` is missing it.
+- `C_UPGRADE::RestoreDataFromUSB` copies from a **per-unit** directory, `/bd0/<unit-id>/`, not
+  from the package path. `C_UPGRADE::SaveDataOnUSB` is what creates it, and it did not run.
+
+Until the case problem is solved, prefer routes that are known to work: an application-image patch
+(proven on hardware) or a media-partition edit.
+
 ## Prepare the USB stick
 
 - Use a stick of **8 GB or more** (a package with navigation TTS data is roughly 1 GB).
