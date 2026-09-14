@@ -142,7 +142,7 @@ being corrupted.
 | `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate — control flow verified under emulation, **never flashed** |
 | `patches/diagnostic-logmask.json` | forces the global trace mask — **necessary but not sufficient**, see below | diagnostic build, **not for driving** |
 | `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | diagnostic build, needs the mask patch too, **not for driving** |
-| `patches/spy-dump-userdata.json` | makes `SPYSTORE` also copy `/USER_DATA/user_data` out to the stick | static analysis only, **never flashed**, NAV-only |
+| `patches/spy-dump-userdata.json` | makes `SPYSTORE` also copy `/USER_DATA/user_data` out to the stick | **confirmed on hardware** (2026-09-14, NAV) |
 
 !!! note "Hardware status"
 
@@ -396,13 +396,26 @@ Verified by round-tripping the bytes through `capstone` and by `tests/test_spy_d
 which decodes the `lis`/`addi` pair to confirm the callee is `GetUserDataDir` and applies the
 shipped definition end-to-end through `patch_smeg.py`.
 
-!!! warning "Trade-offs and status"
+!!! success "Confirmed on hardware — 2026-09-14 (NAV, 5.43.A.R2)"
+
+    Flashed to a real unit; running `SPYSTORE` with a stick inserted produced a dump
+    (`SPY/02_.../`) containing the full `/USER_DATA/user_data/` tree — `sqlite/` (14 databases
+    with their `.inf` CRC sidecars), `Audio/` (`Tuner.dat`/`Radio.dat` presets), and
+    `Nav/`, `TTS/`, `T2BF/`. The files are the genuine live copies: `nav_dest.sqlite` is a
+    valid SQLite file, and `up_common.sqlite`/`up_user.sqlite` are stored **gzip'd**
+    (`1f8b …`), which is how the unit keeps them on disk — the boot log's `gzUnixRead`. So
+    `SPYSTORE` is now a working way to pull a settings backup off the unit.
+
+    - **`connectivity.sqlite` is not captured.** Despite being named in the source path, it
+      is not a file under `/USER_DATA/user_data/sqlite/` — the boot log shows it is imported
+      from the system partition (`connectivity imported from system`), so **paired phones are
+      out of scope** of this backup. Navigation destinations (`nav_dest.sqlite`), radio
+      presets (`Audio/*.dat`) and general settings (`up_common`) *are* captured.
+
+!!! note "Trade-offs"
 
     - **The dump loses the `*regen*` calibration files** in exchange for the `/USER_DATA`
       backup. That is the cost of staying cave-free.
-    - **Static analysis only — never flashed.** Whether `Xcopy` copies the whole
-      `/USER_DATA/user_data` tree at collect time (free space on the stick, timing) needs a
-      car test. Do not claim it works.
     - **NAV only.** `AUDIO_BT`/`AUDIO_BT_256` have a different `CallBackCopy` address; derive
       it from each build's own image before adding those variants.
     - This reads `/USER_DATA` but does not write it, so it cannot damage the user partition —
