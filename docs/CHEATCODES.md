@@ -73,8 +73,21 @@ typed. The libraries themselves are in the media partition under `/CCOD/`, named
   `is_displayable()` -> `LaunchCheatCode()` -> `activate()`, over DBUS
   `com/MM/BCM_CHEAT_CODE` (`BCM_cheatcode_SERVER`).
 
-Net: on a stock unit there is no user-facing way in. See issue **#22** (expose the menu
-entry, data-only) and **#23** (decode the FMUX key map to find what `0x54` is).
+!!! success "There is a way in — observed on a car, 2026-09-14"
+
+    **Holding the RADIO / MEDIA button opens the entry screen.** This section previously
+    concluded there was no user-facing route, and that was wrong. The hard-coded trigger is
+    virtual key `0x54` while the Config app has focus, so the RADIO/MEDIA long-press is very
+    likely what that key is — which is direct evidence for issue **#23**, and means the codes
+    are reachable today without the #22 menu work.
+
+    Practical consequence: `SPYSTORE` can be run without patching anything, and it copies the
+    spy directory — including the updater's `/SYSTEM_TMP_DATA/spy/UPG/UPG_log.txt` — out to
+    removable storage.
+
+Net: the entry screen is reachable by holding **RADIO / MEDIA**; the menu path is still
+absent, so see issue **#22** if that should be fixed properly, and **#23** for confirming that
+virtual key `0x54` is this button.
 
 ## The spy system
 
