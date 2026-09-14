@@ -43,8 +43,28 @@ Two other things the same log settled:
 - `C_UPGRADE::RestoreDataFromUSB` copies from a **per-unit** directory, `/bd0/<unit-id>/`, not
   from the package path. `C_UPGRADE::SaveDataOnUSB` is what creates it, and it did not run.
 
-Until the case problem is solved, prefer routes that are known to work: an application-image patch
-(proven on hardware) or a media-partition edit.
+### Working around it: give the directory a long-filename entry
+
+The updater names each destination directory after what it reads off the stick, and it reads
+**long filenames** but not the FAT "lowercase base" bit. So the fix is to make the payload's
+`sqlite` directory carry a long-filename entry.
+
+macOS will not write one for an 8.3-valid name like `sqlite` — it stores the short name
+`SQLITE` with that bit set and no LFN, which is precisely how this goes wrong. Renaming does
+not help; it does the same thing. The entry has to be written or corrected directly:
+
+1. Name the directory something that *needs* an LFN, e.g. `sqlite_dat`, so macOS writes one.
+2. Unmount the volume (`diskutil unmount`, not eject — eject removes the device node), then
+   rewrite that one LFN entry's characters to `sqlite`. The short name and its entry checksum
+   are untouched, and it is a single 32-byte read-modify-write.
+
+!!! warning "Not yet confirmed on hardware"
+
+    The filesystem half is verified: the directory reads back as `sqlite`, and the `.inf` is
+    present. Whether the application *accepts* the database once it lands there is the next
+    flash's question — the updater log will show the destination case either way. Until that
+    is settled, prefer routes that are known to work: an application-image patch (proven on
+    hardware) or a media-partition edit.
 
 ## Prepare the USB stick
 

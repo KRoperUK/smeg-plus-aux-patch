@@ -4,6 +4,38 @@ Base address for the inflated application image is `0x01000000`. Offsets below a
 absolute addresses in that image; the tool converts to a file offset with
 `offset = addr - 0x01000000`.
 
+## Addresses are per firmware version, not only per build
+
+Every address on this page was read out of the **`SMEG_5.43.A.R2`** NAV image. `AGENTS.md`
+already warns that addresses differ between the `AUDIO_BT`, `AUDIO_BT_256` and `NAV` builds.
+They also differ between firmware *versions*, and by more than a few bytes.
+
+Comparing the NAV application images from `SMEG_5.42.B.R4` (Nov 2016) and `SMEG_5.43.A.R2`
+(Sep 2017):
+
+| what | `5.43.A.R2` | `5.42.B.R4` | shift |
+|---|---|---|---|
+| `IsAUXSRCAvailable()` | `0x02247858` | `0x022477c0` | −152 |
+| `C_MGR_SRC` setter (`Last_Source`) | `0x016977d0` | `0x01697738` | −152 |
+| `C_MGR_SRC` SPY dump | `0x0169a2e4` | `0x0169a24c` | −152 |
+| `C_MGR_SRC` class strings | `0x0300a6a4` | `0x0300a624` | −152 |
+| `Time_Zone` string | `0x02fcc5f4` | `0x02fcc574` | −152 |
+
+The two images are the same code **displaced by a constant 152 bytes**. That is why a naive
+byte-for-byte comparison calls ~80% of the image different: it is mostly the shift, not new
+code. Not everything is displacement though — the AUX handler region does not match verbatim
+at any offset, so there are real changes there as well.
+
+!!! warning "If your unit is not on 5.43.A.R2"
+
+    The addresses in `patches/*.json` will be wrong for it, and writing to them would corrupt
+    the image. `patch_smeg.py` checks the `expect` bytes before writing and refuses rather
+    than damage anything — that guard is load-bearing, not ceremony.
+
+    Porting is mostly mechanical *for unchanged code* (subtract 152 here), but the AUX handler
+    changed, so a 5.42 port needs that address re-derived from a 5.42 symbol table rather than
+    shifted. Addresses must be re-derived per firmware version, not copied.
+
 ## 1. `C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable()` — force available
 
 Replaces the function prologue with `li r3,1 ; blr`, so AUX is reported available
