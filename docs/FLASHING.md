@@ -186,11 +186,12 @@ With the `aux-autoswitch` patch set:
 
 - The **AUX tile stays selectable with nothing plugged in** — on stock firmware it greys
   out. This alone confirms `IsAUXSRCAvailable()` is patched.
-- **SRC steps through to AUX** as one of the normal sources.
-- **The unit should switch to AUX by itself** when audio appears on the input, with the
-  head unit on another source. This is the whole point of the patch and the one thing to
-  watch for. See [Hardware verification](VERIFICATION.md) for what has been confirmed so
-  far.
+- **SRC steps through to AUX** as one of the normal sources. This patch set does not reorder
+  that cycle.
+- **Do not expect this patch set to switch to AUX by itself.** Function-level emulation proved
+  the status-handler edit is inert, and the hardware result agrees. Boot-to-AUX was a separate
+  `USER_DATA` experiment; the unit's SPY dump shows it still read `Last_Source = 1` (FM), not
+  the payload's `7`. See [Hardware verification](VERIFICATION.md).
 
 ## Rollback
 

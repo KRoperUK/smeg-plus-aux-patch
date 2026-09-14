@@ -113,6 +113,38 @@ Two further differences in the same log, either of which would also have to be f
   the unit itself — not the package path; and `SaveDataOnUSB`, which would have created it, never
   ran at all (zero mentions in the log).
 
+### Later flash report — the case-workaround package
+
+The package staged after identifying the FAT case problem was flashed again. The unit still
+booted to FM and the SRC button still followed its normal cycle. That is two separate results:
+
+- **The application patches remain installed, but do not change either behaviour.** Normal SRC
+  order is expected: no shipped patch reorders it. Boot-to-AUX depended on the database payload,
+  not `IsAUXSRCAvailable()` or the inert status-handler edit.
+- **The live database still supplied FM.** The SPY capture made from the firmware on that stick
+  says both `6639::Last_Source : 1 (0x1)` and
+  `supervisor.Last_Source.0 <int> : 1`. It also records
+  `Current_source ... SRC_TUNER`. This is direct runtime evidence that the application read `1`,
+  not the payload's `7`.
+
+The updater log in that capture still names the copied directory uppercase:
+
+```
+copying dir  .../USER_DATA/user_data/SQLITE -> /USER_DATA/user_data/SQLITE
+copying file .../SQLITE/up_common.sqlite    -> .../SQLITE/up_common.sqlite
+```
+
+So the proposed long-filename workaround was **not demonstrated by this flash**. Either the FAT
+entry on the flashed stick was still exposed as `SQLITE`, or the updater canonicalised it; the log
+cannot distinguish those. Do not call that workaround hardware-confirmed.
+
+The same log shows what happened to the existing settings before that payload copy: it copied the
+live lowercase `/USER_DATA/user_data/sqlite` tree to temporary storage, formatted `/USER_DATA`,
+and restored the tree — including `up_common.sqlite`, navigation databases and audio data — before
+copying the separate uppercase payload directory. That supports **preservation** of the old data,
+but it does not prove whether a particular phone pairing survived; only checking the unit can do
+that.
+
 !!! note "The spy dump is a general diagnostic, not just this log"
 
     `SPYSTORE` also yielded `abs_symbols_base.txt.gz` (98 365 lines) and `symbols_bsp.txt.gz`
