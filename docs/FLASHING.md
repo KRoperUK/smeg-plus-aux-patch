@@ -59,7 +59,24 @@ not help; it does the same thing. The entry has to be written or corrected direc
 1. Name the directory something that *needs* an LFN, e.g. `sqlite_dat`, so macOS writes one.
 2. Unmount the volume (`diskutil unmount`, not eject — eject removes the device node), then
    rewrite that one LFN entry's characters to `sqlite`. The short name and its entry checksum
-   are untouched, and it is a single 32-byte read-modify-write.
+   are untouched, and it is a single 32-byte read-modify-write:
+
+   ```sh
+   diskutil unmount /Volumes/SMEGUPDATE
+   sudo python3 tools/fix_userdata_case.py --dry-run /dev/rdisk4s1
+   sudo python3 tools/fix_userdata_case.py /dev/rdisk4s1
+   diskutil mount /dev/disk4s1
+   ```
+
+3. Before flashing, unmount once more and run the read-only check against the FAT volume:
+
+   ```sh
+   python3 tools/fix_userdata_case.py --check /dev/disk4s1
+   ```
+
+   It must print `OK: FAT long-filename entry is exactly 'sqlite'`. Finder displaying lowercase
+   is not proof: the checker rejects short-name `SQLITE` even when its FAT lowercase-display bit
+   is set, because that is the exact representation the updater mishandles.
 
 !!! warning "Not yet confirmed on hardware"
 
