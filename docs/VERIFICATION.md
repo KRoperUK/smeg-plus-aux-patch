@@ -116,18 +116,20 @@ Two further differences in the same log, either of which would also have to be f
 ### Later flash report — the case-workaround package
 
 The package staged after identifying the FAT case problem was flashed again. The unit still
-booted to FM and the SRC button still followed its normal cycle. That is two separate results:
+booted to FM and the SRC button still followed its normal cycle. **No new SPYSTORE capture was
+made after that flash.** The dump discussed below is timestamped 18:29; the case-workaround
+payload and its `.inf` on the stick are timestamped 19:06, so that dump describes the earlier
+run and cannot prove how the later one named its destination. That is two separate results:
 
 - **The application patches remain installed, but do not change either behaviour.** Normal SRC
   order is expected: no shipped patch reorders it. Boot-to-AUX depended on the database payload,
   not `IsAUXSRCAvailable()` or the inert status-handler edit.
-- **The live database still supplied FM.** The SPY capture made from the firmware on that stick
-  says both `6639::Last_Source : 1 (0x1)` and
-  `supervisor.Last_Source.0 <int> : 1`. It also records
-  `Current_source ... SRC_TUNER`. This is direct runtime evidence that the application read `1`,
-  not the payload's `7`.
+- **The old live-database capture supplied FM.** The 18:29 SPY capture says both
+  `6639::Last_Source : 1 (0x1)` and `supervisor.Last_Source.0 <int> : 1`; it also records
+  `Current_source ... SRC_TUNER`. That is direct runtime evidence for the earlier uppercase-copy
+  run, not the later case-workaround flash.
 
-The updater log in that capture still names the copied directory uppercase:
+The updater log in that earlier capture names the copied directory uppercase:
 
 ```
 copying dir  .../USER_DATA/user_data/SQLITE -> /USER_DATA/user_data/SQLITE
