@@ -119,6 +119,7 @@ SMEG+ update on the car (engine running). See [`docs/FLASHING.md`](docs/FLASHING
 | `tools/xref.py` | find code that references a string, address or pointer |
 | `tools/callers.py` | find direct (`bl`) callers of a function |
 | `tools/patch_media.py` | rebuild a media partition (ring tones, resources) |
+| `tools/fix_userdata_case.py` | verify/fix the FAT long filename needed for a lowercase `sqlite` payload |
 | `tools/ringtones.py` | convert custom audio to the unit's ring/wait tone formats |
 | `tools/patch_studio.py` | Qt front-end: ringtone conversion + patch builder (optional) |
 | `tools/ppcemu.py` | run a single firmware function on an emulated PowerPC core |
