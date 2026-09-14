@@ -143,6 +143,40 @@ def patch_spec(variant="NAV", addr=0x100, base=0x0, expect="9421ffa0", new="3860
     }
 
 
+def make_ppc_analysis_fixture(root, base=0x01000000):
+    """Write a hand-encoded PPC image and symbol map for the analysis tools."""
+    root = Path(root)
+    image = bytearray(0x100)
+
+    words = {
+        0x00: 0x3D800100,  # lis r12,0x100
+        0x04: 0x398C0040,  # addi r12,r12,0x40
+        0x08: 0x7D8903A6,  # mtctr r12
+        0x0C: 0x4E800421,  # bctrl
+        0x10: 0x48000031,  # bl base+0x40
+        0x14: 0x4E800020,  # blr
+        0x18: base + 0x40,
+        0x1C: base + 0x80,
+        0x20: 0x3C600100,  # lis r3,0x100
+        0x24: 0x38630080,  # addi r3,r3,0x80
+        0x28: 0x4E800020,  # blr
+        0x40: 0x38600001,  # li r3,1
+        0x44: 0x4E800020,  # blr
+    }
+    for off, word in words.items():
+        image[off : off + 4] = struct.pack(">I", word)
+    image[0x80 : 0x80 + len(b"Auxiliary_Input\x00")] = b"Auxiliary_Input\x00"
+
+    image_path = root / "analysis.bin"
+    symbols_path = root / "symbols.txt"
+    image_path.write_bytes(image)
+    symbols_path.write_text(
+        "%08x T caller\n%08x T target_function\n%08x R aux_name\n"
+        % (base, base + 0x40, base + 0x80)
+    )
+    return image_path, symbols_path
+
+
 def inflate_container(raw):
     d = zlib.decompressobj()
     out = d.decompress(raw[STREAM_OFFSET:])
