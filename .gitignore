@@ -35,3 +35,7 @@ site/
 
 # os
 .DS_Store
+
+
+# local agent / tool state (not project content)
+.commandcode/
