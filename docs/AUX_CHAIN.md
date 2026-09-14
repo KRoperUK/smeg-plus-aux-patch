@@ -159,17 +159,81 @@ The audio module's table is contiguous from `SRC_NO_SOURCE = 0`:
 10 SRC_AUX_CONVERGENCE  11 SRC_BLUETOOTH  12 SRC_MTB  13 SRC_MLDIPO_RECO_PHONE
 ```
 
-**Which of these `supervisor.Last_Source` holds is not established.** The factory value is
-`1`, which is the radio in the HMI numbering *and* `SRC_TUNER` in the audio one, so it does
-not discriminate. `4` and `7` have both been flashed without the unit starting on AUX —
-but see [Flashing](FLASHING.md): a `USER_DATA` payload in a folder not named
-`SMEG_PLUS_UPG` is skipped silently, so neither of those flashes is yet known to have
-applied at all.
+**Which of these `supervisor.Last_Source` holds is still not proven**, but the evidence now
+favours the HMI numbering. The factory value is `1`, which is the radio in the HMI numbering
+*and* `SRC_TUNER` in the audio one, so it does not discriminate on its own. `4` and `7` have
+both been flashed without the unit starting on AUX — but see [Flashing](FLASHING.md): a
+`USER_DATA` payload in a folder not named `SMEG_PLUS_UPG` is skipped silently, so neither of
+those flashes is yet known to have applied at all, and neither value has actually been tested.
 
-What is known about the key itself: it is read and written through the generic config
-loader in the core middleware — read at `0x01699390`, written at `0x01695e2c` from the
-field at `+0xb4` of the config object — so finding what sets that field is what would
-settle the numbering.
+### The key belongs to `C_MGR_SRC`, and the value has to be a registered source ID
+
+The key is read and written through the generic config loader in the core middleware — read
+at `0x01699390`, written at `0x01695e2c` from the field at `+0xb4` of the object. That object
+is `C_MGR_SRC`: its `UP_Keys` names (`Last_Source`, `Last_Source_Priority`,
+`Src_Radio_SchedPos`, `Src_Media_SchedPos`, `Src_Radio_Priority`, `Src_Media_Priority`) sit
+contiguously at `0x0300a578`, immediately ahead of the class's own log strings at
+`0x0300a6a4`.
+
+Following `+0xb4` gives the shape of the value. In the NAV build:
+
+| address | what it does |
+|---|---|
+| `0x01699490` | boot restore: the value read back from `Last_Source` is stored to `+0xb4` and mirrored to the global `0x035e4cd0` |
+| `0x016995b4` | constructor: `+0xb4` and `0x035e4cd0` are both initialised to `1` — the same value the factory database ships |
+| `0x0169c6ac` | reads `0x035e4cd0` and passes it as the source argument to `0x016977d0` |
+| `0x016977d0` | the setter — see below |
+
+`0x016977d0` is the discriminating one. It walks the linked list of registered sources
+anchored at `this+0xd4` (`next` at `+0x3c`), comparing its source argument against each
+node's `+0x18` field, and only writes `+0xb4` on a match; an id that matches nothing falls
+straight out to the return path:
+
+```
+016977dc  lwz    r9, 0xd4(r3)     ; head of the registered-source list
+016977e0  cmpwi  cr7, r9, 0
+016977e4  bne    cr7, 0x16977f8
+016977e8  b      0x1697854        ; empty list -> give up
+016977ec  lwz    r9, 0x3c(r9)     ; node = node->next
+016977f0  cmpwi  cr7, r9, 0
+016977f4  beq    cr7, 0x1697854   ; ran off the end -> give up
+016977f8  lwz    r0, 0x18(r9)     ; node->source_id
+016977fc  cmpw   cr7, r4, r0
+01697800  bne    cr7, 0x16977ec   ; no match -> keep walking
+01697804  ...                     ; matched: commit to +0xb4
+```
+
+So `Last_Source` is not a free-form enum value — it has to be an id that some source
+actually **registered** with. Two consequences:
+
+* It rules out the audio module's `SRC_*` table. That enum contains `SRC_TTS`,
+  `SRC_TA_PTY`, `SRC_PHONE` and `SRC_TTS_ON_AUX`, which are audio *routing targets*, not
+  things a user can sit on as a source; it is the wrong kind of list to be registering into
+  a user-visible source scheduler.
+* It fits the HMI numbering, where the factory `1` is specifically **FM** — a single band —
+  rather than the audio enum's generic `SRC_TUNER`. A unit that remembers where you were
+  remembers a band, not a family.
+
+That is an argument from shape, not a proof: nothing here has been observed executing, and
+the registration site that populates `+0x18` has not been found. It is enough to make **7**
+the value worth spending the next flash on, which is what
+[`builds/aux-default-retry.json`](https://github.com/KRoperUK/smeg-plus-patches/blob/main/builds/aux-default-retry.json)
+does. Finding what writes `+0x18` on a node is what would settle it outright.
+
+### Make the next flash answer two questions
+
+Because no `USER_DATA` flash has yet been confirmed to apply, a unit that still starts on
+radio is ambiguous — wrong value, or payload skipped again? Ship a **beacon** alongside the
+change: a second, unrelated key whose effect is visible and trivially reversible.
+`aux-default-retry.json` moves `clock.Time_Zone` from `16` to `0`. After the flash, read the
+configured time zone in the settings menu — not the clock face, which a GPS-slaved clock
+corrects regardless:
+
+| time zone | source | conclusion |
+|---|---|---|
+| changed | AUX | the value is right and the mechanism works |
+| changed | radio | payload applied, so `7` is the wrong value — `5` is next |
+| unchanged | either | payload was skipped again; the source result means nothing |
 
 ## What to do next
 
