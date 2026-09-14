@@ -107,7 +107,7 @@ class Report:
 
 def read_module(pkg, module):
     """(app image bytes, {name: bytes} from system.bin) for a module, or (None, {})."""
-    img = media = {}
+    img, media = None, {}
     app = os.path.join(pkg, module, "AppBin", "f_BigQuick.bin")
     if os.path.exists(app):
         raw = Path(app).read_bytes()
@@ -259,6 +259,15 @@ def check_user_data(rep, pkg, module):
         "USER_DATA",
         "whether the updater merges per file or replaces the folder is not known",
     )
+    if any("/sqlite/" in f for f in files):
+        rep.add(
+            WARN,
+            "USER_DATA",
+            "the sqlite directory must arrive as lowercase 'sqlite'. The updater names the "
+            "destination from what it reads off the stick, and macOS stores an 8.3-valid "
+            "lowercase name as SQLITE with no long-filename entry - so the payload lands in a "
+            "sibling the application never opens. See docs/FLASHING.md.",
+        )
 
 
 def check_contract(rep, pkg):
@@ -307,6 +316,37 @@ def check_writes(rep, pkg, module, patches, media, keys):
         rep.add(WARN, "will write", "nothing recognisable - is this a patched package?")
 
 
+def _sibling(name):
+    """Import one of the sibling tools by path (they are scripts, not a package)."""
+    import importlib.util
+
+    path = os.path.join(HERE, name + ".py")
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def check_firmware(rep, img):
+    """Say which firmware this image is — the thing every patch address depends on.
+
+    Addresses are per firmware version: the `5.43.A.R2` and `5.42.B.R4` NAV images are the
+    same code 152 bytes apart, and two entries in `patches/` match at the same address on
+    the wrong one anyway, so the expect bytes cannot be relied on to catch it. The version
+    is what a reader needs before deciding whether the patches here apply.
+    """
+    if not img:
+        rep.add(UNKNOWN, "firmware", "no application image present, cannot tell the version")
+        return
+    hints = _sibling("patch_smeg").firmware_hints(img)
+    if not hints:
+        rep.add(UNKNOWN, "firmware", "no build token found in the application image")
+    elif len(hints) == 1:
+        rep.add(OK, "firmware", hints[0])
+    else:
+        rep.add(WARN, "firmware", "more than one build token: %s" % ", ".join(hints))
+
+
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -327,6 +367,7 @@ def main():
     module = args.module or (modules[0] if modules else "NAV")
 
     img, media = read_module(pkg, module)
+    check_firmware(rep, img)
     check_cascade(rep, pkg, module)
     patches = check_patches(rep, img, module)
 

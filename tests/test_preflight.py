@@ -71,6 +71,19 @@ def run(pkg, *extra):
     )
 
 
+def make_pkg_with_image(tmp_path, version):
+    """A package whose application image carries a vendor build path, as the real ones do."""
+    import helpers
+
+    pkg = make_pkg(tmp_path)
+    appbin = pkg / "NAV" / "AppBin"
+    appbin.mkdir(parents=True, exist_ok=True)
+    (appbin / "f_BigQuick.bin").write_bytes(
+        helpers.pack_bigquick(helpers.make_image_with_build(version))
+    )
+    return pkg
+
+
 def test_flags_a_source_that_is_not_a_real_source(tmp_path):
     """The exact mistake that cost a car trip: 4 is not a valid source."""
     r = run(make_pkg(tmp_path, last_source=4))
@@ -106,6 +119,34 @@ def test_json_output_is_parseable(tmp_path):
     data = json.loads(r.stdout)
     assert data["problems"] >= 1
     assert any(row["level"] == "bad" for row in data["rows"])
+
+
+# --- what the firmware version means for the patches --------------------------
+
+
+def test_reports_the_firmware_version(tmp_path):
+    """Every patch address belongs to one version, so say which one this package carries."""
+    r = run(make_pkg_with_image(tmp_path, "5.43.A.R2"))
+    assert "5.43.A.R2" in (r.stdout + r.stderr)
+
+
+def test_names_the_version_even_when_it_is_not_the_expected_one(tmp_path):
+    r = run(make_pkg_with_image(tmp_path, "5.42.B.R4"))
+    assert "5.42.B.R4" in (r.stdout + r.stderr)
+
+
+def test_says_when_the_version_cannot_be_determined(tmp_path):
+    r = run(make_pkg(tmp_path, last_source=7))  # this fixture has no application image
+    out = r.stdout + r.stderr
+    assert "cannot tell the version" in out, "an unknown must be printed, not omitted"
+
+
+def test_warns_that_the_payload_directory_must_arrive_lowercase(tmp_path):
+    """The trap that made three flashes do nothing: SQLITE vs sqlite, see docs/FLASHING.md."""
+    r = run(make_pkg(tmp_path, last_source=7, user_data=True))
+    out = r.stdout + r.stderr
+    assert "lowercase 'sqlite'" in out
+    assert "long-filename" in out, "it should say why it happens"
 
 
 def test_a_missing_package_is_a_clean_error(tmp_path):
