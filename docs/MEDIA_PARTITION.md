@@ -23,12 +23,14 @@ and the record semantics are only partly understood.
 
 So a single file inside the partition sits under a long cascade:
 
-```
-ring_tones/ring1RT.wav
-  -> system_ctrl.bin      (per-file CRC)
-  -> system.bin           (tar+gzip content)
-  -> system.bin.inf       (CRC32 + SIZE fields)  +  <module>_ctrl.bin
-  -> ctrl.bin             (root manifest)
+```mermaid
+flowchart LR
+    F["ring_tones/ring1RT.wav"] --> SC["system_ctrl.bin<br/>per-file CRC"]
+    SC --> SB["system.bin<br/>tar + gzip content"]
+    SB --> INF["system.bin.inf<br/>CRC32 + SIZE fields"]
+    SB --> MC["&lt;module&gt;_ctrl.bin"]
+    INF --> MC
+    MC --> RC["ctrl.bin<br/>root manifest"]
 ```
 
 ### The `SIZE` fields — solved
@@ -228,10 +230,10 @@ not a crc32 or adler32 fragment of the chunk. It is preserved as-is. A rebuilt s
 **not yet been flashed**, so treat a replaced splash as unverified until a unit accepts one.
 
 ```sh
-python3 tools/splash.py --tree media/ list
-python3 tools/splash.py --tree media/ extract --marque peugeot -o splash/
-python3 tools/splash.py --tree media/ replace --marque peugeot --image my-logo.png
-python3 tools/splash.py --tree media/ selftest
+uv run tools/splash.py --tree media/ list
+uv run tools/splash.py --tree media/ extract --marque peugeot -o splash/
+uv run tools/splash.py --tree media/ replace --marque peugeot --image my-logo.png
+uv run tools/splash.py --tree media/ selftest
 ```
 
 `replace` takes anything ffmpeg can read and scales it to 800x480. Note the artwork is
@@ -273,6 +275,12 @@ and has not been decoded.
 The `.bigharmony.ini` files map vehicle type and build to harmony groups, e.g.
 `A9: LIST_NAV:2,0,0,3,0,0 / LIST_AUDIO_BT:4,5` and `G7: LIST:1,0,2,0,3,0`. So which
 skin a unit gets depends on the vehicle configuration, not just the firmware version.
+
+!!! info "Why the payload can't just be redrawn"
+
+    This section documents the container. For *what* the module is, why custom artwork is
+    gated, and whether switching between the shipped skins is realistic, see
+    [What is reachable](CAPABILITIES.md#the-cars-own-look-the-harmony-module).
 
 ## `USERGUIDE/` and the NAV payloads
 

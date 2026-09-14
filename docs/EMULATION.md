@@ -20,11 +20,11 @@ PowerPC. Unicorn's PowerPC backend runs it directly. There is no custom silicon 
 because we never execute anything that touches the peripherals: a function that would talk
 to hardware is stubbed at its call site.
 
-The application image is not encrypted either (see [Overview](ANALYSIS.md)), so
+The application image is not encrypted either (see the [analysis notes](ANALYSIS.md)), so
 `tools/unpack.py` produces exactly the bytes the CPU would fetch, based at `0x01000000`.
 
 ```sh
-python3 tools/unpack.py SMEG_PLUS_UPG/NAV/AppBin/f_BigQuick.bin app_nav.bin
+uv run tools/unpack.py SMEG_PLUS_UPG/NAV/AppBin/f_BigQuick.bin app_nav.bin
 uv run tools/ppcemu.py app_nav.bin --call 0x02247858 --arg 0x60000000 \
     --patches patches/aux-autoswitch.json --module NAV --trace
 ```
@@ -171,11 +171,13 @@ redirects, so `0x010346d0` is not "the stub called instead of `Log_msg`" but **t
 `Log_msg` itself calls**. Both halves of the firmware's logging end at the same no-op, and
 forcing the mask only buys you the formatting before the message is discarded.
 
-An earlier version of this page said the patched handler emits its log line. It does not;
-what was measured was execution reaching past the mask gate, which is not the same thing.
-Correcting that is what the emulator is for, and it is also a reminder that *reachability
-is proof and behaviour is not* — the caveat at the top of this page applies to conclusions
-drawn here too.
+??? note "Correcting an earlier reading of this page"
+
+    An earlier version of this page said the patched handler emits its log line. It does not;
+    what was measured was execution reaching past the mask gate, which is not the same thing.
+    Correcting that is what the emulator is for, and it is also a reminder that *reachability
+    is proof and behaviour is not* — the caveat at the top of this page applies to conclusions
+    drawn here too.
 
 That has a direct consequence for `diagnostic-logging`, which redirects the ~6700
 compiled-out call sites to the real logger: **on its own it emits nothing**, because every
@@ -206,15 +208,15 @@ evidence about AUX, because at least one type is absent by construction.
 
 ## What this changes
 
-The conclusion in [Overview](ANALYSIS.md) — that the patch is not the problem and the DBUS
+The conclusion in the [analysis notes](ANALYSIS.md) — that the patch is not the problem and the DBUS
 message is not arriving — **still stands, and is now better supported**. What changes is
 the standing of the second edit: it is not "a fix that has not been confirmed", it is a fix
 that provably cannot fire. Effort spent flashing it is spent.
 
 The open question is upstream of this function entirely: is `HandleAudioAuxInputStatusChnged`
 ever entered, and if it is, does the status query return a signal? The handler logs its own
-name on every exit, so a working log would answer the first half at once — but as finding 4
-below records, this build has no log output path, and giving it one is still open.
+name on every exit, so a working log would answer the first half at once — but as finding 5
+above records, this build has no log output path, and giving it one is still open.
 
 The whole chain, gate by gate, with the state of each link, is in
 [The AUX chain](AUX_CHAIN.md). The short version: every link is a null check, the four
@@ -229,7 +231,7 @@ The tests in `tests/test_ppcemu.py` cover the emulator itself against assembled-
 images, so they run without any firmware. The findings above need your own package:
 
 ```sh
-python3 tools/unpack.py SMEG_PLUS_UPG/NAV/AppBin/f_BigQuick.bin app_nav.bin
+uv run tools/unpack.py SMEG_PLUS_UPG/NAV/AppBin/f_BigQuick.bin app_nav.bin
 
 # 1. the IsAUXSRCAvailable patch, stock vs patched
 uv run tools/ppcemu.py app_nav.bin --call 0x02247858 --arg 0x60000000

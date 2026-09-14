@@ -7,8 +7,8 @@
     unless the contract is regenerated:
 
     ```sh
-    python3 tools/patch_smeg.py     --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
-    python3 tools/patch_contract.py --package SMEG_PLUS_UPG_mod
+    uv run tools/patch_smeg.py     --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
+    uv run tools/patch_contract.py --package SMEG_PLUS_UPG_mod
     ```
 
     A **stock** package needs no such step and can be flashed as-is (including a

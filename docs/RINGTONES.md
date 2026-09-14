@@ -24,11 +24,11 @@ anything other than an already-correct WAV (so mp3, ogg, flac, m4a all work). Wi
 ffmpeg it will still copy a WAV that is already in the target format.
 
 ```sh
-python3 tools/ringtones.py list                          # slots and expected formats
-python3 tools/ringtones.py probe song.mp3                # what is this file?
-python3 tools/ringtones.py export --tree media/ -o stock/ # back up the stock tones
-python3 tools/ringtones.py convert song.mp3 --slot ring1 -o ring1RT.wav
-python3 tools/ringtones.py stage song.ogg --slot ring5 --tree media/
+uv run tools/ringtones.py list                          # slots and expected formats
+uv run tools/ringtones.py probe song.mp3                # what is this file?
+uv run tools/ringtones.py export --tree media/ -o stock/ # back up the stock tones
+uv run tools/ringtones.py convert song.mp3 --slot ring1 -o ring1RT.wav
+uv run tools/ringtones.py stage song.ogg --slot ring5 --tree media/
 ```
 
 `--tree` is an **extracted media partition** — a directory containing `ring_tones/`
@@ -103,11 +103,14 @@ rsync -a overlay2/ SMEG_PLUS_UPG_custom/
 uv run tools/patch_contract.py --package SMEG_PLUS_UPG_custom
 ```
 
-**Order matters.** `patch_smeg` rewrites `NAV_ctrl.bin` and `ctrl.bin` for the application
-image; `patch_media` then swaps the `system.bin` records inside those same manifests.
-Running the media step against the already-patched package means it carries the
-application change rather than reverting it. The contract step goes last, because it
-seals whatever the package finally contains.
+!!! warning "Order matters"
+
+    `patch_smeg` rewrites `NAV_ctrl.bin` and `ctrl.bin` for the application image;
+    `patch_media` then swaps the `system.bin` records inside those same manifests. Running
+    the media step against the already-patched package means it carries the application
+    change rather than reverting it. The contract step goes **last**, because it seals
+    whatever the package finally contains. This is the same app → media → contract rule laid
+    out in [Running the tools](RUNNING.md#cheat-sheet).
 
 `apply --dry-run` shows the diff and writes nothing:
 

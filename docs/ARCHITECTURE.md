@@ -9,7 +9,7 @@ and has its own symbol map.
     Read-only analysis of the owner's own upgrade package: the shipped absolute
     symbol maps, string tables in the images, code disassembly (PowerPC, via
     capstone), and byte inspection of the manifests. Anything inferred rather than
-    observed is marked. See [Overview](ANALYSIS.md) for the image format itself.
+    observed is marked. See the [analysis notes](ANALYSIS.md) for the image format itself.
 
 ## 1. System shape
 
@@ -26,6 +26,22 @@ and has its own symbol map.
 - Modules talk over **DBUS** (`com/MM/...` interfaces) via generated
   `C_BCM_*_SERVER` / `C_BCM_*_CLIENT` pairs.
 - Persistent state lives in ~29 **SQLite** databases on the media partition.
+
+At a glance, the pieces and how they talk:
+
+```mermaid
+flowchart TB
+  subgraph SoC["MPC5121e · e300 PowerPC · VxWorks"]
+    App["Application image<br/>f_BigQuick.bin @ 0x01000000"]
+    Post["Browser image<br/>@ 0x04c00000 · separate RTP"]
+  end
+  Renesas["Renesas front-panel MCU<br/>display · touch · keys"] -->|key events| App
+  App -->|"DBUS (com/MM/…)"| Post
+  App --> HMI["HMI apps · C_HMI_*<br/>audio · media · tuner · nav · config · …"]
+  HMI --> SRC["C_MGR_SRC<br/>source scheduler"]
+  HMI --> Audio["C_MODULE_AUDIO<br/>DSP · AUX · gain"]
+  App --> DB[("~29 SQLite databases<br/>on the media partition")]
+```
 
 ## 2. Code regions ("modules")
 
@@ -103,7 +119,7 @@ DispatchEHMessage(C_HMI_BaseMessage*)   + one overload per subtype:
   Nav  Upgrade  Touch  Keyboard  System
 ```
 
-This is the path taken by the AUX notification described in [Overview](ANALYSIS.md).
+This is the path taken by the AUX notification described in [The AUX chain](AUX_CHAIN.md).
 
 ### Screens and menus — `C_HMI_MENU_MGR` / `C_MENU_STATE`
 
@@ -155,7 +171,7 @@ tuning, parking, failsoft, browser, connectivity.
   server (`C_SRV_AUDIO_SERVER`) and HMI client (`C_BCM_HMI_AUDIO_CLIENT`:
   `ActivateSourceByID`, `ActivateSourceByType`, `ActivateNextSource`, …).
 - **Audio module `C_MODULE_AUDIO`** — DSP/mixing/amplifier owner; source switching,
-  AUX status and gain, mute management. Detail in [Overview](ANALYSIS.md).
+  AUX status and gain, mute management. Detail in the [analysis notes](ANALYSIS.md).
 - **Tuner `C_MODULE_TUNER`** + radio front-end `C_I2C_SMART_RADIO` (RDS/AF/DAB, and
   `Get_AUX_signal_status`).
 - **Key interface `C_BCM_KIM`** — turns front-panel/AVR key events into HMI keyboard
@@ -202,4 +218,4 @@ fonts and radio logos all live in the media partition and are described in
 - Exact semantics of the `CheckType` byte (0–3) in the `*_ctrl.bin` manifests — see
   [Boot & update chain](FLASH_CHAIN.md).
 - The `AUDIO_AUX_SIGNAL_STATUS_CHANGED` vs `AUDIO_AUX_INPUT_STATUS_CHANGED` question —
-  see the correction note in [Overview](ANALYSIS.md).
+  see [The AUX chain](AUX_CHAIN.md).

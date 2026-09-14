@@ -9,6 +9,13 @@ safe it is to touch. All of it lives in `system.bin`, which
 *new* file would need a record that does not exist. Everything below is a swap, keeping the
 filename.
 
+!!! tip "Where to start"
+
+    The lowest-risk, highest-visibility swaps are **radio station logos** (597 plain PNGs)
+    and the **ring / wait / GUI tones** (plain WAV). No format work, trivially reversible,
+    and the worst case is the unit ignoring the file. Save the string tables, `gui_*.xml`
+    and the marque `.pkg` containers for later — see the [risk table](#what-is-safe-and-what-is-not).
+
 ## Sounds — 28 WAV files
 
 Three independent groups, and they are easy to confuse because they all look like "the

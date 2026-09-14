@@ -59,7 +59,25 @@ records), version `05.e3.01`, with two LVDS configuration words
 ## 2. The updater
 
 `upgrade.out` / `upgrade_256.out` (entry modules) with `upgrade_lib.out` and
-`UpgPlugin.out` (plugin). Entry flow, from symbol names plus emitted messages:
+`UpgPlugin.out` (plugin). The sequence, from symbol names plus emitted messages:
+
+```mermaid
+flowchart TD
+    T["C_UPGRADE::UpgradeTask()"] --> LV["CheckVersions()"]
+    LV --> CC["CheckCtrlFilesBeforeLaunchingUpgrade()<br/>validate every *_ctrl.bin"]
+    CC --> BR["ManageBootRomUpdateAndReboot()"]:::reboot
+    BR --> UB["ManageUBootUpdateAndReboot()"]:::reboot
+    UB --> RN["ManageRenesasUpdateAndReboot()<br/>front-panel MCU"]:::reboot
+    RN --> BQ["ManageBigQuickUpdate()<br/>application image"]
+    BQ --> HM["ManageHarmoniesVersions()<br/>UpgradeHarmoniesIfNeeded()"]
+    HM --> PH["Phase 2..6<br/>media partition · SD · userguide · db_dwnl"]
+    PH --> END["The product must restart in 5 s"]
+
+    classDef reboot fill:#fff3cd,stroke:#b8860b,stroke-width:2px;
+```
+
+The `Manage*AndReboot` steps (highlighted) each reboot the unit so the new low-level code
+runs on the next pass. Reading the same flow from the symbols and message strings:
 
 ```
 C_UPGRADE::UpgradeTask()
@@ -213,12 +231,31 @@ that phase finishing, not a spontaneous restart.
 
 ## 4. The manifest cascade
 
-```
-data file  ->  .inf (CRC32)  ->  smeg.inf (BIGQUICK_CRC32)  ->  <module>_ctrl.bin  ->  ctrl.bin
+Every checksum feeds the one above it, so a single changed byte ripples all the way to the
+root `ctrl.bin`:
+
+```mermaid
+flowchart LR
+    F["data file"] --> INF[".inf<br/>CRC32"]
+    INF --> SM["smeg.inf<br/>BIGQUICK_CRC32"]
+    SM --> MC["&lt;module&gt;_ctrl.bin"]
+    MC --> RC["ctrl.bin<br/>(root)"]
 ```
 
-Inside the media partition it is one layer deeper:
-`file -> system_ctrl.bin -> system.bin (+.inf) -> <module>_ctrl.bin -> ctrl.bin`.
+Inside the media partition it is one layer deeper — the per-file CRC in `system_ctrl.bin`
+sits below `system.bin`:
+
+```mermaid
+flowchart LR
+    F["file"] --> SC["system_ctrl.bin"]
+    SC --> SB["system.bin<br/>(+ .inf)"]
+    SB --> MC["&lt;module&gt;_ctrl.bin"]
+    MC --> RC["ctrl.bin<br/>(root)"]
+```
+
+`tools/patch_smeg.py` rebuilds this whole cascade after a write; see
+[Media protection](MEDIA_PROTECTION.md) for how the same edit ripples through the signed
+contract's records.
 
 ### `*_ctrl.bin` format
 
@@ -248,8 +285,6 @@ A package with a modified application image is rejected with *"The update file i
 and cannot be copied."* unless the contract is regenerated — the format is decoded and
 `tools/patch_contract.py` does exactly that. See
 [Media protection](MEDIA_PROTECTION.md).
-
-### `*_ctrl.bin` format
 
 ## 6. Open questions
 

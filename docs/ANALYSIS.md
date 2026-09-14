@@ -1,4 +1,17 @@
-# Analysis notes
+# Analysis notes (archive)
+
+!!! info "Archive — kept for provenance"
+
+    These are the **original** reverse-engineering notes, recorded while first building the
+    AUX auto-switch patch. They are preserved to show how the findings were reached, but
+    several conclusions here have since been superseded by execution under the emulator.
+    For the current state of play, prefer:
+
+    - [The AUX chain](AUX_CHAIN.md) — the auto-switch chain, gate by gate
+    - [Emulating the firmware](EMULATION.md) — what was proven by running the code
+    - [Patch reference](PATCHES.md) — the shipped patches and their bytes
+
+    Where a section below has been corrected, an admonition points to the current page.
 
 Reverse-engineering notes for the SMEG+ application, recorded while building the AUX
 auto-switch patch. Everything here is derived from observing the author's own device

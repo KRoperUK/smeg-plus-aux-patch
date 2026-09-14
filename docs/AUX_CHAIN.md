@@ -10,6 +10,34 @@ years assuming it did, and the one link that has never been checked is the first
 
 ## The chain
 
+```mermaid
+flowchart TD
+    AS["audio server"] -->|DBUS signal| CL["C_BCM_HMI_AUDIO_CLIENT"]
+    CL --> LA{"LINK A<br/>client-&gt;0x50 == NULL?"}:::unknown
+    LA -->|null| STOP["return — no listener"]
+    LA -->|set| P203["post message 203 (0xcb)<br/>@ 0x025cdefc"]
+    P203 -->|message 203| HDB["C_HMI_MEDIA_APP_BASE::HandleDBUSMessage<br/>@ 0x02309398 · case 0xcb"]
+    HDB --> H["HandleAudioAuxInputStatusChnged<br/>@ 0x0230331c"]
+    H --> G1{"gate 1 · app NULL?<br/>@ 0x02303358"}
+    G1 -->|null| R["shared return path"]
+    G1 --> G2{"gate 2 · state unchanged?<br/>@ 0x023033d4"}
+    G2 -->|unchanged| R
+    G2 --> G3{"gate 3 · GetMediaDevice AUX failed?<br/>@ 0x02303428"}:::never
+    G3 -->|failed| R
+    G3 --> G4{"gate 4 · source mgr NULL?<br/>@ 0x02303468"}:::never
+    G4 -->|null| R
+    G4 --> ACT["ActivateSource srcMgr, true<br/>@ 0x02303484"]:::ok
+
+    classDef unknown fill:#fff3cd,stroke:#b8860b,stroke-width:2px;
+    classDef never fill:#e3f2fd,stroke:#1565c0;
+    classDef ok fill:#e6f4ea,stroke:#2e7d32,stroke-width:2px;
+```
+
+Reading the colours: **LINK A** (amber) is the only link that has never been observed — it
+depends on runtime state. **Gates 3 and 4** (blue) never fire, proven under
+[the emulator](EMULATION.md). The success path (green) is reached once the four gates pass.
+The same trace as a call listing:
+
 ```
 audio server
   --DBUS signal-->  C_BCM_HMI_AUDIO_CLIENT
@@ -282,14 +310,14 @@ if (*(int *)(idx * 4 + this + 0xd4) == 0) *(int *)(idx * 4 + this + 0xd4) = node
 FUN_016977d0(this, req.Sched_Pos, 1, 1);
 ```
 
-Two corrections to the earlier reading on this page:
+??? note "Corrections to an earlier reading of this page"
 
-* `this+0xd4` is **not a single list of registered sources**. It is the first of four list
-  heads in an array (`+0xd4`, `+0xd8`, `+0xdc`, `+0xe0`) selected by a mapping of the request
-  `Type`. The nodes are **pending requests**, not a registry.
-* The setter's "must match a node" condition is satisfied trivially here: `AddRequest` inserts
-  the node and then immediately calls the setter with the same id. It was never the gate it
-  looked like.
+    * `this+0xd4` is **not a single list of registered sources**. It is the first of four list
+      heads in an array (`+0xd4`, `+0xd8`, `+0xdc`, `+0xe0`) selected by a mapping of the request
+      `Type`. The nodes are **pending requests**, not a registry.
+    * The setter's "must match a node" condition is satisfied trivially here: `AddRequest` inserts
+      the node and then immediately calls the setter with the same id. It was never the gate it
+      looked like.
 
 The request carries both values: `SrcId` at request `+0x04` (byte `0x10` of the message payload)
 and `Sched_Pos` at request `+0x18` (byte `0x24` of the payload). The live dump prints both, which
@@ -343,15 +371,18 @@ The `Sched_Pos` space is `C_MGR_SRC`'s own **position** enum, readable from the 
 [`aux-default-retry.json`](https://github.com/KRoperUK/smeg-plus-patches/blob/main/builds/aux-default-retry.json)
 ships has `C_MGR_SRC`'s own naming behind it, not only the HMI numbering's.
 
-Read that mapping from the switch, not from the string literals. `POS_AUX` sits between
-`POS_MP3` and `POS_BT` in the literal table but is `7` in the enum; an earlier version of this
-page assumed the literals were in value order and concluded `5`. They are not in value order.
-
 Two enums describe sources and they agree at `1` — the factory `Last_Source`, `POS_TUNER`, and
 the audio module's `SRC_TUNER` all coincide — but they disagree at AUX: the audio module's
 `SRC_*` table has `SRC_AUX = 5`. Since `+0xb4` belongs to `C_MGR_SRC`, its own enum is the one
 that should apply, which is a second independent line of evidence for `7` beside the HMI
 numbering.
+
+??? note "Why the enum is read from the switch, not the literal order"
+
+    Read the mapping from the switch, not from the string literals. `POS_AUX` sits between
+    `POS_MP3` and `POS_BT` in the literal table but is `7` in the enum; an earlier version of
+    this page assumed the literals were in value order and concluded `5`. They are not in value
+    order.
 
 ### The beacon, and what the retry actually answered
 

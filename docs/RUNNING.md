@@ -4,6 +4,24 @@ Everything here runs with [uv](https://docs.astral.sh/uv/) — no virtualenv to 
 `pip install`. The scripts carry [PEP 723](https://peps.python.org/pep-0723/) inline
 metadata, so `uv` installs what each one needs, once, and caches it.
 
+Two invocation styles appear across these docs, and they are equivalent. `uv run` is the
+canonical one used everywhere here; if you have built the `.venv/` (see
+[Development](#development)) the plain-Python form works too:
+
+=== "uv (recommended)"
+
+    ```sh
+    uv run tools/patch_smeg.py     --src SMEG_PLUS_UPG --out overlay
+    uv run tools/patch_contract.py --package SMEG_PLUS_UPG_mod
+    ```
+
+=== "venv / plain Python"
+
+    ```sh
+    .venv/bin/python tools/patch_smeg.py     --src SMEG_PLUS_UPG --out overlay
+    .venv/bin/python tools/patch_contract.py --package SMEG_PLUS_UPG_mod
+    ```
+
 ## From a checkout
 
 ```sh

@@ -1,0 +1,51 @@
+/* Extra styling for the SMEG+ Patches documentation site.
+   Kept deliberately small — the Zensical theme does the heavy lifting. */
+
+/* Slightly wider content column: the patch tables and disassembly listings
+   are wide, and the default 80–100 character measure wraps them awkwardly. */
+.md-grid {
+  max-width: 1220px;
+}
+
+/* Card grid on the landing page: even out card heights and lift the title. */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card {
+  border-radius: 0.4rem;
+}
+
+.md-typeset .grid.cards > ul > li > hr {
+  margin: 0.6rem 0;
+}
+
+/* Status pills used in the "what is proven" tables — small, legible labels.
+   Applied with attribute lists, e.g. `Confirmed`{ .pill .pill-ok }. */
+.md-typeset .pill {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.md-typeset .pill-ok {
+  background-color: var(--md-typeset-ins-color, #0b8438);
+  color: #fff;
+}
+
+.md-typeset .pill-no {
+  background-color: var(--md-typeset-del-color, #b3261e);
+  color: #fff;
+}
+
+.md-typeset .pill-wip {
+  background-color: #c77700;
+  color: #fff;
+}
+
+/* Give Mermaid diagrams a little breathing room and centre them. */
+.md-typeset .mermaid {
+  margin: 1.2em auto;
+  text-align: center;
+}

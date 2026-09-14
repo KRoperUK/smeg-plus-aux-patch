@@ -1,3 +1,9 @@
+---
+hide:
+  - navigation
+  - toc
+---
+
 # SMEG+ Patches
 
 Reverse-engineering notes and tooling for PSA / Stellantis **SMEG+** head units — the
@@ -17,32 +23,79 @@ patch you want to make to one of these units.
     package. The licence key material needed to re-seal a package is recovered from that
     package at runtime and is never stored here.
 
-## Start here
+## Find your way in
 
-**If you are new to the unit**, read in this order — it goes from what the thing *is* to
-what you can safely change:
+The site is organised by the part of the firmware you are touching. Start with whichever
+card matches what you are trying to do.
 
-| page | what it covers |
-|---|---|
-| [What is reachable](CAPABILITIES.md) | what can and cannot be changed, and why — **read this before starting work** |
-| [Architecture](ARCHITECTURE.md) | how the whole firmware fits together — modules, HMI framework, messaging, subsystems, databases |
-| [Boot & update chain](FLASH_CHAIN.md) | the RTOS/BSP, the front-panel MCU, what the updater does and in what order |
-| [Media partition](MEDIA_PARTITION.md) | `system.bin`, ring tones, brand logos, and how it is checksummed |
-| [Media protection](MEDIA_PROTECTION.md) | the signed contract, and how to re-seal a modified package |
+<div class="grid cards" markdown>
 
-**If you want to patch something**, this is the working set:
+-   :lucide-compass:{ .lg .middle } __Get orientated__
 
-| page | what it covers |
-|---|---|
-| [Running the tools](RUNNING.md) | the manifest build, pre-flight, and the tool cheat sheet |
-| [Patch reference](PATCHES.md) | exact addresses and bytes, per build |
-| [Flashing](FLASHING.md) | preparing the stick, the update process, and how to verify |
-| [Hardware verification](VERIFICATION.md) | what has actually been confirmed on a car — and what has not |
+    ---
 
-**For the detail**, as needed: [Overview](ANALYSIS.md) (the image, symbol maps, and the AUX
-event chain), [Cheatcodes & spy](CHEATCODES.md), [Ring tones](RINGTONES.md),
-[Customising](CUSTOMISING.md) (every replaceable asset — sounds, fonts, logos, strings),
-[Version strings](VERSION_STRINGS.md), and [Releasing](RELEASING.md).
+    What can and cannot be changed on these units, and how the whole firmware fits
+    together. **Read this before starting work.**
+
+    [:lucide-arrow-right: What is reachable](CAPABILITIES.md) ·
+    [Architecture](ARCHITECTURE.md)
+
+-   :lucide-shield-check:{ .lg .middle } __The chain that protects it__
+
+    ---
+
+    The boot and update sequence, the signed media contract, and why version strings
+    are not a safe marker.
+
+    [:lucide-arrow-right: Boot & update chain](FLASH_CHAIN.md) ·
+    [Media protection](MEDIA_PROTECTION.md) ·
+    [Version strings](VERSION_STRINGS.md)
+
+-   :lucide-cpu:{ .lg .middle } __The application image__
+
+    ---
+
+    The PowerPC image inside `f_BigQuick.bin`: the patch reference, the AUX
+    auto-switch chain gate by gate, and how it was verified by emulation.
+
+    [:lucide-arrow-right: Patch reference](PATCHES.md) ·
+    [The AUX chain](AUX_CHAIN.md) ·
+    [Emulation](EMULATION.md)
+
+-   :lucide-music:{ .lg .middle } __The media partition__
+
+    ---
+
+    `system.bin`: ring tones, fonts, logos, strings, the cheatcode list — every
+    replaceable asset and its risk level.
+
+    [:lucide-arrow-right: Media partition](MEDIA_PARTITION.md) ·
+    [Ring tones](RINGTONES.md) ·
+    [Customising](CUSTOMISING.md) ·
+    [Cheatcodes & spy](CHEATCODES.md)
+
+-   :lucide-terminal:{ .lg .middle } __Build & flash__
+
+    ---
+
+    Running the tools, preparing the stick, the in-car update, and what has actually
+    been confirmed on hardware.
+
+    [:lucide-arrow-right: Running the tools](RUNNING.md) ·
+    [Flashing](FLASHING.md) ·
+    [Hardware verification](VERIFICATION.md)
+
+-   :lucide-book-open:{ .lg .middle } __Reference__
+
+    ---
+
+    The vocabulary of these units in one place, and the repository's own release
+    process.
+
+    [:lucide-arrow-right: Glossary](GLOSSARY.md) ·
+    [Releasing](RELEASING.md)
+
+</div>
 
 ## Target
 
@@ -52,19 +105,16 @@ with its own symbol map and patch addresses.
 
 ## Status
 
-A patched, **contract re-sealed** package has been flashed to a real unit successfully — the
+A patched, **contract re-sealed** package has been flashed to a real unit successfully: the
 media check passed, the application image was written, and the unit came back up working.
 
-**Confirmed on hardware:**
-
-- the re-seal works: string 2099 (*"the update file is protected and cannot be copied"*) never
-  appeared, which was the blocker for the whole project
-- `IsAUXSRCAvailable()` — AUX no longer greys out without a signal, and it is back in the SRC
-  cycle
-- custom ring tone audio, and a custom ring tone *name*
-
-**Not yet confirmed:** the automatic AUX switch, and whether a `USER_DATA` payload is read at
-all. Those are the open questions; everything else here is supporting material.
+- [x] **The re-seal works** — string 2099 (*"the update file is protected and cannot be
+  copied"*) never appeared, which was the blocker for the whole project.
+- [x] **`IsAUXSRCAvailable()`** — AUX no longer greys out without a signal, and it is back in
+  the SRC cycle.
+- [x] **Custom ring tone** audio, and a custom ring tone *name*.
+- [x] **`SPYSTORE` backs up `/USER_DATA`** — the `spy-dump-userdata` patch, confirmed on a car.
+- [ ] **The automatic AUX switch** — the remaining open question.
 
 See [Hardware verification](VERIFICATION.md) for the full picture, and the
 [repository issues](https://github.com/KRoperUK/smeg-plus-patches/issues) for what is being
