@@ -288,6 +288,28 @@ def check_user_data(rep, pkg, module):
             "sibling the application never opens. See docs/FLASHING.md.",
         )
 
+    # The updater does not search for this payload. `C_UPGRADE::UpgradeTask` calls
+    # IsDirExist("/bd0/SMEG_PLUS_UPG/NAV/USER_DATA") and only copies on success, so both the
+    # folder name and the module are literal. Get either wrong and the copy is skipped while
+    # the rest of the update proceeds normally - indistinguishable from a setting that had no
+    # effect. Recovered from upgrade.out's relocations with tools/elfsyms.py.
+    folder = os.path.basename(os.path.normpath(os.path.abspath(pkg)))
+    if folder != "SMEG_PLUS_UPG":
+        rep.add(
+            BAD,
+            "USER_DATA",
+            "the package folder is named %r, so this payload will be IGNORED: the updater "
+            "looks for it at the hard-coded '/bd0/SMEG_PLUS_UPG/NAV/USER_DATA'. Rename the "
+            "folder to SMEG_PLUS_UPG on the stick." % folder,
+        )
+    if module != "NAV":
+        rep.add(
+            BAD,
+            "USER_DATA",
+            "the hard-coded path names the NAV module, so a %s payload is not read at all"
+            % module,
+        )
+
 
 def check_contract(rep, pkg):
     tool = os.path.join(HERE, "patch_contract.py")
