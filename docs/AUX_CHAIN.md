@@ -356,7 +356,13 @@ corrects regardless:
 
 ## What to do next
 
-Two things are open, in order of value.
+Three things are open, in order of value.
+
+**Observe it instead — the spy path is not blocked.** This is the cheapest route to the same
+answer. `C_MGR_SRC`'s per-source dump (`0x0169a2e4`) emits through `C_BCM_SPY::WriteData`, not
+through `Log_msg`'s stubbed sink, so a boot-time dump would list the registered sources and their
+`POS_*` ids without the log sink being fixed first. See
+[Cheatcodes](CHEATCODES.md#a-module-dump-reaches-the-spy-not-the-dead-log-sink) and issue **#24**.
 
 **Confirm AUX's `SrcId` end to end.** The enum is now known — `POS_AUX = 7` — so this is no
 longer a guess, but it is still *read* rather than executed. The per-source caller that allocates

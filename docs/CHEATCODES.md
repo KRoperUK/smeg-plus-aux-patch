@@ -110,6 +110,29 @@ libcheatcode_SPYSTORE.out : Activate()
 a diagnostic snapshot that writes `diag_zi.sqlite`, not the debug spy logs. Ruled out as
 a hook.
 
+### A module dump reaches the spy, not the dead log sink
+
+A module's SPY dump is a live caller of this system, and it is worth knowing that it does **not**
+go through `Log_msg`'s stubbed sink (see [Patch reference](PATCHES.md) and issue **#94**).
+`C_MGR_SRC`'s dump at `0x0169a2e4` builds its lines with the string-buffer helpers and then
+emits them through a service, not the logger:
+
+```
+0x0169a2e4   MGR_SRC SPY dump  (one block per scheduled slot)
+  -> 0x01695c30
+       -> FUN_0103155c(0x52d0, 0)   look up service 0x52d0
+       -> 0x012753c0                C_BCM_SPY::WriteData(id = 0x62d4, ptr, len)
+```
+
+`0x012753c0` is `C_BCM_SPY::WriteData`: it logs under the `BCM_SPY` / `WriteData` strings, and
+the only stubbed sink it touches, `0x010346d0`, is reached on its **error** path
+(`m_pListSpy isn't init`). Spy data therefore has its own route to `/SYSTEM_TMP_DATA/SPY/`, and
+observing a module dump does not depend on the log sink being given a destination.
+
+That is why issue **#24** is worth attempting first: a boot-time dump of this kind would show, at
+runtime, which sources `C_MGR_SRC` has registered requests for and under which `POS_*` id — the
+empirical form of the enum the [AUX chain](AUX_CHAIN.md) derives statically.
+
 Relevant to this project: running `SPYSTORE` with a USB inserted would show whether HMI
 event `0x613dc` actually reaches `HandleAudioAuxInputStatusChnged()`, which is the open
 question behind the AUX auto-switch patch. See issue **#24**.
