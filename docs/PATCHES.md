@@ -140,6 +140,7 @@ being corrupted.
 | `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | **Flashed**{ .pill .pill-ok } the combined build — accepted by the contract check; first edit confirmed on hardware |
 | `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | **Confirmed**{ .pill .pill-ok } behavioural; no switching |
 | `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | **Never flashed**{ .pill .pill-wip } control flow verified under emulation |
+| `patches/aux-boot-default.json` | forces `C_MGR_SRC::StartUp` to restore AUX (position 7) on every boot, ignoring the saved `Last_Source` | **Never flashed**{ .pill .pill-wip } restore effect verified under emulation |
 | `patches/diagnostic-logmask.json` | forces the global trace mask — **necessary but not sufficient**, see below | **Not for driving**{ .pill .pill-no } diagnostic build |
 | `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | **Not for driving**{ .pill .pill-no } diagnostic build; needs the mask patch too |
 | `patches/spy-dump-userdata.json` | makes `SPYSTORE` also copy `/USER_DATA/user_data` out to the stick | **Confirmed**{ .pill .pill-ok } on hardware (2026-09-14, NAV) |
@@ -338,6 +339,50 @@ Both offsets were verified against all three images (`AUDIO_BT`, `AUDIO_BT_256`,
     `tests/test_patch_definitions.py` now refuses any edit that turns a conditional branch
     into an unconditional one unless `why` says so in as many words.
 
+
+### `aux-boot-default` — resume AUX on every boot
+
+`Last_Source` is the source the unit restores at start-up — but it is **not** a fixed
+preference. `C_MGR_SRC::ImmediateSourceSave` (`0x01695d68`) writes the active source back to
+it whenever the source changes, so seeding it in the settings database only lasts until the
+next time you select something else. To make boot-to-AUX *stick*, patch the restore rather
+than the saved value.
+
+Inside `C_MGR_SRC::StartUp` the restore reads `Last_Source` and stores it, unvalidated, into
+the field the scheduler later matches on:
+
+```
+0169948c  lwz  r9, 8(r1)        ; r9 = saved Last_Source
+01699490  stw  r9, 0xb4(r31)    ; this+0xb4  (matched against each node's Sched_Pos)
+01699494  stw  r9, 0x4cd0(r25)  ; global 0x035e4cd0 (mirror)
+0169949c  stw  r9, 0xe4(r31)
+```
+
+Replacing the load with a constant pins the restore to position **7 (`POS_AUX`)**:
+
+| build | address | original | patched |
+|---|---|---|---|
+| `NAV` | `0x0169948c` | `81 21 00 08` (`lwz r9,8(r1)`) | `39 20 00 07` (`li r9,7`) |
+
+Emulated on the NAV image (`tools/ppcemu.py`), with the saved value set to `1` (radio):
+
+| build | `this+0xb4` | global `0x035e4cd0` | `this+0xe4` |
+|---|---|---|---|
+| stock | 1 | 1 | 1 |
+| patched | 7 | 7 | 7 |
+
+So the restore now targets AUX no matter what `ImmediateSourceSave` persisted. Pair it with
+`aux-always-available` so AUX is a valid source — `builds/aux-boot.json` does both.
+
+!!! warning "Sets the target, does not force the switch"
+
+    `+0xb4 = 7` is the value `ExecuteAllocationFirstRound` (`0x016957ec`) matches against each
+    request node's `Sched_Pos`. It only *selects* AUX if an AUX request node (`Sched_Pos 7`)
+    is registered at start-up — the same downstream condition tracked in
+    [The AUX chain](AUX_CHAIN.md). If nothing is scheduled there, the restore finds no match
+    and falls back to the default. That is the thing to confirm before a car trip.
+
+    NAV only — the `StartUp` address differs on the `AUDIO_BT` builds and must be re-derived.
 
 ### `spy-dump-userdata` — SPYSTORE also backs up `/USER_DATA`
 
