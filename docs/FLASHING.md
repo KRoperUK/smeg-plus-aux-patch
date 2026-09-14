@@ -105,6 +105,18 @@ not help; it does the same thing. The entry has to be written or corrected direc
 …
 ```
 
+!!! warning "The folder must be called `SMEG_PLUS_UPG` — especially with a `USER_DATA` payload"
+
+    The ordinary update is found by scanning, but the settings payload is **not**.
+    `C_UPGRADE::UpgradeTask` checks one literal path —
+    `IsDirExist("/bd0/SMEG_PLUS_UPG/NAV/USER_DATA")` — and only then runs
+    *"Copy of /USERDATA from /bd0 to NAND"*. Both the folder name and the module are
+    hard-coded in that string.
+
+    So a build written to, say, `SMEG_PLUS_UPG_auxdefault` still flashes normally and its
+    payload is **skipped without a word**, which looks exactly like the setting having had no
+    effect. `tools/preflight.py` fails on this, and `build_package.py` says so at build time.
+
 ## Before you go to the car
 
 Confirm the patched image is present and the checksums agree, e.g. for a NAV unit:

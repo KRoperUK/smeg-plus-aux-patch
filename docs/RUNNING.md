@@ -210,10 +210,13 @@ It checks the things that have actually gone wrong, rather than what looks impre
   Two entries in `patches/` match at the same address on the wrong version, so the bytes alone
   cannot answer this — see [Patch definitions](PATCHES.md).
 - **what the update will write**, so the blast radius is visible
-- **a `USER_DATA` payload**, which can reset paired phones and presets — and the casing trap
-  that made three flashes do nothing: the payload's `sqlite` directory only reaches the unit as
-  lowercase if it carries a long-filename entry, so this warns. See
-  [Flashing](FLASHING.md#working-around-it-give-the-directory-a-long-filename-entry).
+- **a `USER_DATA` payload**, which can reset paired phones and presets — and the two ways it
+  silently fails to arrive. The updater reads it from the **hard-coded**
+  `/bd0/SMEG_PLUS_UPG/NAV/USER_DATA`, so a package folder under any other name, or a payload
+  for another module, is skipped while the update otherwise succeeds; pre-flight **fails** on
+  both. It also warns about the casing trap that made three flashes do nothing: the payload's
+  `sqlite` directory only reaches the unit as lowercase if it carries a long-filename entry.
+  See [Flashing](FLASHING.md#working-around-it-give-the-directory-a-long-filename-entry).
 
 And it prints what it **does not know** as prominently as what it does. The unknowns are
 where the car trips went.

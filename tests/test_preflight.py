@@ -41,8 +41,14 @@ def up_common(last_source=None, names=None):
     return data
 
 
-def make_pkg(tmp_path, last_source=None, user_data=False):
-    pkg = tmp_path / "pkg"
+def make_pkg(tmp_path, last_source=None, user_data=False, folder="SMEG_PLUS_UPG"):
+    """A minimal package.
+
+    `folder` defaults to the name the updater hard-codes, because a `USER_DATA` payload is
+    only read from `/bd0/SMEG_PLUS_UPG/NAV/USER_DATA` — a package built under any other name
+    is a real, and silent, mistake. Pass something else to exercise that check.
+    """
+    pkg = tmp_path / folder
     files = {"Data_base/sqlite/up_common.sqlite": up_common(last_source)}
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w", format=tarfile.GNU_FORMAT) as tf:
@@ -179,3 +185,53 @@ def test_a_missing_package_is_a_clean_error(tmp_path):
     r = run(tmp_path / "nope")
     assert r.returncode != 0
     assert "no such package" in (r.stdout + r.stderr)
+
+
+
+def test_refuses_a_user_data_payload_in_a_wrongly_named_folder(tmp_path):
+    """The updater does not search for the payload — it checks one hard-coded path.
+
+    `C_UPGRADE::UpgradeTask` calls `IsDirExist("/bd0/SMEG_PLUS_UPG/NAV/USER_DATA")` and skips
+    the copy when it is not there, while the rest of the update succeeds normally. That is
+    indistinguishable from a setting having had no effect, so it has to fail the build rather
+    than be discovered on a car.
+    """
+    r = run(make_pkg(tmp_path, last_source=7, user_data=True, folder="SMEG_PLUS_UPG_auxdefault"))
+
+    assert r.returncode != 0
+    out = r.stdout + r.stderr
+    assert "IGNORED" in out
+    assert "SMEG_PLUS_UPG_auxdefault" in out, "it should name the offending folder"
+    assert "/bd0/SMEG_PLUS_UPG/NAV/USER_DATA" in out, "it should name the path the unit uses"
+
+
+def test_accepts_a_user_data_payload_in_the_right_folder(tmp_path):
+    """The correctly named folder must not trip the check."""
+    r = run(make_pkg(tmp_path, last_source=7, user_data=True))
+
+    out = r.stdout + r.stderr
+    assert "IGNORED" not in out
+    assert "user partition" in out, "the data-loss warning still applies"
+
+
+def test_folder_name_check_only_applies_to_a_payload(tmp_path):
+    """A package with no payload has nothing to lose, so the name does not matter."""
+    r = run(make_pkg(tmp_path, last_source=7, folder="whatever"))
+
+    out = r.stdout + r.stderr
+    assert "IGNORED" not in out
+    assert "no payload" in out
+
+
+def test_refuses_a_user_data_payload_for_a_non_nav_module(tmp_path):
+    """The hard-coded path names NAV, so an AUDIO_BT payload is never read."""
+    pkg = make_pkg(tmp_path, last_source=7, user_data=True)
+    # move the payload under a module the hard-coded path cannot reach
+    (pkg / "AUDIO_BT").mkdir(parents=True, exist_ok=True)
+    (pkg / "NAV" / "USER_DATA").rename(pkg / "AUDIO_BT" / "USER_DATA")
+    (pkg / "AUDIO_BT" / "system.bin").write_bytes((pkg / "NAV" / "system.bin").read_bytes())
+
+    r = run(pkg, "--module", "AUDIO_BT")
+
+    assert r.returncode != 0
+    assert "not read at all" in (r.stdout + r.stderr)
