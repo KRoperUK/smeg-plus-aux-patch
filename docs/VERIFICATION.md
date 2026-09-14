@@ -70,9 +70,56 @@ What the updater would do with the payload, **read from `upgrade.out`, not execu
   (`C_UPGRADE::MakeLogArchive` rotates it). Since that lives in the spy directory, `SPYSTORE`
   copies it to a stick — see issue **#24**.
 
-**Leading hypothesis, untested:** that the Phase-1 block is not reached because the persisted step
-is already past `1`. The correct stick layout and the untouched payload file are both consistent
-with it; neither proves it.
+### Root cause, from the updater's own log (2026-09-14)
+
+The log came off the unit with `SPYSTORE` (see [Cheatcodes](CHEATCODES.md)), and it shows the copy
+**did** run — the step gate was not the problem:
+
+```
+copying dir  /bd0/SMEG_PLUS_UPG/NAV/USER_DATA/user_data  -> /USER_DATA/user_data
+copying dir  .../USER_DATA/user_data/SQLITE             -> /USER_DATA/user_data/SQLITE
+copying file .../SQLITE/up_common.sqlite                -> .../SQLITE/up_common.sqlite
+(tUpgrade): Copy of /USERDATA from /bd0 to NAND
+```
+
+**`SQLITE`, uppercase.** The unit's own dump names the path the application actually uses — in its
+open file table and in a database error — as lowercase `sqlite`:
+
+```
+/USER_DATA/user_data/sqlite/navigation.sqlite
+ERROR: <up_common> [CMMSQLDataBaseImp::BackUp error : disk I/O error
+       from </USER_DATA/user_data/sqlite/up_common.sqlite>]
+```
+
+FAT hands out uppercase 8.3 short names, and the updater named the destination directory from what
+it read off the stick. The payload landed in a sibling directory that differs only by case, which
+the application never opens.
+
+**Confirmed from the unit's own settings dump** (`CMMUPKeys::ShowStatus`, 271 keys):
+
+```
+supervisor.Last_Source.0            <int> : 1
+supervisor.Last_Source_Priority.0   <int> : 10
+supervisor.Src_Radio_SchedPos.0     <int> : 7
+```
+
+`Last_Source` is still the factory `1`, so `7` never reached the live database.
+
+Two further differences in the same log, either of which would also have to be fixed:
+
+- The payload shipped **no `.inf` sidecar**, while every database in the live directory has one
+  (`up_common.sqlite.inf`).
+- `RestoreDataFromUSB` looks for a **per-unit** directory — `/bd0/00FE…0035` style, named after
+  the unit itself — not the package path; and `SaveDataOnUSB`, which would have created it, never
+  ran at all (zero mentions in the log).
+
+!!! note "The spy dump is a general diagnostic, not just this log"
+
+    `SPYSTORE` also yielded `abs_symbols_base.txt.gz` (98 365 lines) and `symbols_bsp.txt.gz`
+    (22 497 lines) — the application and BSP symbol tables `AGENTS.md` describes but which the
+    repository does not ship. The analysis tools resolve names with them instead of `?`. The
+    dump additionally carries a task/exception capture, which is where the settings listing
+    above came from.
 
 ## Observed update sequence
 
