@@ -36,10 +36,13 @@ Observed on a car, with the log to prove it — see
 correctly-laid-out payload ran the copy, and the unit's own settings dump afterwards still read
 the factory `supervisor.Last_Source`.
 
-Two other things the same log settled:
+Two other things the same log and updater binary settled:
 
-- The live directory holds a `.inf` sidecar beside every database (`up_common.sqlite.inf`); a
-  payload that ships only the `.sqlite` is missing it.
+- The live directory holds a `.inf` sidecar beside every database (`up_common.sqlite.inf`).
+  `C_UPGRADE::ManageSQLiteFiles` says `We have to generate the .inf file!`; the generated file
+  found on the stick is exactly `CRC32: <signed decimal>\r\n`, and its value matches the edited
+  database. `build_package.py` now writes that pair up front and pre-flight rejects a missing or
+  stale sidecar.
 - `C_UPGRADE::RestoreDataFromUSB` copies from a **per-unit** directory, `/bd0/<unit-id>/`, not
   from the package path. `C_UPGRADE::SaveDataOnUSB` is what creates it, and it did not run.
 

@@ -57,9 +57,13 @@ def make_pkg(tmp_path, last_source=None, user_data=False):
     (pkg / "contract.dat").write_bytes(b"x")
     (pkg / "media.inf").write_bytes(b"VER:0\n")
     if user_data:
+        import preflight
+
         d = pkg / "NAV" / "USER_DATA" / "user_data" / "sqlite"
         d.mkdir(parents=True)
-        (d / "up_common.sqlite").write_bytes(up_common(last_source))
+        database = d / "up_common.sqlite"
+        database.write_bytes(up_common(last_source))
+        (d / "up_common.sqlite.inf").write_bytes(preflight.sqlite_inf(database.read_bytes()))
     return pkg
 
 
@@ -105,6 +109,28 @@ def test_warns_about_a_user_data_payload(tmp_path):
     out = r.stdout + r.stderr
     assert "user partition" in out
     assert "presets" in out, "it should say what is at risk"
+    assert "inf matches the database" in out
+
+
+def test_refuses_user_data_without_a_crc_sidecar(tmp_path):
+    pkg = make_pkg(tmp_path, last_source=7, user_data=True)
+    (pkg / "NAV" / "USER_DATA" / "user_data" / "sqlite" / "up_common.sqlite.inf").unlink()
+
+    r = run(pkg)
+
+    assert r.returncode != 0
+    assert "has no CRC sidecar" in (r.stdout + r.stderr)
+
+
+def test_refuses_a_stale_user_data_crc_sidecar(tmp_path):
+    pkg = make_pkg(tmp_path, last_source=7, user_data=True)
+    sidecar = pkg / "NAV" / "USER_DATA" / "user_data" / "sqlite" / "up_common.sqlite.inf"
+    sidecar.write_bytes(b"CRC32: 0\r\n")
+
+    r = run(pkg)
+
+    assert r.returncode != 0
+    assert "does not match the database" in (r.stdout + r.stderr)
 
 
 def test_says_what_it_does_not_know(tmp_path):

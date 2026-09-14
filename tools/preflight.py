@@ -242,6 +242,12 @@ def check_settings(rep, keys, area="settings"):
         )
 
 
+def sqlite_inf(data):
+    crc = zlib.crc32(data) & 0xFFFFFFFF
+    signed = crc - 0x100000000 if crc & 0x80000000 else crc
+    return ("CRC32: %d\r\n" % signed).encode()
+
+
 def check_user_data(rep, pkg, module):
     ud = os.path.join(pkg, module, "USER_DATA")
     if not os.path.isdir(ud):
@@ -253,6 +259,19 @@ def check_user_data(rep, pkg, module):
     )
     for f in files:
         rep.add(INFO, "USER_DATA", "  %s" % f)
+    sqlite_dir = os.path.join(ud, "user_data", "sqlite")
+    if os.path.isdir(sqlite_dir):
+        for name in os.listdir(sqlite_dir):
+            if not name.endswith(".sqlite"):
+                continue
+            database = os.path.join(sqlite_dir, name)
+            sidecar = database + ".inf"
+            if not os.path.exists(sidecar):
+                rep.add(BAD, "USER_DATA", "%s has no CRC sidecar" % name)
+            elif Path(sidecar).read_bytes() != sqlite_inf(Path(database).read_bytes()):
+                rep.add(BAD, "USER_DATA", "%s.inf does not match the database" % name)
+            else:
+                rep.add(OK, "USER_DATA", "%s.inf matches the database" % name)
     rep.add(WARN, "USER_DATA", "this can reset paired phones, navigation destinations and presets")
     rep.add(
         UNKNOWN,
