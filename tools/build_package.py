@@ -29,7 +29,8 @@ Manifest (JSON — no extra dependency):
       "media": {
         "tones":  { "ring_tones/ring1RT.wav": "piano-riff.mp3" },
         "splash": { "peugeot": "snoopy.png" },
-        "names":  { "ring1": "Piano Riff" }
+        "names":  { "ring1": "Piano Riff" },
+        "gui_ver": "32.01"
       },
       "seal": true
     }
@@ -37,7 +38,9 @@ Manifest (JSON — no extra dependency):
 Every section is optional. `app.patches` names files in `patches/`; `media.tones` maps a
 partition-relative destination to a source audio file of any format ffmpeg reads;
 `media.splash` maps a marque to an image; `media.names` renames the ringtone entries the
-phone UI shows.
+phone UI shows; `media.gui_ver` sets `GUI_VER` in the partition's `Data_base/smeg.inf`,
+which the System Info screen shows as "Display version" — the one visible field nothing
+gates on, so it works as a build marker.
 
 usage:
     python3 tools/build_package.py --manifest build.json
@@ -171,6 +174,34 @@ def set_up_key(tree, dotted, value):
         con.close()
 
 
+def set_gui_ver(tree, value):
+    """Set `GUI_VER` in the media partition's `Data_base/smeg.inf`.
+
+    This is the **displayed** copy. The System Info screen reads `smeg.inf` from inside
+    `system.bin`, not the module-level `NAV/smeg.inf` sitting beside it — editing the latter
+    is the classic "looks right, changes nothing" mistake.
+
+    `GUI_VER` ("Display version") is the only version field that is both visible and not
+    gated on by the updater, so it is the safe place for a build marker. `VER:` and
+    `media.inf` drive update decisions and must be left alone.
+    """
+    path = os.path.join(tree, "Data_base", "smeg.inf")
+    if not os.path.exists(path):
+        sys.exit("no Data_base/smeg.inf in this tree - is it an extracted media partition?")
+    raw = Path(path).read_bytes()
+    out, seen = [], False
+    for line in raw.split(b"\r\n"):
+        if line.startswith(b"GUI_VER:"):
+            out.append(b"GUI_VER:" + str(value).encode() + b" ")
+            seen = True
+        else:
+            out.append(line)
+    if not seen:
+        sys.exit("no GUI_VER line in Data_base/smeg.inf")
+    Path(path).write_bytes(b"\r\n".join(out))
+    return path
+
+
 USER_DATA_WARNING = """
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   THIS BUILD REPLACES A DATABASE ON THE UNIT'S USER DATA PARTITION.
@@ -275,9 +306,10 @@ def main():
     splash_map = media.get("splash") or {}
     name_map = media.get("names") or {}
     settings = media.get("settings") or {}
+    gui_ver = media.get("gui_ver")
     user_data = cfg.get("user_data") or {}
     ud_sqlite = user_data.get("sqlite") or []
-    any_media = bool(tone_map or splash_map or name_map or settings or ud_sqlite)
+    any_media = bool(tone_map or splash_map or name_map or settings or gui_ver or ud_sqlite)
 
     if ud_sqlite and not user_data.get("accept_data_loss"):
         sys.exit(
@@ -307,6 +339,11 @@ def main():
 
     # 2. application patches FIRST: patch_media later swaps CRCs inside ctrl.bin, and it
     #    has to be operating on a manifest that already carries the application change.
+    #
+    #    Each set is applied to the package built so far, not to `src`. Applying every set
+    #    against the stock source would make each overlay a stock-plus-one-set package, and
+    #    the last one copied would silently revert the others — they all rewrite the same
+    #    image and manifests.
     for name in app.get("patches", []):
         p = os.path.join(ROOT, "patches", name if name.endswith(".json") else name + ".json")
         if not os.path.exists(p):
@@ -317,7 +354,7 @@ def main():
                 PY,
                 tool("patch_smeg.py"),
                 "--src",
-                src,
+                src if args.dry_run else out,
                 "--out",
                 o1,
                 "--only",
@@ -382,6 +419,12 @@ def main():
             for dotted, value in settings.items():
                 n = set_up_key(tree, dotted, value)
                 print("==> %s = %s  (%d row%s)" % (dotted, value, n, "" if n == 1 else "s"))
+            if gui_ver is not None:
+                set_gui_ver(tree, gui_ver)
+                print(
+                    "==> GUI_VER = %s  (Data_base/smeg.inf - shows as 'Display version')"
+                    % gui_ver
+                )
             for slot, name in name_map.items():
                 if not (slot.startswith("ring") and slot[4:].isdigit()):
                     sys.exit("%s: names only apply to ring1..ring5" % slot)

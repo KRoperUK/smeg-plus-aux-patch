@@ -138,11 +138,35 @@ them:
 "settings": { "supervisor.Last_Source": 4 }
 ```
 
+`media.gui_ver` sets `GUI_VER` in the partition's `Data_base/smeg.inf`, which the System Info
+screen shows as **Display version**. It is the one visible field nothing gates on, so it is
+the safe way to mark a build:
+
+```json
+"gui_ver": "32.01"
+```
+
+!!! tip "Use it as a build marker"
+
+    Re-flashing the same release changes no other version string, so there is otherwise no
+    way to confirm *which* build a unit is running. Bumping `GUI_VER` gives an unambiguous
+    on-screen answer. Note it edits the copy **inside `system.bin`** — the module-level
+    `NAV/smeg.inf` beside it is what the updater reads and is left alone. See
+    [Version strings](VERSION_STRINGS.md).
+
+!!! warning "Patch sets accumulate, in order"
+
+    Listing several sets in `app.patches` applies each one to the package built so far, so a
+    build asking for `["aux-always-available", "aux-boot-default"]` carries both edits. (Up
+    to and including v0.6.0 each set was applied to the *stock* source, so all but the last
+    were silently reverted — if you built a multi-set package before that, rebuild it.)
+
 Ready-made **schemes** live in `builds/`. Each is a whole build, so a scheme is one command:
 
 | scheme | what it does | needs |
 |---|---|---|
 | `builds/aux-only.json` | the AUX patches and nothing else — the closest thing to stock that still enables AUX, and the baseline to reach for when something behaves unexpectedly | nothing |
+| `builds/aux-boot.json` | AUX selectable **and** resumed on every boot (`aux-boot-default`), with a `GUI_VER` marker so you can see which build is running | nothing |
 | `builds/diagnostic.json` | turns the application's own logging back on, for establishing whether a message reaches the app at all | nothing |
 | `builds/force-aux-default.json` | AUX patches, custom tone and name, and `Last_Source` set so the unit starts on AUX | a tone file, and the `/USER_DATA` acknowledgement |
 
