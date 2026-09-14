@@ -9,5 +9,8 @@
       "aux-boot-default"
     ]
   },
+  "media": {
+    "gui_ver": "32.01"
+  },
   "seal": true
 }

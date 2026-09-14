@@ -64,6 +64,10 @@ is the same rebuild job.
 
     `GUI_VER` is the only version field that is both **shown on screen** and **not gated
     on** by the updater. Everything else is either invisible (the app never displays it) or
-    dangerous to change (`media.inf` can block the whole package). For now, rely on the
-    updater's own progress screens as evidence the application was written, and judge by
-    behaviour — see [Hardware verification](VERIFICATION.md).
+    dangerous to change (`media.inf` can block the whole package).
+
+    `build_package.py` can set it from a manifest — `"media": { "gui_ver": "32.01" }` — which
+    edits `Data_base/smeg.inf` **inside `system.bin`**, the copy the screen actually reads.
+    See [Running the tools](RUNNING.md#one-command-per-package-the-manifest-build). Otherwise,
+    rely on the updater's own progress screens as evidence the application was written, and
+    judge by behaviour — see [Hardware verification](VERIFICATION.md).
