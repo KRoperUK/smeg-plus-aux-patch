@@ -142,14 +142,15 @@ Note the trap: this is not the same enum as the **source** list recovered from t
 `OnEventSelect*` handlers. Two namespaces, overlapping numbers. Do not carry a value from
 one into the other — and there are more than two.
 
-### Four source numberings, and which one `Last_Source` uses
+### Six source numberings, and which one `Last_Source` uses
 
 | numbering | where it comes from | AUX is |
 |---|---|---|
 | media device type | the table `GetMediaDevice` searches | **5** |
 | HMI source | `OnEventSelect*` → `CreateNotificationCommand` | **7** |
 | audio module `SRC_*` | the name table at `0x02f9d60c`, printed as `Current_source` | **5** |
-| `C_MGR_SRC` position (`POS_*`) | the SPY dump's switch, `0x0169a2e4` | **7** |
+| `C_MGR_SRC` scheduler position (`POS_*`) | `AllocateSource`'s `Sched_Pos` field and the SPY dump's switch | **7** |
+| `C_MGR_SRC` request `SrcId` | `AllocateSource`'s `SrcId` field | **unknown for AUX**; observed values are `0xba00`, `0xbc00`, `0xc000`, `0xe200`, `0x17400`, `0x1e200`, `0x1e600` |
 | screen position | `GetSourceAtPosition`, 0-based | **4** |
 
 The audio module's table is contiguous from `SRC_NO_SOURCE = 0`:
@@ -160,18 +161,26 @@ The audio module's table is contiguous from `SRC_NO_SOURCE = 0`:
 10 SRC_AUX_CONVERGENCE  11 SRC_BLUETOOTH  12 SRC_MTB  13 SRC_MLDIPO_RECO_PHONE
 ```
 
-**Two of these put AUX at `7`, and one of the two is `C_MGR_SRC`'s own enum** — the object that
-owns `+0xb4` in the first place. That is the strongest evidence available short of a run, and it
-is why
-[`aux-default-retry.json`](https://github.com/KRoperUK/smeg-plus-patches/blob/main/builds/aux-default-retry.json)
-spends its flash on `7`. The factory value `1` does not discriminate on its own: it is the radio
-in the HMI numbering, `SRC_TUNER` in the audio one, and `POS_TUNER` in this one.
+Two of these put AUX at `7`, but the SPY capture now settles which `C_MGR_SRC` field the
+factory `Last_Source = 1` follows. At boot the same module logged:
 
-`4` and `7` have both been flashed without the unit starting on AUX. For the second of those the
-package layout was then **verified on the stick and found correct**, and the payload still did not
-apply — see [Hardware verification](VERIFICATION.md). So no value for `Last_Source` has actually
-been tested yet, and the boot-to-radio result carries no information about whether `7` is right.
-The open question is now the **delivery** of the setting, not the value of it.
+```
+6639::Last_Source : 1 (0x1)
+9742::AllocateSource : MsgSrc=10, SrcId=0xbc00, Sched_Pos=1, ...
+Current_source ... SRC_TUNER
+```
+
+That is **executed runtime evidence**: tuner was active; its request's `SrcId` was `0xbc00`; its
+scheduler position was `1`; and `Last_Source` was `1`. Therefore `Last_Source` follows the
+`Sched_Pos`/`POS_*` namespace, **not the raw request `SrcId`**. For AUX that namespace says `7`.
+This is stronger than the previous inference from object ownership and corrects the section below,
+which had labelled request `+0x18` as the value compared directly with `Last_Source`.
+
+`4` and `7` have both been shipped in payloads without the unit starting on AUX, but neither value
+reached the live database. The later SPY settings dump still reads
+`supervisor.Last_Source.0 <int> : 1`, and the updater log still copied the payload into uppercase
+`SQLITE`. So `7` remains untested as a live setting; the observed boot-to-radio result still
+settles delivery, not the value.
 
 ### The key belongs to `C_MGR_SRC`, and the value must match a live source request
 
@@ -188,18 +197,18 @@ Following `+0xb4` gives the shape of the value. In the NAV build:
 |---|---|
 | `0x01699490` | boot restore: the value read back from `Last_Source` is **stored straight to `+0xb4`** and mirrored to the global `0x035e4cd0`, with no validation at all |
 | `0x016995b4` | constructor: `+0xb4` and `0x035e4cd0` are both initialised to `1` — the same value the factory database ships |
-| `0x0169c6ac` | reads `0x035e4cd0` and passes it as the source argument to `0x016977d0` |
-| `0x016977d0` | the setter — walks the request lists and writes `+0xb4` only on a match; a miss leaves `+0xb4` alone |
-| `0x016957ec` | the scheduler — **selects the source to restore** by matching `node+0x18` against `+0xb4` |
-| `0x0169815c` | `C_MGR_SRC::AddRequest` — the site that populates `node+0x18` |
+| `0x0169c6ac` | reads `0x035e4cd0` and passes it as the scheduler-position argument to `0x016977d0` |
+| `0x016977d0` | the position setter — walks the request lists and writes `+0xb4` only on a matching `Sched_Pos`; a miss leaves `+0xb4` alone |
+| `0x016957ec` | the scheduler — **selects the source to restore** by matching `node+0x18` (`Sched_Pos`) against `+0xb4` |
+| `0x0169815c` | `C_MGR_SRC::AddRequest` — copies `SrcId` to `node+0x04` and `Sched_Pos` to `node+0x18` |
 | `0x0169c51c` | the `C_MGR_SRC` message dispatcher (message id `0x62d5`): case 0 → `AddRequest`, case 1 → `RemoveRequest` at `0x01697d60`, case 2 → re-apply `Last_Source` |
 | `0x0169bf74` | `C_MGR_SRC::AllocateSource` — the client entry that packages a request and sends it into the dispatcher |
-| `0x0169a2e4` | the `MGR_SRC SPY` dump — swallows the `SrcId` switch that names each position (`POS_*`) |
+| `0x0169a2e4` | the `MGR_SRC SPY` dump — switches on `Sched_Pos` to name each position (`POS_*`) |
 
 `0x016977d0` walks the first request list, anchored at `this+0xd4` (`next` at `+0x3c`),
-comparing its source argument against each node's `+0x18` field, and writes `+0xb4` on a
-match. An id that matches nothing falls straight out to the return path **without touching
-`+0xb4`**:
+comparing its scheduler-position argument against each node's `+0x18` (`Sched_Pos`) field, and
+writes `+0xb4` on a match. A position that matches nothing falls straight out to the return path
+**without touching `+0xb4`**:
 
 ```
 016977dc  lwz    r9, 0xd4(r3)     ; head of the first request list
@@ -209,7 +218,7 @@ match. An id that matches nothing falls straight out to the return path **withou
 016977ec  lwz    r9, 0x3c(r9)     ; node = node->next
 016977f0  cmpwi  cr7, r9, 0
 016977f4  beq    cr7, 0x1697854   ; ran off the end -> give up
-016977f8  lwz    r0, 0x18(r9)     ; node->source_id
+016977f8  lwz    r0, 0x18(r9)     ; node->Sched_Pos
 016977fc  cmpw   cr7, r4, r0
 01697800  bne    cr7, 0x16977ec   ; no match -> keep walking
 01697804  ...                     ; matched: commit to +0xb4
@@ -231,16 +240,17 @@ same lists and, in the mode where the stored source is being restored, picks the
 iVar7 = DAT_035e4cd0;                                       // the mirrored Last_Source
 ...
 do {
-    if (*(int *)(iVar6 + 0x18) == *(int *)(param_1 + 0xb4)) {   // node SrcId == Last_Source
+    if (*(int *)(iVar6 + 0x18) == *(int *)(param_1 + 0xb4)) {   // node Sched_Pos == Last_Source
         ... remember this node as the source to restore ...
     }
     iVar6 = *(int *)(iVar6 + 0x3c);
 } while (iVar6 != 0);
 ```
 
-So `Last_Source` must equal the **`SrcId` the source itself registered**, or nothing matches
-and no source is restored — the unit falls back to its default. That is the real gate, and it
-is downstream of the value, not a check on it.
+So `Last_Source` must equal the **`Sched_Pos` the source request registered**, or nothing matches
+and no source is restored — the unit falls back to its default. The runtime tuner tuple
+`Last_Source=1, SrcId=0xbc00, Sched_Pos=1` confirms this interpretation. That is the real gate,
+and it is downstream of the value, not a check on it.
 
 #### What a request node is, and who writes `+0x18`
 
@@ -265,10 +275,11 @@ node, links it, and commits:
 node = SUB_01695590(this, idx * 4 + this + 0xc4);
 if (*(int *)(idx * 4 + this + 0xd4) == 0) *(int *)(idx * 4 + this + 0xd4) = node;
 *(short *)(node + 0x00) = req.MsgSrc;
+*(int *)  (node + 0x04) = req.SrcId;
 *(int *)  (node + 0x14) = req.Type;
-*(int *)  (node + 0x18) = req.SrcId;      // <-- the field the setter and the scheduler compare
+*(int *)  (node + 0x18) = req.Sched_Pos;  // <-- the field the setter and scheduler compare
 ...
-FUN_016977d0(this, req.SrcId, 1, 1);
+FUN_016977d0(this, req.Sched_Pos, 1, 1);
 ```
 
 Two corrections to the earlier reading on this page:
@@ -280,8 +291,10 @@ Two corrections to the earlier reading on this page:
   the node and then immediately calls the setter with the same id. It was never the gate it
   looked like.
 
-`SrcId` therefore travels on the wire at `request + 0x18`, i.e. **byte `0x24` of the message
-payload**. Which value a given source sends is the remaining unknown.
+The request carries both values: `SrcId` at request `+0x04` (byte `0x10` of the message payload)
+and `Sched_Pos` at request `+0x18` (byte `0x24` of the payload). The live dump prints both, which
+is what exposed the earlier conflation. AUX's `Sched_Pos` is known (`7`); AUX's raw `SrcId` remains
+unknown and is not what `Last_Source` stores.
 
 Requests reach the dispatcher through the client entry `C_MGR_SRC::AllocateSource`
 (`0x0169bf74`), which copies the 0x2c-byte request and sends it. `AllocateSource` is reached
@@ -313,7 +326,7 @@ request needs the registry resolved, not another xref sweep.
     reading is not. The part corroborated by execution is the setter's own shape, which was
     confirmed by disassembly when this page was first written.
 
-The `SrcId` space is `C_MGR_SRC`'s own **position** enum, readable from the SPY dump at
+The `Sched_Pos` space is `C_MGR_SRC`'s own **position** enum, readable from the SPY dump at
 `0x0169a2e4`, which switches on a per-source field at `+0x370` and names it:
 
 | value | name | value | name |
@@ -370,12 +383,12 @@ through `Log_msg`'s stubbed sink, so a boot-time dump would list the registered 
 `POS_*` ids without the log sink being fixed first. See
 [Cheatcodes](CHEATCODES.md#a-module-dump-reaches-the-spy-not-the-dead-log-sink) and issue **#24**.
 
-**Confirm AUX's `SrcId` end to end.** The enum is now known — `POS_AUX = 7` — so this is no
-longer a guess, but it is still *read* rather than executed. The per-source caller that allocates
-AUX's request sits behind the service API table (`0x0307aedc`), which has no static references,
-so closing this means resolving the service registry (`FUN_0103155c` / `FUN_01001178`) rather
-than another xref sweep. The 0x2c-byte request that `AllocateSource` (`0x0169bf74`) takes carries
-the `SrcId` at `+0x18`, so the caller that builds AUX's request is the thing to find.
+**Capture AUX's request at runtime.** The SPY dump already proved `Last_Source` follows
+`Sched_Pos`, not `SrcId`, and the enum says `POS_AUX = 7`. What this capture did not contain is an
+AUX `AllocateSource` line: AUX was available, but the current source stayed tuner. Selecting AUX
+before running `SPYSTORE` should yield the missing tuple (`MsgSrc`, raw `SrcId`, `Sched_Pos=7`)
+without resolving the dynamic service table. That would execute the AUX side of the mapping as
+well as the tuner side.
 
 **Give the firmware a log to write to.** The handler logs its own name at level 1 on its
 **shared return path** — and **executed**: every one of the four exit paths, plus the success
@@ -406,9 +419,10 @@ readable.
 | type 5 is AUX | inferred from call sites, strongly |
 | `aux-sticky`'s second edit does what it says | **executed on all three builds** — after being corrected; it shipped unconditional |
 | link A's state on a real unit | **not known** — needs the car |
-| `AddRequest` writes `node+0x18`; the lists at `+0xd4` are requests, not a registry | **read from decompiled code** — not executed |
-| the scheduler matches `node+0x18` against `+0xb4` | **read from decompiled code** — not executed |
+| `AddRequest` writes `SrcId` to `node+0x04` and `Sched_Pos` to `node+0x18`; the lists at `+0xd4` are requests, not a registry | **read from disassembly/decompiled code** — field names corroborated by the named `SetScheduledInit` call |
+| the scheduler matches `node+0x18` (`Sched_Pos`) against `+0xb4` | read statically; **runtime tuner tuple corroborates it** |
 | boot restore writes `+0xb4` with no validation | **read from decompiled code** — not executed |
-| `POS_AUX = 7`, `POS_JBX = 5`, `POS_TUNER = 1` | **read from the SPY dump's switch** at `0x0169a2e4` — not executed |
-| `AllocateSource` is the client entry that feeds `AddRequest` | **read from decompiled code** — not executed |
-| `7` is the value the unit needs | **not known** — the enum says `7`; only the car settles it |
+| `POS_AUX = 7`, `POS_JBX = 5`, `POS_TUNER = 1` | read from the SPY switch; **`POS_TUNER=1` executed in the captured `AllocateSource` tuple** |
+| `AllocateSource` is the client entry that feeds `AddRequest` | read statically; the function's own runtime lines were captured |
+| `Last_Source` uses `Sched_Pos`, not raw `SrcId` | **executed** — tuner had `Last_Source=1`, `SrcId=0xbc00`, `Sched_Pos=1` |
+| `7` is the value AUX needs | strongly supported: enum says `POS_AUX=7`; AUX tuple and live setting still not executed |
