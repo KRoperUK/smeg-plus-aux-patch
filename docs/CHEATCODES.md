@@ -119,13 +119,43 @@ What `SPYSTORE` actually does:
 ```
 libcheatcode_SPYSTORE.out : Activate()
   -> C_BCM_SPY::DirectCallCopy(std::string const&)     # empty string in practice
-     -> C_BCM_SPY::CallBackCopy(std::string const&)
+     -> C_BCM_SPY::CallBackCopy(std::string const&)    # NAV 0x01273734
         -> C_FS_STORAGE_CTRL_PATH::GetUnknownDir()      # removable media target
-        -> Mkdir + GetSpyFolderName/GetSpyFileName
-        -> C_FS_STORAGE_CTRL_IO::Copy(traces) + ::Xcopy(spy dir)
+        -> Mkdir + GetSpyFolderName                     # dest = <stick>/SPY/<timestamp>
+        -> Copy (GetTracesFile)                         # traces.bin
+        -> Xcopy (GetSpyDir)                            # /SYSTEM_TMP_DATA/SPY ring buffers
+        -> Xcopy (GetApplicationDir + "/PKG/*.*")       # the abs_symbols_*.gz maps
+        -> Xcopy (GetCalibrationDataDir + "*.log")      # calibration logs
+        -> Xcopy (GetCalibrationDataDir + "*regen*")    # SD-regen files
 ```
 
-`C_BCM_SPY::CopyTraces(t_bcm_spy_files)` is the sibling entry point.
+`C_BCM_SPY::CopyTraces(t_bcm_spy_files)` is the sibling entry point. Each copy step is the
+same shape — a `Get<X>Dir` source getter, an optional `AddName` glob, then
+`C_FS_STORAGE_CTRL_IO::Xcopy(source, dest)` (`0x010554f4`) into the timestamped stick
+folder. Verified by disassembly (`tools/ppcdis.py`) against the 5.43.A.R2 NAV image.
+
+### Adding /USER_DATA to the dump (`spy-dump-userdata`)
+
+The one thing the collect does **not** capture is the live settings partition. There is no
+removable card to image, and the ring buffers above are not the settings databases — so a
+stock `SPYSTORE` cannot back up your paired phones, navigation destinations or presets.
+
+`patches/spy-dump-userdata.json` adds that. The firmware already ships the exact primitive:
+`C_FS_STORAGE_CTRL_PATH::GetUserDataDir` (`0x0105ae44`) resolves to `/USER_DATA/user_data/`
+— the tree holding `sqlite/up_common.sqlite`, `sqlite/connectivity.sqlite`,
+`sqlite/nav_dest.sqlite`, `Audio/Tuner.dat` and the rest. `CallBackCopy` has no spare room
+and there is no usable code cave inside `.text`, so the patch is **cave-free**: it
+overwrites the least-valuable existing copy block — the `*regen*` calibration copy — with
+
+```
+GetUserDataDir(entity)     ; source = /USER_DATA/user_data/
+Xcopy(entity, dest)        ; dest = <stick>/SPY/<timestamp>, Xcopy addr reused from r26
+```
+
+Trade-off: the dump no longer contains the `*regen*` calibration files. Exact addresses
+and bytes are in [Patch reference](PATCHES.md). Static analysis only — **not yet confirmed
+on a car** — and NAV-only until the
+`AUDIO_BT`/`AUDIO_BT_256` addresses are re-derived.
 
 **Do not confuse this with** `C_BCM_SPY_System_Shot::SpyFiles()` — despite the name it is
 a diagnostic snapshot that writes `diag_zi.sqlite`, not the debug spy logs. Ruled out as

@@ -142,6 +142,7 @@ being corrupted.
 | `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate — control flow verified under emulation, **never flashed** |
 | `patches/diagnostic-logmask.json` | forces the global trace mask — **necessary but not sufficient**, see below | diagnostic build, **not for driving** |
 | `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | diagnostic build, needs the mask patch too, **not for driving** |
+| `patches/spy-dump-userdata.json` | makes `SPYSTORE` also copy `/USER_DATA/user_data` out to the stick | static analysis only, **never flashed**, NAV-only |
 
 !!! note "Hardware status"
 
@@ -338,3 +339,71 @@ Both offsets were verified against all three images (`AUDIO_BT`, `AUDIO_BT_256`,
 
     `tests/test_patch_definitions.py` now refuses any edit that turns a conditional branch
     into an unconditional one unless `why` says so in as many words.
+
+
+### `spy-dump-userdata` — SPYSTORE also backs up `/USER_DATA`
+
+`C_BCM_SPY::CallBackCopy` (NAV `0x01273734`) is the routine `SPYSTORE` runs to copy the spy
+directory out to a stick. It is a sequence of `Get<X>Dir` source getters each followed by
+`C_FS_STORAGE_CTRL_IO::Xcopy(source, dest)` into a timestamped folder on the stick
+(`<stick>/SPY/<timestamp>`); see [Cheatcodes](CHEATCODES.md). None of those sources is the
+live settings partition, so a stock collect never captures the user's databases.
+
+The firmware already exports the primitive that fixes this:
+`C_FS_STORAGE_CTRL_PATH::GetUserDataDir` (`0x0105ae44`) points an entity at
+`/USER_DATA/user_data/` — the tree holding `sqlite/up_common.sqlite`,
+`sqlite/connectivity.sqlite`, `sqlite/nav_dest.sqlite`, `Audio/Tuner.dat` and the rest. So
+the added copy is one more block of exactly the existing shape:
+
+```
+GetUserDataDir(r29)     ; r29 = /USER_DATA/user_data/  (source)
+Xcopy(r29, r31)         ; r31 = <stick>/SPY/<timestamp> (dest)
+```
+
+`CallBackCopy` has no spare space, and there is **no usable code cave inside `.text`** (the
+functions are packed; the only large zero-runs sit past the last function at `0x02def4c0`,
+in data, which is unsafe to execute). So rather than a trampoline this patch is **cave-free**:
+it overwrites the last of the two calibration-copy blocks — the `*regen*` one — in place. That
+48-byte block is more than the nine instructions the replacement needs.
+
+| build | address | original (`*regen*` copy) | patched |
+|---|---|---|---|
+| `NAV` | `0x01273a1c` | `GetCalibrationDataDir ; AddName "*regen*" ; Xcopy` (12 instr) | `GetUserDataDir(r29) ; Xcopy(r29,r31) ; nop×3` |
+
+```
+lis   r9, 0x106          # 3d200106
+addi  r9, r9, -0x51bc    # 3929ae44   -> r9 = GetUserDataDir (0x0105ae44)
+mtctr r9                 # 7d2903a6
+mr    r3, r29            # 7fa3eb78   -> source entity
+bctrl                    # 4e800421   -> GetUserDataDir(r29)
+mr    r3, r29            # 7fa3eb78   -> source
+mr    r4, r31            # 7fe4fb78   -> dest (stick SPY/<timestamp>)
+mtctr r26                # 7f4903a6   -> r26 still holds Xcopy (0x010554f4)
+bctrl                    # 4e800421   -> Xcopy(r29, r31)
+nop ; nop ; nop          # 60000000 ×3
+```
+
+Why this is safe to write in place:
+
+- `r29` (the source entity) and `r31` (the destination) are callee-saved registers and are
+  live here — the original block uses both at this exact point.
+- `r26` already holds `Xcopy` (`0x010554f4`): the very block being replaced does `mtctr r26`
+  for its own `Xcopy`, so the value is guaranteed valid, and the replacement does not reload it.
+- The trailing `nop`s keep `Xcopy`'s return in `r3` intact for the `cmpwi r3,-1` at
+  `0x01273a4c` that follows, so the function's existing success/error handling is unchanged.
+
+Verified by round-tripping the bytes through `capstone` and by `tests/test_spy_dump_userdata.py`,
+which decodes the `lis`/`addi` pair to confirm the callee is `GetUserDataDir` and applies the
+shipped definition end-to-end through `patch_smeg.py`.
+
+!!! warning "Trade-offs and status"
+
+    - **The dump loses the `*regen*` calibration files** in exchange for the `/USER_DATA`
+      backup. That is the cost of staying cave-free.
+    - **Static analysis only — never flashed.** Whether `Xcopy` copies the whole
+      `/USER_DATA/user_data` tree at collect time (free space on the stick, timing) needs a
+      car test. Do not claim it works.
+    - **NAV only.** `AUDIO_BT`/`AUDIO_BT_256` have a different `CallBackCopy` address; derive
+      it from each build's own image before adding those variants.
+    - This reads `/USER_DATA` but does not write it, so it cannot damage the user partition —
+      unlike a `USER_DATA` *payload* build.
