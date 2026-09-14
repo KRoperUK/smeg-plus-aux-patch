@@ -1,0 +1,22 @@
+{
+  "name": "spy-dump-userdata",
+  "description": "Make the on-unit SPYSTORE collect also back up the live /USER_DATA/user_data tree (settings databases: up_common, connectivity, nav_dest, Audio/Tuner.dat, ...) to the removable stick, so a user can pull their real settings off the unit. There is no supported card to image and the ordinary spy collect only captures the RAMDISK ring buffers, so this is the only route to a live-settings backup. Implemented cave-free by repurposing the least-valuable existing copy block in C_BCM_SPY::CallBackCopy (the *regen* calibration-files copy) into GetUserDataDir(entity)+Xcopy(entity,dest). Trade-off: the spy dump no longer contains the *regen* calibration files.",
+  "variants": {
+    "NAV": {
+      "app_image": "NAV/AppBin/f_BigQuick.bin",
+      "inf": "NAV/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "NAV/smeg.inf",
+      "ctrl": "NAV_ctrl.bin",
+      "base": "0x01000000",
+      "firmware": "5.43.A.R2",
+      "patches": [
+        {
+          "addr": "0x01273a1c",
+          "expect": "7fc903a67fa3eb784e8004213c8002f6388472807f8903a67fa3eb784e8004217fa3eb787fe4fb787f4903a64e800421",
+          "bytes": "3d2001063929ae447d2903a67fa3eb784e8004217fa3eb787fe4fb787f4903a64e800421600000006000000060000000",
+          "why": "C_BCM_SPY::CallBackCopy: replace the final calibration copy block (GetCalibrationDataDir + AddName '*regen*' + Xcopy) with GetUserDataDir(r29) [0x0105ae44] then Xcopy(r29,r31) [r26 still holds 0x010554f4] + 3 nops, so the spy collect also copies /USER_DATA/user_data to the stick. r29 (source entity) and r31 (dest = stick SPY/<timestamp>) are live callee-saved regs at this point. Loses the *regen* copy in exchange."
+        }
+      ]
+    }
+  }
+}
