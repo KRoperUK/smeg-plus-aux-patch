@@ -4,6 +4,14 @@ This project has spent real time on things that turned out to be impossible, and
 are worth writing down so nobody repeats them. Every claim here is grounded in the firmware
 or in a hardware observation — the evidence is named so it can be checked.
 
+!!! abstract "The short answer"
+
+    Every "can it do X?" question resolves to one of three outcomes:
+
+    1. **The code is already there** → it is a patch or a setting. (AUX, ZA files, BT PAN.)
+    2. **It is a hardware capability** → it needs an external box. (CarPlay, WiFi.)
+    3. **It is data we do not have and cannot generate** → out of reach. (Maps.)
+
 ## The two update systems
 
 The unit has **two unrelated update paths**. Confusing them wastes effort, because they share
@@ -161,18 +169,21 @@ Four settings databases have not been opened at all: `up_config.sqlite`, `up_use
 
 ## The hard boundary
 
-**We can change behaviour, configuration and data. We cannot add hardware capability.**
-
-Every "can it do X?" question resolves to one of:
-
-1. **Is the code already there?** Then it is a patch or a setting. (AUX, ZA, BT PAN.)
-2. **Is it a hardware capability?** Then it needs an external box. (CarPlay.)
-3. **Is it data we do not have and cannot generate?** Then it is out of reach. (Maps.)
+**We can change behaviour, configuration and data. We cannot add hardware capability.** That
+is the whole of it — the three-way test at the top of this page is just this boundary applied
+case by case.
 
 ## The car's own look — the HARMONY module
 
 The unit's on-screen styling is the **HARMONY** module, and it is **in the update package**.
 `ManageHarmoniesVersions` and `ManageSkinCopyFromMedia` in the updater manage it.
+
+!!! info "Where the rest of HARMONY lives"
+
+    This section is the canonical "what it is and why it is gated". The on-disk
+    container format is in [Media partition](MEDIA_PARTITION.md#the-harmony-module-ui-skins), and
+    HARMONY's place among the other replaceable assets is in
+    [Customising](CUSTOMISING.md).
 
 ### Five skins ship, and the unit names them
 

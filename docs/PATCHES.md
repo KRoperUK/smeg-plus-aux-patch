@@ -137,12 +137,12 @@ being corrupted.
 
 | file | what it changes | status |
 |---|---|---|
-| `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | the combined build — flashed successfully, first patch confirmed on hardware |
-| `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | behavioural, no switching |
-| `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | candidate — control flow verified under emulation, **never flashed** |
-| `patches/diagnostic-logmask.json` | forces the global trace mask — **necessary but not sufficient**, see below | diagnostic build, **not for driving** |
-| `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | diagnostic build, needs the mask patch too, **not for driving** |
-| `patches/spy-dump-userdata.json` | makes `SPYSTORE` also copy `/USER_DATA/user_data` out to the stick | **confirmed on hardware** (2026-09-14, NAV) |
+| `patches/aux-autoswitch.json` | `IsAUXSRCAvailable()` true **and** removes the `GetMediaDevice` bail-out | **Flashed**{ .pill .pill-ok } the combined build — accepted by the contract check; first edit confirmed on hardware |
+| `patches/aux-always-available.json` | `IsAUXSRCAvailable()` true only — AUX stops greying out | **Confirmed**{ .pill .pill-ok } behavioural; no switching |
+| `patches/aux-sticky.json` | removes the bail-out **and** turns "signal absent" into a no-op | **Never flashed**{ .pill .pill-wip } control flow verified under emulation |
+| `patches/diagnostic-logmask.json` | forces the global trace mask — **necessary but not sufficient**, see below | **Not for driving**{ .pill .pill-no } diagnostic build |
+| `patches/diagnostic-logging.json` | redirects the logging stub to the real logger | **Not for driving**{ .pill .pill-no } diagnostic build; needs the mask patch too |
+| `patches/spy-dump-userdata.json` | makes `SPYSTORE` also copy `/USER_DATA/user_data` out to the stick | **Confirmed**{ .pill .pill-ok } on hardware (2026-09-14, NAV) |
 
 !!! note "Hardware status"
 
@@ -193,17 +193,16 @@ absence means the event never got there. That is the standing question in
 changing no behaviour whatsoever. Verified in emulation: stock, the line is suppressed at
 the mask test; patched, it is emitted. See [Emulating the firmware](EMULATION.md).
 
-!!! failure "Correction: on its own this still produces no output"
+!!! failure "On its own this produces no output"
 
-    An earlier version of this page said the mask patch makes that line appear. It does
-    not, and the reason matters for anyone building a diagnostic.
+    Forcing the mask is necessary but not sufficient, and the reason matters for anyone
+    building a diagnostic.
 
     `Log_msg` makes exactly **two** calls. The first is `GetLogMask`. The second, after it
     has cleared the gate and marshalled up to six varargs, is to `0x010346d0` — and
     `0x010346d0` is `li r3,0 ; blr`.
 
-    That address is the one `diagnostic-logging` patches. It is **not** "the stub called
-    *instead of* `Log_msg`", as this page previously had it: it is **the sink `Log_msg`
+    That address is the one `diagnostic-logging` patches. It is **the sink `Log_msg`
     itself calls**, and the vendor shipped it stubbed out. Both halves of the firmware's
     logging — the ~6700 sites that call the sink directly and the ~5900 that go through
     `Log_msg` — end at the same no-op.
@@ -217,8 +216,7 @@ the mask test; patched, it is emitted. See [Emulating the firmware](EMULATION.md
     `Log_msg` calls the sink, the sink re-enters `Log_msg`, which calls the sink again —
     self-referential, on every log call in the firmware. Emulated, one call re-enters
     `Log_msg` three times before unwinding; on the unit it burns stack and time on a path
-    that runs constantly. This page previously described the combination as "a flood
-    rather than a diagnostic", which undersold it.
+    that runs constantly.
 
 ### `diagnostic-logsink` — the other half
 

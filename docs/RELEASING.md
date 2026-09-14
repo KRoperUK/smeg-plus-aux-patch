@@ -27,6 +27,16 @@ BREAKING CHANGE: patches/*.json now requires a "base" field.
 Anything hidden by `changelog-sections` (chore, ci, test, build) still appears in the
 commit history but not in the changelog.
 
+!!! tip "Check the title before you push"
+
+    The Conventional-Commit format is **enforced** in two places — a `commit-msg` hook and
+    a CI check on the PR title — both by `tools/check_commit_msg.py`. Getting it wrong
+    silently produces no release, so validate it up front:
+
+    ```sh
+    python3 tools/check_commit_msg.py --title "feat: add long-press SRC trigger"
+    ```
+
 ## What happens automatically
 
 1. A push to `main` triggers `.github/workflows/release-please.yml`.

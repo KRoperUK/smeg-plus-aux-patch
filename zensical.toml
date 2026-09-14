@@ -1,5 +1,10 @@
 # Zensical configuration for the smeg-plus-patches documentation site.
 # https://zensical.org/docs/setup/basics/
+#
+# Navigation is organised by firmware artefact: the two things you actually
+# edit — the application image and the media partition — plus the chain that
+# protects them, the tooling around them, and the project process. See
+# docs/index.md for the reader-facing map.
 
 [project]
 site_name = "SMEG+ Patches"
@@ -8,45 +13,85 @@ site_url = "https://smeg.kroper.uk/"
 repo_url = "https://github.com/KRoperUK/smeg-plus-patches"
 repo_name = "KRoperUK/smeg-plus-patches"
 copyright = "MIT licensed. Not affiliated with Stellantis, Peugeot, Citroen, DS or Magneti Marelli."
+extra_css = ["stylesheets/extra.css"]
 
 nav = [
   { "Home" = "index.md" },
-  { "Overview" = "ANALYSIS.md" },
-  { "Architecture" = "ARCHITECTURE.md" },
-  { "Boot & update chain" = "FLASH_CHAIN.md" },
-  { "Media protection" = "MEDIA_PROTECTION.md" },
-  { "Media partition" = "MEDIA_PARTITION.md" },
-  { "Cheatcodes & spy" = "CHEATCODES.md" },
-  { "Customising" = "CUSTOMISING.md" },
-  { "Ring tones" = "RINGTONES.md" },
-  { "Version strings" = "VERSION_STRINGS.md" },
-  { "What is reachable" = "CAPABILITIES.md" },
-  { "The AUX chain" = "AUX_CHAIN.md" },
-  { "Emulating the firmware" = "EMULATION.md" },
-  { "Patch reference" = "PATCHES.md" },
-  { "Running the tools" = "RUNNING.md" },
-  { "Flashing" = "FLASHING.md" },
-  { "Hardware verification" = "VERIFICATION.md" },
-  { "Releasing" = "RELEASING.md" },
+  { "Concepts" = [
+    { "What is reachable" = "CAPABILITIES.md" },
+    { "Architecture" = "ARCHITECTURE.md" },
+  ] },
+  { "Flash chain & protections" = [
+    { "Boot & update chain" = "FLASH_CHAIN.md" },
+    { "Media protection" = "MEDIA_PROTECTION.md" },
+    { "Version strings" = "VERSION_STRINGS.md" },
+  ] },
+  { "The application image" = [
+    { "Patch reference" = "PATCHES.md" },
+    { "The AUX chain" = "AUX_CHAIN.md" },
+    { "Emulation" = "EMULATION.md" },
+    { "Analysis (archive)" = "ANALYSIS.md" },
+  ] },
+  { "The media partition" = [
+    { "Media partition" = "MEDIA_PARTITION.md" },
+    { "Ring tones" = "RINGTONES.md" },
+    { "Customising" = "CUSTOMISING.md" },
+    { "Cheatcodes & spy" = "CHEATCODES.md" },
+  ] },
+  { "Tooling & workflow" = [
+    { "Running the tools" = "RUNNING.md" },
+    { "Flashing" = "FLASHING.md" },
+    { "Hardware verification" = "VERIFICATION.md" },
+  ] },
+  { "Project" = [
+    { "Releasing" = "RELEASING.md" },
+  ] },
+  { "Glossary" = "GLOSSARY.md" },
 ]
 
 [project.theme]
 language = "en"
 features = [
+  # Code blocks
   "content.code.copy",
   "content.code.annotate",
+  # Content tabs share a slug and cross-link across the page
   "content.tabs.link",
+  # "Edit this page" link into the repo
   "content.action.edit",
+  # Single-page-app navigation: instant load, prefetch on hover, progress bar
   "navigation.instant",
-  "navigation.footer",
+  "navigation.instant.prefetch",
+  "navigation.instant.progress",
+  # Keep the address bar in sync with the active heading
+  "navigation.tracking",
+  # Top-level sections become tabs below the header; grouped in the sidebar
+  "navigation.tabs",
   "navigation.sections",
+  # Breadcrumbs above the page title
+  "navigation.path",
+  # Footer prev/next and back-to-top button
+  "navigation.footer",
   "navigation.top",
+  # Table of contents follows the scroll position
+  "toc.follow",
+  # Search
   "search.highlight",
   "search.suggest",
-  "toc.follow",
 ]
 
+# Three-way colour palette: follow the operating system by default, with
+# manual light and dark overrides. Indigo primary/accent throughout.
+
 [[project.theme.palette]]
+media = "(prefers-color-scheme)"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
 scheme = "default"
 primary = "indigo"
 accent = "indigo"
@@ -54,8 +99,9 @@ toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
 [[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 primary = "indigo"
 accent = "indigo"
 toggle.icon = "lucide/moon"
-toggle.name = "Switch to light mode"
+toggle.name = "Switch to system preference"

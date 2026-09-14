@@ -155,16 +155,14 @@ Xcopy(entity, dest)        ; dest = <stick>/SPY/<timestamp>, Xcopy addr reused f
 Trade-off: the dump no longer contains the `*regen*` calibration files. Exact addresses
 and bytes are in [Patch reference](PATCHES.md).
 
-!!! success "Confirmed on hardware — 2026-09-14 (NAV)"
+!!! success "Confirmed on hardware (NAV, 2026-09-14)"
 
-    Flashed and run: `SPYSTORE` produced a dump containing the whole `/USER_DATA/user_data/`
-    tree — 14 `sqlite/` databases with `.inf` sidecars, `Audio/` presets, and `Nav`/`TTS`/`T2BF`.
-    The DBs are the genuine live copies (`nav_dest.sqlite` is valid SQLite; `up_common` and
-    `up_user` come out **gzip'd**, as the unit stores them — the boot log's `gzUnixRead`).
-    **`connectivity.sqlite` is not among them** — it is imported from the system partition
-    rather than kept under `/USER_DATA`, so paired phones are out of scope; nav destinations,
-    presets and general settings are captured. NAV only until the `AUDIO_BT`/`AUDIO_BT_256`
-    addresses are re-derived.
+    A real unit produced a dump containing the whole `/USER_DATA/user_data/` tree — nav
+    destinations, radio presets and general settings — so `SPYSTORE` is now a working way to
+    pull a settings backup off the unit. Paired phones (`connectivity.sqlite`) are out of
+    scope, as that database is imported from the system partition. The full result, caveats
+    and trade-offs live with the patch itself — see
+    [Patch reference](PATCHES.md#spy-dump-userdata-spystore-also-backs-up-user_data).
 
 **Do not confuse this with** `C_BCM_SPY_System_Shot::SpyFiles()` — despite the name it is
 a diagnostic snapshot that writes `diag_zi.sqlite`, not the debug spy logs. Ruled out as

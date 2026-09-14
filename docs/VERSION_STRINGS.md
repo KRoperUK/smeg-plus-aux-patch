@@ -18,7 +18,7 @@ path `/SYSTEM/Data_base/smeg.inf`, i.e. it reads the **media partition** copy. S
   the updater but does not change what the screen shows — the displayed copy is
   `Data_base/smeg.inf` **inside `system.bin`**.
 - A visible marker therefore requires a media-partition edit (see
-  [`MEDIA_PARTITION.md`](MEDIA_PARTITION.md)). The `SIZE:` fields are no longer a blocker —
+  [Media partition](MEDIA_PARTITION.md)). The `SIZE:` fields are no longer a blocker —
   they are computable — but the packing tool is still to be written (issue #35).
 
 `AUDIO_BT/smeg.inf` and the tar's `Data_base/smeg.inf` currently hold identical content,
@@ -58,5 +58,12 @@ So versions are compared, and the comparisons drive more than "update or skip":
 
 **If a visible marker is wanted, the safe field is `GUI_VER` (Display version)** — it is
 presentation-only and nothing gates on it. It still lives in the media partition, so it
-is the same rebuild job. Recommendation for now: rely on the updater's own progress
-screens as evidence that the application was written, and judge by behaviour.
+is the same rebuild job.
+
+!!! tip "The one safe visible marker"
+
+    `GUI_VER` is the only version field that is both **shown on screen** and **not gated
+    on** by the updater. Everything else is either invisible (the app never displays it) or
+    dangerous to change (`media.inf` can block the whole package). For now, rely on the
+    updater's own progress screens as evidence the application was written, and judge by
+    behaviour — see [Hardware verification](VERIFICATION.md).

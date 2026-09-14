@@ -10,8 +10,8 @@
     Workflow:
 
     ```sh
-    python3 tools/patch_smeg.py     --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
-    python3 tools/patch_contract.py --package SMEG_PLUS_UPG_mod
+    uv run tools/patch_smeg.py     --src SMEG_PLUS_UPG --out SMEG_PLUS_UPG_mod
+    uv run tools/patch_contract.py --package SMEG_PLUS_UPG_mod
     ```
 
     Verified on a real package: all 115 records recompute to exactly the values the
