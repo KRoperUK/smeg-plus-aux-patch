@@ -51,6 +51,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zlib
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -200,26 +201,34 @@ def warn_user_data(names):
     return USER_DATA_WARNING.format(files="\n".join("    - %s" % n for n in names))
 
 
+def sqlite_inf(data):
+    crc = zlib.crc32(data) & 0xFFFFFFFF
+    signed = crc - 0x100000000 if crc & 0x80000000 else crc
+    return ("CRC32: %d\r\n" % signed).encode()
+
+
 def ship_user_data(out, tree, names, module):
-    """Copy settings databases into the package's USER_DATA payload.
+    """Copy settings databases and their CRC sidecars into USER_DATA.
 
-    `system.bin` extracts to /SYSTEM/, which is read-only: the application reads its live
-    settings from a separate NAND partition, /USER_DATA. The updater has a step for this
-    (`C_UPGRADE::ManageSQLiteFiles`) which copies them from
-    `<stick>/<module>/USER_DATA/user_data/sqlite/`, but only if the package ships that
-    directory - ours never did, which is why editing system.bin changed nothing on the unit.
-
-    Shipping the whole tree would take the unit's personal state with it, so this copies only
-    the named databases.
+    The application reads its live settings from `/USER_DATA`, not the copy in `/SYSTEM`.
+    The updater's `ManageSQLiteFiles` generates a `<database>.inf` beside every live SQLite
+    file. Its format is the same signed-decimal CRC32 line used elsewhere in the package.
+    Shipping the pair makes the payload complete before it reaches the unit.
     """
-    dest_dir = os.path.join(out, module, "USER_DATA", "user_data", "sqlite")
-    os.makedirs(dest_dir, exist_ok=True)
+    sources = []
     for name in names:
         src = os.path.join(tree, "Data_base", "sqlite", name)
         if not os.path.exists(src):
             sys.exit("no %s in the extracted media tree" % name)
-        shutil.copy2(src, os.path.join(dest_dir, name))
-        print("==> USER_DATA/%s (%d bytes)" % (name, os.path.getsize(src)))
+        sources.append((name, Path(src).read_bytes()))
+
+    dest_dir = os.path.join(out, module, "USER_DATA", "user_data", "sqlite")
+    os.makedirs(dest_dir, exist_ok=True)
+    for name, data in sources:
+        dest = os.path.join(dest_dir, name)
+        Path(dest).write_bytes(data)
+        Path(dest + ".inf").write_bytes(sqlite_inf(data))
+        print("==> USER_DATA/%s + .inf (%d bytes)" % (name, len(data)))
 
 
 def main():
@@ -267,9 +276,9 @@ def main():
     name_map = media.get("names") or {}
     settings = media.get("settings") or {}
     user_data = cfg.get("user_data") or {}
-    any_media = bool(tone_map or splash_map or name_map or settings)
-
     ud_sqlite = user_data.get("sqlite") or []
+    any_media = bool(tone_map or splash_map or name_map or settings or ud_sqlite)
+
     if ud_sqlite and not user_data.get("accept_data_loss"):
         sys.exit(
             warn_user_data(ud_sqlite)

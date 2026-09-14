@@ -94,6 +94,43 @@ def test_overlay_dry_run_writes_nothing(tmp_path):
     assert list(dest.iterdir()) == []
 
 
+def test_ship_user_data_writes_database_and_signed_crc_sidecar(tmp_path):
+    bp = load_build()
+    tree = tmp_path / "tree"
+    source = tree / "Data_base" / "sqlite" / "up_common.sqlite"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"synthetic sqlite")
+    out = tmp_path / "out"
+
+    bp.ship_user_data(str(out), str(tree), ["up_common.sqlite"], "NAV")
+
+    dest = out / "NAV" / "USER_DATA" / "user_data" / "sqlite" / "up_common.sqlite"
+    assert dest.read_bytes() == b"synthetic sqlite"
+    assert (dest.parent / "up_common.sqlite.inf").read_bytes() == bp.sqlite_inf(dest.read_bytes())
+
+
+def test_ship_user_data_checks_every_source_before_writing(tmp_path):
+    bp = load_build()
+    tree = tmp_path / "tree"
+    source = tree / "Data_base" / "sqlite" / "up_common.sqlite"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"synthetic sqlite")
+    out = tmp_path / "out"
+
+    with pytest.raises(SystemExit, match="no missing.sqlite"):
+        bp.ship_user_data(
+            str(out), str(tree), ["up_common.sqlite", "missing.sqlite"], "NAV"
+        )
+
+    assert not out.exists(), "a missing source must not leave a partial USER_DATA payload"
+
+
+def test_sqlite_inf_matches_the_sidecar_observed_on_the_stick():
+    bp = load_build()
+    data = b"123456789"  # CRC32 0xcbf43926, signed -873187034
+    assert bp.sqlite_inf(data) == b"CRC32: -873187034\r\n"
+
+
 # ------------------------------------------------------------------- guards
 
 
@@ -196,6 +233,21 @@ def test_warns_but_proceeds_with_acknowledgement(tmp_path, fake_pkg):
     r = run_cli(m, "--dry-run")
     assert "accept_data_loss" not in (r.stderr or ""), "a recorded decision must not be refused"
     assert "USER DATA" in r.stdout or "USER_DATA" in r.stdout
+
+
+def test_user_data_only_manifest_still_extracts_the_media_source(tmp_path, fake_pkg):
+    m = manifest(
+        tmp_path,
+        package=str(fake_pkg),
+        out=str(tmp_path / "o"),
+        user_data={"sqlite": ["up_common.sqlite"], "accept_data_loss": True},
+    )
+
+    r = run_cli(m, "--dry-run")
+
+    assert r.returncode == 0, r.stderr
+    assert "extracting the media partition" in r.stdout
+    assert "rebuilding the media partition" in r.stdout
 
 
 def test_resolves_paths_against_the_manifest_not_the_cwd(tmp_path, monkeypatch):
