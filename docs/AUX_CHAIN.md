@@ -167,10 +167,11 @@ is why
 spends its flash on `7`. The factory value `1` does not discriminate on its own: it is the radio
 in the HMI numbering, `SRC_TUNER` in the audio one, and `POS_TUNER` in this one.
 
-`4` and `7` have both been flashed without the unit starting on AUX — but see
-[Flashing](FLASHING.md): a `USER_DATA` payload in a folder not named `SMEG_PLUS_UPG` is skipped
-silently, so neither of those flashes is yet known to have applied at all, and **no value for
-`Last_Source` has actually been tested yet**.
+`4` and `7` have both been flashed without the unit starting on AUX. For the second of those the
+package layout was then **verified on the stick and found correct**, and the payload still did not
+apply — see [Hardware verification](VERIFICATION.md). So no value for `Last_Source` has actually
+been tested yet, and the boot-to-radio result carries no information about whether `7` is right.
+The open question is now the **delivery** of the setting, not the value of it.
 
 ### The key belongs to `C_MGR_SRC`, and the value must match a live source request
 
@@ -339,7 +340,7 @@ the audio module's `SRC_TUNER` all coincide — but they disagree at AUX: the au
 that should apply, which is a second independent line of evidence for `7` beside the HMI
 numbering.
 
-### Make the next flash answer two questions
+### The beacon, and what the retry actually answered
 
 Because no `USER_DATA` flash has yet been confirmed to apply, a unit that still starts on
 radio is ambiguous — wrong value, or payload skipped again? Ship a **beacon** alongside the
@@ -353,6 +354,11 @@ corrects regardless:
 | changed | AUX | the value is right and the mechanism works |
 | changed | radio | payload applied and `+0xb4` holds `7`, which the enum says is AUX — so suspect the path (registration or scheduling), not the number |
 | unchanged | either | payload was skipped again; the source result means nothing |
+
+The retry answered **`unchanged`**: the time zone did not move, so the payload was skipped once
+more and the boot-to-radio result is uninformative. What that points at — a hard-coded source
+path that was nonetheless correct on the stick, a step-gated copy, and a save/restore round trip
+— is written up under the second flash in [Hardware verification](VERIFICATION.md).
 
 ## What to do next
 

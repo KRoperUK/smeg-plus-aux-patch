@@ -157,10 +157,12 @@ It checks the things that have actually gone wrong, rather than what looks impre
 - **the CRC cascade** — image, `.inf`, `smeg.inf`
 - **which patches are present**, by reading the bytes at each known address
 - **settings values against what the unit accepts** — `supervisor.Last_Source = 4` did not
-  start the unit on AUX, and nothing said why. That cost a car trip, and it is no longer
-  clear it was the value's fault: a `USER_DATA` payload in a folder not named
-  `SMEG_PLUS_UPG` is skipped silently, which looks identical. Pre-flight now fails on that,
-  and [The AUX chain](AUX_CHAIN.md) lists the candidate numberings.
+  start the unit on AUX, and nothing said why. That cost a car trip. The first explanation
+  was a `USER_DATA` payload in a folder not named `SMEG_PLUS_UPG`, which is skipped silently
+  and looks identical — pre-flight now fails on that — but a later flash was laid out
+  correctly and **still** did not apply its payload, so that was not the whole story. See
+  [Hardware verification](VERIFICATION.md), and [The AUX chain](AUX_CHAIN.md) for the
+  candidate numberings.
 - **what the update will write**, so the blast radius is visible
 - **a `USER_DATA` payload**, which can reset paired phones and presets
 
