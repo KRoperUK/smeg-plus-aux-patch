@@ -1,0 +1,13 @@
+{
+  "_comment": "Boot straight to AUX, every time. Pairs aux-always-available (so AUX is a valid, selectable source) with aux-boot-default (which forces C_MGR_SRC::StartUp to restore scheduler position 7 / POS_AUX regardless of the saved Last_Source). Unlike a settings-database seed, this survives switching source - the firmware re-saves the active source via ImmediateSourceSave, but the restore ignores the saved value. App-image only, so no /USER_DATA payload and no data-loss risk. NAV only. LOCAL build manifest: edit the absolute paths below before reusing. CAVEAT: setting the restore target to 7 only switches if an AUX request node (Sched_Pos 7) is scheduled at StartUp - see docs/AUX_CHAIN.md; verify with tools/ppcemu.py before a car trip.",
+  "package": "~/Downloads/SMEG_PLUS_UPG",
+  "out": "~/Downloads/SMEG_PLUS_UPG_auxboot",
+  "module": "NAV",
+  "app": {
+    "patches": [
+      "aux-always-available",
+      "aux-boot-default"
+    ]
+  },
+  "seal": true
+}

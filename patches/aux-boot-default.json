@@ -1,0 +1,22 @@
+{
+  "name": "aux-boot-default",
+  "description": "Force the unit to resume AUX on every boot. C_MGR_SRC::StartUp restores the saved source by reading Last_Source into this+0xb4 (the value the scheduler ExecuteAllocationFirstRound matches against each request node's Sched_Pos) with no validation. This edit replaces that load with a constant 7 (POS_AUX in C_MGR_SRC's own scheduler-position enum), so the restore always targets AUX regardless of what is stored in the settings database. This is sticky where a Last_Source database seed is not: the firmware re-saves the active source via C_MGR_SRC::ImmediateSourceSave on every source change, so a DB seed only survives until you next switch source, whereas this patch ignores the saved value entirely. It also removes the need for a /USER_DATA payload (no data-loss risk, no FAT-casing trap). Pair it with aux-always-available so AUX is a valid, selectable source. CAVEAT: this sets the restore target; the scheduler only switches if an AUX request node (Sched_Pos 7) is registered at StartUp - the same downstream condition tracked in docs/AUX_CHAIN.md. NAV only: the StartUp address differs on the AUDIO_BT/AUDIO_BT_256 builds and must be re-derived from each image before adding those variants.",
+  "variants": {
+    "NAV": {
+      "app_image": "NAV/AppBin/f_BigQuick.bin",
+      "inf": "NAV/AppBin/f_BigQuick.bin.inf",
+      "smeg_inf": "NAV/smeg.inf",
+      "ctrl": "NAV_ctrl.bin",
+      "base": "0x01000000",
+      "firmware": "5.43.A.R2",
+      "patches": [
+        {
+          "addr": "0x0169948c",
+          "expect": "81210008",
+          "bytes": "39200007",
+          "why": "C_MGR_SRC::StartUp boot restore: replace `lwz r9,8(r1)` (r9 = saved Last_Source, then stored to this+0xb4 / global 0x035e4cd0 / this+0xe4 at 0x01699490..9c) with `li r9,7`, so the restored scheduler position is always 7 (POS_AUX) instead of the value ImmediateSourceSave persisted. Makes boot-to-AUX sticky across source changes."
+        }
+      ]
+    }
+  }
+}
