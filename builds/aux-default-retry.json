@@ -1,0 +1,26 @@
+{
+  "_comment": "RETRY of the force-AUX-default test, with the folder-name bug fixed. Every previous attempt (Last_Source = 4, then 7) wrote its package to a folder called SMEG_PLUS_UPG_auxdefault, and the updater only ever looks for the payload at the hard-coded '/bd0/SMEG_PLUS_UPG/NAV/USER_DATA' - so the USER_DATA half was skipped silently both times and neither value has actually been tested. `out` below therefore ends in a literal SMEG_PLUS_UPG, inside a throwaway parent, and that parent's contents go at the root of the stick. Run tools/preflight.py on the built folder before flashing; it now fails loudly on exactly this mistake.",
+  "_value": "Last_Source = 7, the HMI source enum's AUX. The setter C_MGR_SRC uses for this value (0x016977d0 in the NAV build) walks the linked list of registered sources at this+0xd4 and only accepts an id matching a node's +0x18 field, so Last_Source has to be a registered source ID. That rules out the audio driver's SRC_* enum from the name table at 0x02f9d60c - it contains SRC_TTS, SRC_TA_PTY and SRC_PHONE, which are routing targets rather than selectable sources - and it fits the HMI enum, in which the factory value 1 is specifically FM rather than a generic radio. See docs/AUX_CHAIN.md.",
+  "_beacon": "clock.Time_Zone is moved from 16 to 0 purely as a did-it-apply signal. It is unrelated to AUX, harmless, and revertible from the settings menu. After the flash, open the clock settings and read the configured time zone: if it is no longer the one you had, the USER_DATA payload was applied, and a unit that still starts on radio then means the value 7 is wrong. If the time zone is untouched, the payload was skipped again and the source result means nothing either way. Read the time zone entry in the menu rather than the clock face - a GPS-slaved clock shows the right time regardless. Only one thing that could affect the source is changed here, so the result is interpretable in both directions.",
+  "package": "~/Downloads/SMEG_PLUS_UPG",
+  "out": "~/Downloads/stick/SMEG_PLUS_UPG",
+  "module": "NAV",
+  "app": {
+    "patches": [
+      "aux-autoswitch"
+    ]
+  },
+  "media": {
+    "settings": {
+      "supervisor.Last_Source": 7,
+      "clock.Time_Zone": 0
+    }
+  },
+  "seal": true,
+  "user_data": {
+    "sqlite": [
+      "up_common.sqlite"
+    ],
+    "accept_data_loss": true
+  }
+}
