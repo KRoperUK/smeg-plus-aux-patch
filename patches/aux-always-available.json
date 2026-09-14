@@ -8,6 +8,7 @@
       "smeg_inf": "AUDIO_BT/smeg.inf",
       "ctrl": "AUDIO_BT_ctrl.bin",
       "base": "0x01000000",
+      "firmware": "5.43.A.R2",
       "patches": [
         { "addr": "0x02247718", "expect": "9421ffa0", "bytes": "386000014e800020", "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true (li r3,1 ; blr)" }
       ]
@@ -18,6 +19,7 @@
       "smeg_inf": "AUDIO_BT_256/smeg.inf",
       "ctrl": "AUDIO_BT_256_ctrl.bin",
       "base": "0x01000000",
+      "firmware": "5.43.A.R2",
       "patches": [
         { "addr": "0x02247718", "expect": "9421ffa0", "bytes": "386000014e800020", "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true" }
       ]
@@ -28,6 +30,7 @@
       "smeg_inf": "NAV/smeg.inf",
       "ctrl": "NAV_ctrl.bin",
       "base": "0x01000000",
+      "firmware": "5.43.A.R2",
       "patches": [
         { "addr": "0x02247858", "expect": "9421ffa0", "bytes": "386000014e800020", "why": "C_HMI_AUDIO_APP_BASE::IsAUXSRCAvailable -> return true" }
       ]

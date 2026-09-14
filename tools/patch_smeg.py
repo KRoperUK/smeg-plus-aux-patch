@@ -105,6 +105,42 @@ def write(path, data):
     Path(path).write_bytes(data)
 
 
+BUILD_PATH_RE = re.compile(rb"04_HMI_DEV-([^/\x00]{1,32})/")
+
+
+def firmware_hints(img):
+    """Build-version tokens the vendor's own build paths leave in the image."""
+    return sorted({m.group(1).decode("latin1") for m in BUILD_PATH_RE.finditer(bytes(img))})
+
+
+def check_firmware(img, token, label):
+    """Refuse to patch an image that is not the one these addresses came from.
+
+    The per-patch ``expect`` bytes are only a heuristic. A short sequence like
+    ``li r3,0 ; blr`` can sit at the recorded address in a different firmware version
+    by coincidence, and two entries in this repository do exactly that on
+    ``5.42.B.R4`` - they would be applied silently to the wrong offset. Addresses are
+    per firmware version, so the version itself is checked explicitly.
+
+    ``token`` is a substring of the build path the vendor leaves in the image, e.g.
+    ``5.43.A.R2`` from ``E:/ccm_wa71/04_HMI_DEV-5.43.A.R2/04_HMI_DEV/...``. A variant
+    with no ``firmware`` key is patched as before, with only the ``expect`` guard.
+    """
+    if not token:
+        return
+    if token.encode("latin1") in img:
+        print("    firmware      %s" % token)
+        return
+    hints = firmware_hints(img)
+    raise SystemExit(
+        "%s: this image is not %s - refusing to patch.\n"
+        "  Addresses are per firmware version, and the expect-byte check is not a\n"
+        "  reliable substitute: short instruction sequences recur across versions.\n"
+        "  Build tokens found in this image: %s"
+        % (label, token, ", ".join(hints) if hints else "none")
+    )
+
+
 def apply_patches(img, base, patches, label):
     for p in patches:
         addr = int(str(p["addr"]), 16)
@@ -187,6 +223,7 @@ def main():
         print("  [%s] %d bytes" % (name, len(old_bq)))
         start, img = inflate(old_bq)
         img = bytearray(img)
+        check_firmware(img, v.get("firmware"), name)
         apply_patches(img, base, v["patches"], name)
 
         new_bq = old_bq[:start] + zlib.compress(bytes(img), args.level)

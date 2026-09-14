@@ -163,8 +163,15 @@ It checks the things that have actually gone wrong, rather than what looks impre
   correctly and **still** did not apply its payload, so that was not the whole story. See
   [Hardware verification](VERIFICATION.md), and [The AUX chain](AUX_CHAIN.md) for the
   candidate numberings.
+- **the firmware version** — every patch address belongs to one version, so it says which one
+  this package carries (`firmware 5.43.A.R2`) before anyone decides whether the patches apply.
+  Two entries in `patches/` match at the same address on the wrong version, so the bytes alone
+  cannot answer this — see [Patch definitions](PATCHES.md).
 - **what the update will write**, so the blast radius is visible
-- **a `USER_DATA` payload**, which can reset paired phones and presets
+- **a `USER_DATA` payload**, which can reset paired phones and presets — and the casing trap
+  that made three flashes do nothing: the payload's `sqlite` directory only reaches the unit as
+  lowercase if it carries a long-filename entry, so this warns. See
+  [Flashing](FLASHING.md#working-around-it-give-the-directory-a-long-filename-entry).
 
 And it prints what it **does not know** as prominently as what it does. The unknowns are
 where the car trips went.

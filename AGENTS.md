@@ -108,9 +108,10 @@ Building those tests immediately caught two fixture bugs, so it is worth the eff
   the NAV build is offset. Never copy an address between builds without checking.
 - Addresses are also **per firmware version**. The NAV image from `SMEG_5.42.B.R4` is the
   5.43 one displaced by 152 bytes, so every address in `patches/*.json` is wrong on it —
-  and the AUX handler differs by more than the shift. `patch_smeg.py` checks `expect` bytes
-  first and refuses rather than corrupting; do not defeat that guard. See
-  [docs/PATCHES.md](docs/PATCHES.md).
+  and the AUX handler differs by more than the shift. Every variant declares the version it
+  came from (`"firmware": "5.43.A.R2"`) and `patch_smeg.py` refuses any other image; the
+  `expect` bytes alone are **not** a sufficient guard (two entries match at the same address
+  on 5.42). Do not defeat either check. See [docs/PATCHES.md](docs/PATCHES.md).
 - The media partition is a gzip'd **tar**, and `system_ctrl.bin` holds a per-file CRC for
   everything inside it. `SIZE`/`SIZE_n` in `system.bin.inf` are computable — `SIZE` is the
   sum of the file sizes in the tar, `SIZE_n` the same rounded up per file to *n* KiB.

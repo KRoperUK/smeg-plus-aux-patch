@@ -29,8 +29,30 @@ at any offset, so there are real changes there as well.
 !!! warning "If your unit is not on 5.43.A.R2"
 
     The addresses in `patches/*.json` will be wrong for it, and writing to them would corrupt
-    the image. `patch_smeg.py` checks the `expect` bytes before writing and refuses rather
-    than damage anything — that guard is load-bearing, not ceremony.
+    the image.
+
+    **The `expect` bytes are not a sufficient guard**, which is worth knowing because they look
+    like one. Two entries in this repository match at the same address on the `5.42.B.R4` NAV
+    image — `diagnostic-logging` and `diagnostic-logsink`, both at `0x010346d0` — because a
+    short instruction sequence recurs across versions. On that image the expect check passes and
+    the edit lands 152 bytes off.
+
+    So every variant declares the version it was derived from:
+
+    ```json
+    "firmware": "5.43.A.R2"
+    ```
+
+    `patch_smeg.py` refuses unless the inflated image carries that token, which the vendor's own
+    build path supplies (`E:/ccm_wa71/04_HMI_DEV-5.43.A.R2/...`). It reports the version it did
+    find, so a mismatch explains itself:
+
+    ```
+    NAV: this image is not 5.43.A.R2 - refusing to patch.
+      Addresses are per firmware version, and the expect-byte check is not a
+      reliable substitute: short instruction sequences recur across versions.
+      Build tokens found in this image: 5.42.B.R4.1
+    ```
 
     Porting is mostly mechanical *for unchanged code* (subtract 152 here), but the AUX handler
     changed, so a 5.42 port needs that address re-derived from a 5.42 symbol table rather than

@@ -150,6 +150,71 @@ def test_unpack_round_trip(tmp_path):
     assert out.read_bytes() == img
 
 
+# --- addresses are per firmware version --------------------------------------
+
+
+def test_refuses_an_image_from_another_firmware_version(tmp_path):
+    """The `expect` bytes alone are not enough.
+
+    Two entries in `patches/` match at the same address on the `5.42.B.R4` NAV image
+    (`0x010346d0`, in `diagnostic-logging` and `diagnostic-logsink`), so on that version
+    the expect check would pass and the tool would write to the wrong offset — then
+    rebuild the CRC cascade around the damage. The version token is what stops it.
+    """
+    src = tmp_path / "SMEG_PLUS_UPG"
+    src.mkdir()
+    info = helpers.build_package(str(src), img=helpers.make_image_with_build("5.42.B.R4"))
+    spec = tmp_path / "spec.json"
+    spec.write_text(
+        json.dumps(
+            helpers.patch_spec(
+                variant=info["variant"], addr=info["patch_addr"], firmware="5.43.A.R2"
+            )
+        )
+    )
+    out = tmp_path / "out"
+    r = run(
+        os.path.join(TOOLS, "patch_smeg.py"),
+        "--src",
+        str(src),
+        "--out",
+        str(out),
+        "--patches",
+        str(spec),
+    )
+    assert r.returncode != 0, "a wrong-version image must not be patched"
+    combined = r.stdout + r.stderr
+    assert "5.43.A.R2" in combined
+    assert "5.42.B.R4" in combined, "the message should say which version it did find"
+    assert not os.path.exists(os.path.join(str(out), info["variant"], "AppBin", "f_BigQuick.bin"))
+
+
+def test_applies_when_the_firmware_version_matches(tmp_path):
+    src = tmp_path / "SMEG_PLUS_UPG"
+    src.mkdir()
+    info = helpers.build_package(str(src), img=helpers.make_image_with_build("5.43.A.R2"))
+    spec = tmp_path / "spec.json"
+    spec.write_text(
+        json.dumps(
+            helpers.patch_spec(
+                variant=info["variant"], addr=info["patch_addr"], firmware="5.43.A.R2"
+            )
+        )
+    )
+    out = tmp_path / "out"
+    r = run(
+        os.path.join(TOOLS, "patch_smeg.py"),
+        "--src",
+        str(src),
+        "--out",
+        str(out),
+        "--patches",
+        str(spec),
+    )
+    assert r.returncode == 0, r.stderr
+    assert "5.43.A.R2" in r.stdout
+
+
 def test_zensical_nav_matches_docs():
     """Every page listed in the site nav must exist (guards against broken nav)."""
     import re
