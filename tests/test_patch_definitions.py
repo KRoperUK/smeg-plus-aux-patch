@@ -7,13 +7,14 @@ against a real package, on a machine that has firmware. These checks need neithe
 import glob
 import json
 import os
+import re
 
 import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PATCH_FILES = sorted(glob.glob(os.path.join(ROOT, "patches", "*.json")))
-REQUIRED_VARIANT_KEYS = ("app_image", "inf", "smeg_inf", "ctrl", "base")
+REQUIRED_VARIANT_KEYS = ("app_image", "inf", "smeg_inf", "ctrl", "base", "firmware")
 
 
 def load(path):
@@ -48,6 +49,27 @@ def test_every_variant_declares_the_files_its_cascade_touches(path):
             "%s: app_image should live under its own module directory" % module
         )
         assert int(variant["base"], 16) == 0x01000000
+
+
+@pytest.mark.parametrize("path", PATCH_FILES, ids=lambda p: os.path.basename(p))
+def test_every_variant_names_the_firmware_it_was_derived_from(path):
+    """An address is only valid for the version it was read from.
+
+    The `expect` bytes are a heuristic, not a guard: a short sequence is short enough to
+    recur at the same address in another version, and two entries here do exactly that.
+    On the `5.42.B.R4` NAV image, `diagnostic-logging` and `diagnostic-logsink` both
+    match at `0x010346d0` — the expect check alone would have written them to the wrong
+    offset. `patch_smeg.py` refuses unless the image carries this token, which the
+    vendor's own build path supplies (`E:/ccm_wa71/04_HMI_DEV-5.43.A.R2/...`).
+    """
+    for module, variant in load(path)["variants"].items():
+        token = variant["firmware"]
+        assert isinstance(token, str) and token, "%s/%s: empty firmware" % (path, module)
+        assert re.match(r"^\d+\.\d+", token), "%s/%s: %r does not look like a SMEG+ version" % (
+            path,
+            module,
+            token,
+        )
 
 
 @pytest.mark.parametrize("path", PATCH_FILES, ids=lambda p: os.path.basename(p))

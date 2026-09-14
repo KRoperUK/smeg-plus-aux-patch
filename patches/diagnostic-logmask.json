@@ -8,6 +8,7 @@
       "smeg_inf": "NAV/smeg.inf",
       "ctrl": "NAV_ctrl.bin",
       "base": "0x01000000",
+      "firmware": "5.43.A.R2",
       "patches": [
         {
           "addr": "0x02742530",

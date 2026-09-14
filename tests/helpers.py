@@ -127,20 +127,31 @@ def set_root_ctrl(root, variants):
     write_ctrl(os.path.join(root, "ctrl.bin"), entries)
 
 
-def patch_spec(variant="NAV", addr=0x100, base=0x0, expect="9421ffa0", new="386000014e800020"):
-    return {
-        "name": "synthetic",
-        "variants": {
-            variant: {
-                "app_image": "%s/AppBin/f_BigQuick.bin" % variant,
-                "inf": "%s/AppBin/f_BigQuick.bin.inf" % variant,
-                "smeg_inf": "%s/smeg.inf" % variant,
-                "ctrl": "%s_ctrl.bin" % variant,
-                "base": hex(base),
-                "patches": [{"addr": hex(addr), "expect": expect, "bytes": new}],
-            }
-        },
+def make_image_with_build(version, size=0x200000):
+    """A fake image carrying a vendor build path, as the real ones do.
+
+    The version token is what patch_smeg.py's firmware guard looks for.
+    """
+    img = bytearray(make_image(size))
+    token = ("E:/ccm_wa71/04_HMI_DEV-%s/04_HMI_DEV/MMI/" % version).encode("latin1")
+    img[0x8000 : 0x8000 + len(token)] = token
+    return bytes(img)
+
+
+def patch_spec(
+    variant="NAV", addr=0x100, base=0x0, expect="9421ffa0", new="386000014e800020", firmware=None
+):
+    spec = {
+        "app_image": "%s/AppBin/f_BigQuick.bin" % variant,
+        "inf": "%s/AppBin/f_BigQuick.bin.inf" % variant,
+        "smeg_inf": "%s/smeg.inf" % variant,
+        "ctrl": "%s_ctrl.bin" % variant,
+        "base": hex(base),
+        "patches": [{"addr": hex(addr), "expect": expect, "bytes": new}],
     }
+    if firmware is not None:
+        spec["firmware"] = firmware
+    return {"name": "synthetic", "variants": {variant: spec}}
 
 
 def inflate_container(raw):
